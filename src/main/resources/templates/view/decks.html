@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公開卡組</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+
+    <style>
+        .public-deck-name {
+            color: var(--red-color);
+            font-weight: bold;
+        }
+
+        .public-deck-name:hover {
+            color: var(--red-hover);
+            text-decoration: underline;
+        }
+
+        .public-deck-time {
+            width: 210px;
+        }
+
+        .public-deck-pack {
+            min-width: 140px;
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div id="app" class="two-column-layout-container">
+        <main class="main-column">
+            <div class="main-top-bar">
+                <div class="main-top-bar-row">
+                    <h2 class="main-top-bar-title">公開卡組</h2>
+                </div>
+            </div>
+
+            <div class="module-table-container">
+                <table class="module-table">
+                    <thead>
+                        <tr>
+                            <th>名稱</th>
+                            <th class="public-deck-pack">Pack</th>
+                            <th>作者</th>
+                            <th class="public-deck-time">最後操作時間</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="loading">
+                            <td colspan="4" class="table-item-empty-row">載入中...</td>
+                        </tr>
+                        <tr v-else-if="decks.length === 0">
+                            <td colspan="4" class="table-item-empty-row">目前沒有公開卡組</td>
+                        </tr>
+                        <tr v-else v-for="item in decks" :key="item.id">
+                            <td style="border-top: 1px solid var(--brown-hover);">
+                                <a class="public-deck-name" :href="deckUrl(item)">{{ item.name }}</a>
+                            </td>
+                            <td class="public-deck-pack" style="border-top: 1px solid var(--brown-hover);">
+                                {{ item.packName || '—' }}
+                            </td>
+                            <td style="border-top: 1px solid var(--brown-hover);">{{ item.userName }}</td>
+                            <td class="public-deck-time" style="border-top: 1px solid var(--brown-hover);">
+                                {{ formatTime(item.updatedAt) }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+        createApp({
+            setup() {
+                const decks = ref([]);
+                const loading = ref(true);
+                const fetchDecks = async () => {
+                    try {
+                        const response = await axios.get('/api/decks/public');
+                        decks.value = response.data;
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+                const deckUrl = (item) => `/view/deck/${item.userId}/${item.id}`;
+                const formatTime = (value) => value ? new Date(value).toLocaleString() : '—';
+                onMounted(fetchDecks);
+                return { decks, loading, deckUrl, formatTime };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

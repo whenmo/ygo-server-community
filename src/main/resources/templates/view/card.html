@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡片詳情</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/small_card_result.css}" href="/css/small_card_result.css">
+
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/constants.js}" src="/js/constants.js"></script>
+
+    <link id="favicon" rel="icon" type="image/png" th:href="@{/image/attribute/dark.png}"
+        href="/image/attribute/dark.png">
+
+    <style>
+        .card-detail-layout {
+            min-height: 100vh;
+            height: 100vh;
+            padding: 30px;
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .card-detail-left {
+            width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            margin-bottom: 50px;
+            border-bottom: 2px solid var(--red-color);
+            padding-bottom: 10px;
+        }
+
+        .card-detail-mid {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+            max-width: 650px;
+            overflow-y: auto;
+            padding-right: 5px;
+            margin-bottom: 50px;
+            border-bottom: 2px solid var(--red-color);
+            padding-bottom: 10px;
+        }
+
+        .card-detail-row-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .row-container-title {
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--brown-color);
+            font-size: 1.05rem;
+        }
+
+        .card-detail-row {
+            display: grid;
+            grid-template-columns: 100px 1fr;
+            padding: 5px;
+            align-items: center;
+            border-left: 3px solid var(--red-color);
+            background: var(--white-hover);
+            flex: 1;
+        }
+
+        .card-detail-row .row-title {
+            font-weight: bold;
+            font-size: 1rem;
+            color: var(--dark-color);
+        }
+
+        .card-detail-row .row-label {
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--red-color);
+        }
+
+        .row-container {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .row-container a {
+            padding: 5px 10px;
+            line-height: 1.2;
+        }
+
+        .empty-row {
+            color: var(--gray-hover);
+            font-weight: bold;
+        }
+
+        .card-detail-name {
+            color: var(--red-color);
+            font-size: 1.5rem;
+            overflow-wrap: anywhere;
+        }
+
+        .link-marker-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 30px);
+            grid-template-rows: repeat(3, 30px);
+            gap: 3px;
+        }
+
+        .link-marker-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            color: transparent;
+            cursor: default;
+        }
+
+        .link-marker-cell.active {
+            background: transparent;
+            color: var(--red-color);
+            border: 1px solid var(--brown-color);
+        }
+
+        .card-detail-effect {
+            padding: 12px;
+            border-left: 3px solid var(--red-color);
+            background: var(--white-hover);
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        .effect-href {
+            display: inline-block;
+            margin: 0 2px;
+            vertical-align: baseline;
+            text-decoration: none;
+            color: var(--red-color);
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .effect-href:hover {
+            text-decoration: none;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <main id="app" class="card-detail-layout" th:attr="data-config-id=${configId},data-card-id=${cardId}">
+        <!-- 左側：圖片與屬性基本資料 -->
+        <div class="card-detail-left">
+            <img v-if="imageAvailable" :src="imageUrl" @error="useFallbackImage">
+            <div class="card-detail-row-container">
+                <div class="card-detail-row">
+                    <span class="row-title">許可</span>
+                    <div class="row-container" v-if="ruleNames.length">
+                        <span class="row-label">{{ ruleNames.join(' | ') }}</span>
+                    </div>
+                    <span v-else class="empty-row">無</span>
+                </div>
+                <div class="card-detail-row">
+                    <span class="row-title">數據庫</span>
+                    <div class="row-container">
+                        <a class="module-abtn" :href="`/view/cards?cdb=${configId}`">
+                            {{ databaseName || card?.databaseName || ('#' + configId) }}
+                        </a>
+                    </div>
+                </div>
+                <div class="card-detail-row">
+                    <span class="row-title">禁限</span>
+                    <div class="row-container" v-if="iflistVersions.length > 0">
+                        <select v-model="selectedVersion" @change="fetchCardStatus" class="module-select"
+                            style="background: var(--red-color); color: var(--white-color);">
+                            <option v-for="ver in iflistVersions" :key="ver" :value="ver">{{ ver }}</option>
+                        </select>
+                        <span class="row-label" :class="iflistStatusClass">{{ iflistStatusText }}</span>
+                    </div>
+                    <span v-else class="empty-row">無可用禁卡表</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 中間：卡片詳細文本資訊 -->
+        <div class="card-detail-mid">
+            <h2 class="card-detail-name">{{ card?.name || '未命名卡片' }}</h2>
+
+            <div class="card-detail-row-container">
+                <div style="display: flex; gap: 10px;">
+                    <div class="card-detail-row">
+                        <span class="row-title">ID</span>
+                        <span class="row-label">{{ card?.id }}</span>
+                    </div>
+                    <div class="card-detail-row">
+                        <span class="row-title">同名ID</span>
+                        <div class="row-container" v-if="card?.alias">
+                            <a class="module-abtn" :href="`/view/card/${configId}/${card.alias}`"> {{ card.alias }}
+                            </a>
+                        </div>
+                        <span v-else class="empty-row">無</span>
+                    </div>
+                </div>
+                <div class="card-detail-row">
+                    <span class="row-title">卡片類型</span>
+                    <div class="row-container" v-if="typeNames.length">
+                        <span class="row-label">{{ typeNames.join(' | ') }}</span>
+                    </div>
+                    <span v-else class="empty-row">無</span>
+                </div>
+                <div class="card-detail-row">
+                    <span class="row-title">字段</span>
+                    <div class="row-container" v-if="setCodes.length">
+                        <a class="module-abtn" v-for="item in setCodes" :key="item.code"
+                            :href="`/view/cards?cdb=${configId}&sets=${item.code}`">
+                            {{ item.name }}
+                        </a>
+                    </div>
+                    <span v-else class="empty-row">無</span>
+                </div>
+                <div class="card-detail-row">
+                    <span class="row-title">效果分類</span>
+                    <div class="row-container" v-if="categoryNames.length">
+                        <span class="row-label">{{ categoryNames.join(' | ') }}</span>
+                    </div>
+                    <span v-else class="empty-row">無</span>
+                </div>
+            </div>
+
+            <div class="card-detail-row-container" v-if="isType.Monster(card)">
+                <h2 class="row-container-title">怪獸信息</h2>
+
+                <div style="display: flex; gap: 10px;">
+                    <div class="card-detail-row">
+                        <span class="row-title">種族</span>
+                        <div class="row-container">
+                            <span class="row-label">{{ raceName || '無' }}</span>
+                        </div>
+                    </div>
+                    <div class="card-detail-row">
+                        <span class="row-title">屬性</span>
+                        <div class="row-container">
+                            <span class="row-label">{{ attributeName || '無' }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <template v-if="!isType.Link(card)">
+                    <div style="display: flex; gap: 10px;">
+                        <div class="card-detail-row">
+                            <span class="row-title" v-if="!isType.Xyz(card)">等級</span>
+                            <span class="row-title" v-if="isType.Xyz(card)">階級</span>
+                            <span class="row-label">{{ card?.level || '無' }}</span>
+                        </div>
+                        <div class="card-detail-row" v-if="isType.Pendulum(card)">
+                            <span class="row-title">靈擺刻度</span>
+                            <span class="row-label">{{ card?.scalePlus - 1 || '無' }}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="card-detail-row">
+                            <span class="row-title">ATK</span>
+                            <span class="row-label">{{ formatAtkDefValue(card?.atk) }}</span>
+                        </div>
+                        <div class="card-detail-row">
+                            <span class="row-title">DEF</span>
+                            <span class="row-label">{{ formatAtkDefValue(card?.def) }}</span>
+                        </div>
+                    </div>
+                </template>
+
+                <template v-if="isType.Link(card)">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div class="card-detail-row">
+                                <span class="row-title">連接數</span>
+                                <span class="row-label">{{ card?.level || '無' }}</span>
+                            </div>
+                            <div class="card-detail-row">
+                                <span class="row-title">ATK</span>
+                                <span class="row-label">{{ formatAtkDefValue(card?.atk) }}</span>
+                            </div>
+                        </div>
+                        <div class="card-detail-row">
+                            <span class="row-title">連接標記</span>
+                            <div class="link-marker-grid">
+                                <div v-for="(marker, index) in linkMarkerNames" :key="index" class="link-marker-cell"
+                                    :class="{ active: marker.active }">
+                                    {{ marker.name }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="card-detail-row-container">
+                <h2 class="row-container-title">效果文本</h2>
+                <p class="card-detail-effect" v-html="formattedDesc"></p>
+            </div>
+        </div>
+
+        <!-- 最右側：字段相關卡片 (無字段時隱藏) -->
+        <div v-if="(cardResultList || []).length" class="small-card-result">
+            <h3 class="small-card-result-title">
+                字段相關（{{ (cardResultList || []).length }}）
+            </h3>
+
+            <div class="small-card-result-list">
+                <a v-for="cardItem in cardResultList" :key="`${cardItem.cdbId || 0}-${cardItem.id}`"
+                    :data-card-id="cardItem.id" :href="`/view/card/${cardItem.cdbId}/${cardItem.id}`" target="_blank"
+                    class="small-card-result-item">
+
+                    <!-- 禁限圖標 -->
+                    <img v-if="getCardLimitStatus(cardItem, currentIflistMap) !== null" class="small-card-result-limit"
+                        :src="`/image/limit/limit_${getCardLimitStatus(cardItem, currentIflistMap)}.png`"
+                        alt="Limit Status">
+
+                    <!-- 卡片圖片 -->
+                    <img class="small-card-result-image" :src="`/api/cdb/pic/${cardItem.cdbId}/${cardItem.id}`"
+                        @error="useFallbackImage">
+
+                    <!-- 卡片詳細資訊 -->
+                    <div class="small-card-result-card-info">
+                        <span class="small-card-result-card-name">{{ cardItem.name || '未命名卡片' }}</span>
+                        <span class="small-card-result-card-detail"> {{ getResultCardSecondInfo(cardItem) }} </span>
+                        <span class="small-card-result-card-detail" v-if="isType.Monster(cardItem)"> {{
+                            getResultCardThirdInfo(cardItem) }} </span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const {
+                    ATTRIBUTE,
+                    LINK,
+                    sortCards,
+                    isType,
+                    isSetCard,
+                    formatAtkDefValue,
+                    getCardLimitStatus,
+                } = window.APP_CONSTANTS;
+
+                const root = document.getElementById('app');
+                const configId = Number(root.dataset.configId);
+                const cardId = Number(root.dataset.cardId);
+                const card = ref(null);
+                const loading = ref(true);
+                const errorMessage = ref('');
+                const imageAvailable = ref(true);
+                const dictionaries = ref({
+                    types: [],
+                    attributes: [],
+                    races: [],
+                    categories: [],
+                    rules: [],
+                    setnames: []
+                });
+
+                const cardResultList = ref([]);
+                const loadingRelated = ref(false);
+                const currentIflistMap = ref({});
+
+                const imageUrl = `/api/cdb/pic/${configId}/${cardId}`;
+                const useFallbackImage = (event) => {
+                    event.target.src = '/image/unknown_card.jpg';
+                    event.target.onerror = null;
+                };
+
+                const typeNames = computed(() => namesForMask(card.value?.type, dictionaries.value.types));
+                const categoryNames = computed(() => namesForMask(card.value?.category, dictionaries.value.categories));
+                const attributeName = computed(() => namesForMask(card.value?.attribute, dictionaries.value.attributes).join(' / '));
+                const raceName = computed(() => namesForMask(card.value?.race, dictionaries.value.races).join(' / '));
+
+                const ruleNames = computed(() => {
+                    const rule = Number(card.value?.rule ?? 0);
+                    if (rule === 0) return [];
+                    return namesForMask(rule, dictionaries.value.rules).filter(name => name !== "O&T");
+                });
+
+                const setCodes = computed(() => dictionaries.value.setnames.filter(item => isSetCard(card.value, item.code)).map(item => ({ code: item.code, name: item.name })));
+
+                const linkMarkerNames = computed(() => {
+                    const markers = [
+                        { code: LINK.TOP_LEFT, name: '↖' },
+                        { code: LINK.TOP, name: '↑' },
+                        { code: LINK.TOP_RIGHT, name: '↗' },
+                        { code: LINK.LEFT, name: '←' },
+                        { code: 0, name: '' },
+                        { code: LINK.RIGHT, name: '→' },
+                        { code: LINK.BOTTOM_LEFT, name: '↙' },
+                        { code: LINK.BOTTOM, name: '↓' },
+                        { code: LINK.BOTTOM_RIGHT, name: '↘' }
+                    ];
+                    return markers.map(marker => {
+                        if (marker.code === 0) return { name: '', active: false };
+                        return {
+                            name: marker.name,
+                            active: (card.value?.linkMarker & marker.code) === marker.code
+                        };
+                    });
+                });
+
+                const iflistVersions = ref([]);
+                const selectedVersion = ref('');
+                const cardStatusValue = ref(-1);
+
+                const formattedDesc = computed(() => {
+                    if (!card.value || !card.value.desc)
+                        return '沒有效果文本。';
+
+                    const escaped = card.value.desc
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;');
+
+                    return escaped.replace(/「([^」]+)」/g, (match, p1) => {
+                        const targetUrl = `/view/cards?cdb=${configId}&nameId=${encodeURIComponent(p1)}`;
+                        return `「<a class="effect-href" href="${targetUrl}">${p1}</a>」`;
+                    });
+                });
+
+                function namesForMask(value, items) {
+                    if (value === null || value === undefined) return [];
+                    let mask;
+                    try {
+                        mask = BigInt(value);
+                    } catch {
+                        return [];
+                    }
+                    return items.filter(item => (mask & BigInt(item.code)) !== 0n).map(item => item.name);
+                }
+
+                async function getData(url) {
+                    const response = await axios.get(url);
+                    return response.data;
+                }
+
+                const cdbConfigs = ref([]);
+
+                const databaseName = computed(() => {
+                    const match = cdbConfigs.value.find(item => Number(item.id) === Number(configId));
+                    return match ? match.name : '';
+                });
+
+                const updateFavicon = (cardObj) => {
+                    const faviconLink = document.getElementById('favicon');
+                    if (!faviconLink || !cardObj) return;
+
+                    let iconFilename = 'divine.png';
+
+                    if (isType.Spell(cardObj)) {
+                        iconFilename = 'spell.png';
+                    } else if (isType.Trap(cardObj)) {
+                        iconFilename = 'trap.png';
+                    } else {
+                        const attrNum = Number(cardObj.attribute || 0);
+
+                        if (attrNum === ATTRIBUTE.EARTH) iconFilename = 'earth.png';
+                        else if (attrNum === ATTRIBUTE.WATER) iconFilename = 'water.png';
+                        else if (attrNum === ATTRIBUTE.FIRE) iconFilename = 'fire.png';
+                        else if (attrNum === ATTRIBUTE.WIND) iconFilename = 'wind.png';
+                        else if (attrNum === ATTRIBUTE.LIGHT) iconFilename = 'light.png';
+                        else if (attrNum === ATTRIBUTE.DARK) iconFilename = 'dark.png';
+                        else if (attrNum === ATTRIBUTE.DIVINE) iconFilename = 'divine.png';
+                    }
+
+                    faviconLink.href = `/image/attribute/${iconFilename}`;
+                };
+
+                async function loadDictionaries() {
+                    const requests = [
+                        getData('/api/card_info/types_main'),
+                        getData('/api/card_info/types_monster'),
+                        getData('/api/card_info/types_spell_trap'),
+                        getData('/api/card_info/attributes'),
+                        getData('/api/card_info/races'),
+                        getData('/api/card_info/categories'),
+                        getData('/api/card_info/rules'),
+                        getData(`/api/cdb/string/${configId}`),
+                        getData('/api/cdb_config')
+                    ];
+                    const results = await Promise.allSettled(requests);
+                    const valueAt = index => results[index].status === 'fulfilled' ? results[index].value : [];
+                    dictionaries.value = {
+                        types: [...new Map([...valueAt(0), ...valueAt(1), ...valueAt(2)].map(item => [item.code, item])).values()],
+                        attributes: valueAt(3),
+                        races: valueAt(4),
+                        categories: valueAt(5),
+                        rules: valueAt(6),
+                        setnames: valueAt(7).setname || []
+                    };
+                    cdbConfigs.value = valueAt(8);
+                }
+
+                async function loadIflistVersions() {
+                    try {
+                        const versions = await getData(`/api/cdb/iflist/${configId}/versions`);
+                        const verList = Array.isArray(versions) ? versions : Array.from(versions);
+                        iflistVersions.value = verList;
+                        if (verList.length > 0) {
+                            selectedVersion.value = verList[0];
+                            await fetchCardStatus();
+                            await fetchBanlistByVersion(configId, selectedVersion.value);
+                        }
+                    } catch (e) {
+                        iflistVersions.value = [];
+                    }
+                }
+
+                async function fetchBanlistByVersion(cfgId, versionId) {
+                    if (!cfgId || !versionId) {
+                        currentIflistMap.value = {};
+                        return;
+                    }
+                    try {
+                        const response = await axios.get(`/api/cdb/iflist/${cfgId}/version/${encodeURIComponent(versionId)}`);
+                        currentIflistMap.value = response.data || {};
+                    } catch (error) {
+                        currentIflistMap.value = {};
+                    }
+                }
+
+                async function fetchCardStatus() {
+                    if (!selectedVersion.value) return;
+                    try {
+                        const status = await getData(`/api/cdb/iflist/${configId}/version/${encodeURIComponent(selectedVersion.value)}/card/${cardId}`);
+                        cardStatusValue.value = status !== undefined ? status : -1;
+                        await fetchBanlistByVersion(configId, selectedVersion.value);
+                    } catch (e) {
+                        cardStatusValue.value = -1;
+                    }
+                }
+
+                async function loadRelatedCards() {
+                    const targetSetCodes = setCodes.value.map(item => item.code);
+                    if (!targetSetCodes.length) {
+                        cardResultList.value = [];
+                        return;
+                    }
+
+                    loadingRelated.value = true;
+                    try {
+                        const allCards = await getData(`/api/cdb/card/${configId}`);
+
+                        const matched = allCards.filter(c => targetSetCodes.some(targetCode => isSetCard(c, targetCode)));
+
+                        cardResultList.value = matched.sort(sortCards);
+                    } catch (e) {
+                        console.error('載入字段相關卡片失敗：', e);
+                        cardResultList.value = [];
+                    } finally {
+                        loadingRelated.value = false;
+                    }
+                }
+
+                const iflistStatusText = computed(() => {
+                    switch (cardStatusValue.value) {
+                        case 0: return '禁止';
+                        case 1: return '限制';
+                        case 2: return '準限制';
+                        default: return '無限制';
+                    }
+                });
+
+                const iflistStatusClass = computed(() => {
+                    switch (cardStatusValue.value) {
+                        case 0: return 'status-forbidden';
+                        case 1: return 'status-limit';
+                        case 2: return 'status-semi-limit';
+                        default: return 'status-unlimited';
+                    }
+                });
+
+                // small-card-result
+                const getResultCardSecondInfo = (cardItem) => {
+                    const dicts = dictionaries.value || {};
+                    const types = dicts.types || [];
+                    const attributes = dicts.attributes || [];
+                    const races = dicts.races || [];
+
+                    if (!isType.Monster(cardItem))
+                        return namesForMask(cardItem?.type, types).join(' | ') || '無';
+
+                    const attr = namesForMask(cardItem?.attribute, attributes).join(' | ');
+                    const race = namesForMask(cardItem?.race, races).join(' | ');
+                    const attrRace = [attr, race].filter(Boolean).join(' | ') || '無';
+
+                    const levelVal = Number(cardItem?.level || 0);
+                    let levelStr = '';
+                    if (levelVal > 0) {
+                        if (isType.Link(cardItem)) {
+                            levelStr = ` LK-${levelVal}`;
+                        } else if (isType.Xyz(cardItem)) {
+                            levelStr = ` RK-${levelVal}`;
+                        } else {
+                            levelStr = ` LV-${levelVal}`;
+                        }
+                    }
+
+                    return `${attrRace}${levelStr}`;
+                };
+
+                const getResultCardThirdInfo = (card) => {
+                    const scale = Number(card?.scalePlus || 0);
+                    const pendulum = (isType.Pendulum(card) && scale > 0) ? ` P-${scale - 1}` : '';
+                    return `${getCardAtkDef(card)}${pendulum}`;
+                };
+
+                onMounted(async () => {
+                    try {
+                        const [cardResult] = await Promise.all([
+                            getData(`/api/cdb/card/${configId}/${cardId}`),
+                            loadDictionaries(),
+                            loadIflistVersions()
+                        ]);
+                        card.value = cardResult;
+                        document.title = `${cardResult.name || '卡片詳情'}`;
+
+                        updateFavicon(cardResult);
+
+                        await loadRelatedCards();
+                    } catch (error) {
+                        errorMessage.value = error.response?.status === 404
+                            ? '找不到這張卡片。'
+                            : '載入卡片資料失敗，請稍後再試。';
+                    } finally {
+                        loading.value = false;
+                    }
+                });
+
+                return {
+                    configId,
+                    card,
+                    loading,
+                    errorMessage,
+                    imageAvailable,
+                    imageUrl,
+                    useFallbackImage,
+                    typeNames,
+                    categoryNames,
+                    attributeName,
+                    raceName,
+                    ruleNames,
+                    setCodes,
+                    linkMarkerNames,
+                    databaseName,
+                    iflistVersions,
+                    selectedVersion,
+                    iflistStatusText,
+                    iflistStatusClass,
+                    formattedDesc,
+                    cardResultList,
+                    loadingRelated,
+                    fetchCardStatus,
+                    isType,
+                    formatAtkDefValue,
+                    dictionaries,
+                    currentIflistMap,
+                    getCardLimitStatus,
+                    getResultCardSecondInfo,
+                    getResultCardThirdInfo
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

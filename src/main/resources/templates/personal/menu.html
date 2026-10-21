@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <aside class="aside-column" th:fragment="sidebar(activeTab)">
+        <h3 class="aside-title">個人選單</h3>
+        <ul class="aside-list" style="flex: 1;">
+            <li>
+                <a th:href="@{/personal/profile}" class="aside-item-hrefbtn"
+                    th:classappend="${activeTab == 'profile'} ? 'selected' : 'unselected'">
+                    <span>個人資料</span>
+                    <span>&rsaquo;</span>
+                </a>
+            </li>
+            <li>
+                <a th:href="@{/personal/decks}" class="aside-item-hrefbtn"
+                    th:classappend="${activeTab == 'decks'} ? 'selected' : 'unselected'">
+                    <span>我的卡組</span>
+                    <span>&rsaquo;</span>
+                </a>
+            </li>
+        </ul>
+        <ul class="aside-list">
+            <li><a th:href="@{/auth/logout}" href="/auth/logout" class="aside-item-hrefbtn"
+                    style="background: var(--red-color); color: var(--white-color);">登出</a></li>
+        </ul>
+    </aside>
+</body>
+
+</html>

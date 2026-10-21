@@ -1,0 +1,38 @@
+# --- HELP.md 與 Maven 基礎產物 ---
+HELP.md
+target/
+build/
+.gradle/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# --- 開發工具 IDE 設定 (STS / Eclipse / IntelliJ / NetBeans / VS Code) ---
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+.springBeans
+.sts4-cache
+.apt_generated
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# --- Spring Boot / 系統產生的檔案 ---
+*.log
+*.DS_Store
+
+# --- 專案自訂排除項目---
+*.db
+*.sqlite
+*.sqlite3

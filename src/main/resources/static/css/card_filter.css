@@ -1,0 +1,96 @@
+.card-search-form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+}
+
+.card-search-form-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.card-filter-row {
+    margin-bottom: 12px;
+}
+
+.card-filter-row label:has(input:focus:not([readonly])) {
+    color: var(--red-color);
+}
+
+.collapsible-loading {
+    padding: 8px;
+    color: var(--red-color);
+    font-size: 1rem;
+}
+
+.collapsible-grid-mode {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+    border-bottom: 1px solid var(--red-color);
+    padding: 0 0 5px 0;
+}
+
+.collapsible-grid-2,
+.collapsible-grid-3 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: stretch;
+}
+
+.collapsible-grid-2>button {
+    flex: 1 1 calc(50% - 3px);
+}
+
+.collapsible-grid-3>button {
+    flex: 1 1 calc(33.333% - 4px);
+}
+
+.collapsible-grid-mode>button,
+.collapsible-grid-2>button,
+.collapsible-grid-3>button {
+    padding: 5px 10px;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    height: stretch;
+}
+
+.card-filter-select {
+    padding: 5px;
+    border: 0px;
+    background: transparent;
+}
+
+.link-marker-btn {
+    font-size: 1rem;
+    justify-content: center;
+}
+
+.card-search-form-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 10px;
+    margin-top: 10px;
+    border-top: 2px solid var(--red-color);
+    flex-shrink: 0;
+}
+
+.card-filter-search-btn {
+    flex: 1;
+    font-weight: bold;
+    font-size: 1rem;
+    justify-content: center;
+    border: 1px solid var(--red-color);
+}
+
+.card-filter-reset-btn {
+    font-weight: bold;
+    font-size: 1rem;
+    background: var(--gray-hover);
+    border: 1px solid var(--gray-hover);
+}

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<body>
+    <!-- 左側導航欄 -->
+    <aside class="aside-column" th:fragment="sidebar(activeTab)">
+        <h3 class="aside-title">管理選單</h3>
+        <ul class="aside-list">
+            <li>
+                <a th:href="@{/admin/cdb}" class="aside-item-hrefbtn"
+                    th:classappend="${activeTab == 'cdb'} ? 'selected' : 'unselected'">
+                    <span>數據庫配置</span>
+                    <span>&rsaquo;</span>
+                </a>
+            </li>
+            <li>
+                <a th:href="@{/admin/user}" class="aside-item-hrefbtn"
+                    th:classappend="${activeTab == 'user'} ? 'selected' : 'unselected'">
+                    <span>用戶配置</span>
+                    <span>&rsaquo;</span>
+                </a>
+            </li>
+            <li>
+                <a th:href="@{/admin/diyer}" class="aside-item-hrefbtn"
+                    th:classappend="${activeTab == 'diyer'} ? 'selected' : 'unselected'">
+                    <span>作者配置</span>
+                    <span>&rsaquo;</span>
+                </a>
+            </li>
+        </ul>
+    </aside>
+</body>
+
+</html>

@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>編輯卡組</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+    <link rel="stylesheet" th:href="@{/css/card_filter.css}" href="/css/card_filter.css">
+    <link rel="stylesheet" th:href="@{/css/small_card_result.css}" href="/css/small_card_result.css">
+
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/constants.js}" src="/js/constants.js"></script>
+
+    <style>
+        #editor-app {
+            min-width: 0;
+        }
+
+        .editor-filter-column {
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .editor-filter-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .editor-filter-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            color: var(--brown-color);
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .editor-filter-field input,
+        .editor-filter-field select {
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .editor-main-column {
+            min-width: 0;
+            min-height: 0;
+            height: calc(100vh - 60px);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .editor-title-bar {
+            flex-shrink: 0;
+            margin-bottom: 12px;
+            padding-bottom: 9px;
+            border-bottom: 2px solid var(--red-color);
+        }
+
+        .editor-title-bar h1 {
+            margin: 0;
+            color: var(--red-color);
+            font-size: 1.4rem;
+        }
+
+        .editor-grid {
+            display: grid;
+            grid-template-columns: minmax(280px, 1.15fr) minmax(220px, 0.8fr) minmax(270px, 1fr);
+            gap: 14px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .editor-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-panel-title {
+            margin: 0 0 10px;
+            padding-bottom: 7px;
+            border-bottom: 1px solid var(--brown-color);
+            color: var(--red-color);
+            font-size: 1.08rem;
+            flex-shrink: 0;
+        }
+
+        .editor-panel-scroll {
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .editor-settings {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+        }
+
+        .editor-settings .module-fieldset {
+            margin: 0;
+            min-width: 0;
+        }
+
+        .editor-settings .module-fieldset input,
+        .editor-settings .module-fieldset select {
+            box-sizing: border-box;
+            width: 100%;
+        }
+
+        .editor-pack-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .editor-pack-row select {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .editor-pack-add {
+            padding: 6px 8px;
+            flex-shrink: 0;
+            font-size: 0.85rem;
+        }
+
+        .editor-setting-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .editor-setting-actions .module-btn {
+            justify-content: center;
+            padding: 8px 4px;
+            font-size: 0.88rem;
+        }
+
+        .editor-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--dark-color);
+            font-weight: bold;
+        }
+
+        /* 分頁切換器樣式優化 */
+        .editor-tab-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .editor-tab-headers {
+            display: flex;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .editor-tab-btn {
+            flex: 1;
+            padding: 8px 10px;
+            background: var(--white-hover);
+            border: 1px solid var(--brown-color);
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            color: var(--brown-color);
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .editor-tab-btn.active {
+            background: var(--white-color);
+            color: var(--red-color);
+            border-color: var(--red-color);
+            border-bottom: 2px solid var(--white-color);
+        }
+
+        .editor-tab-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .editor-tab-content.active-tab {
+            border-color: var(--red-color);
+        }
+
+        .editor-zone {
+            margin-bottom: 12px;
+            padding: 8px;
+            border: 1px solid var(--brown-color);
+            border-radius: 4px;
+            background: var(--white-color);
+        }
+
+        .editor-zone.is-drop-target {
+            border-color: var(--red-color);
+            background: var(--white-hover);
+        }
+
+        .editor-zone-heading {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 7px;
+            color: var(--red-color);
+            font-weight: bold;
+        }
+
+        .editor-zone-list {
+            min-height: 36px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .editor-zone-card {
+            position: relative;
+            display: grid;
+            grid-template-columns: 30px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 6px;
+            border: 1px solid var(--brown-hover);
+            background: var(--white-hover);
+            color: var(--dark-color);
+            cursor: grab;
+            font-size: 0.82rem;
+        }
+
+        .editor-zone-card:hover {
+            border-color: var(--red-color);
+        }
+
+        .editor-zone-card img {
+            width: 30px;
+            aspect-ratio: 0.72;
+            object-fit: cover;
+        }
+
+        .editor-zone-limit {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            aspect-ratio: 1;
+            pointer-events: none;
+        }
+
+        .editor-zone-card-name {
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .editor-zone-quantity {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .editor-zone-quantity button {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: 1px solid var(--brown-color);
+            background: var(--white-color);
+            color: var(--red-color);
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .editor-zone-quantity button:hover {
+            background: var(--red-color);
+            color: var(--white-color);
+        }
+
+        .editor-zone-quantity-count {
+            min-width: 18px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .editor-info-empty,
+        .editor-empty-list {
+            padding: 10px 4px;
+            color: var(--gray-hover);
+            font-size: 0.9rem;
+        }
+
+        .editor-info-image {
+            width: min(100%, 230px);
+            aspect-ratio: 0.72;
+            object-fit: cover;
+            align-self: center;
+            border: 1px solid var(--brown-color);
+            background: var(--white-hover);
+        }
+
+        .editor-info-name {
+            margin: 10px 0 6px;
+            color: var(--red-color);
+            font-size: 1.1rem;
+        }
+
+        .editor-info-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin: 8px 0;
+            color: var(--dark-color);
+            font-size: 0.9rem;
+        }
+
+        .editor-info-desc {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            line-height: 1.5;
+            font-size: 0.88rem;
+        }
+
+        .editor-error {
+            color: var(--red-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div id="editor-app" class="two-column-layout-container" th:attr="data-deck-id=${deckId}">
+        <aside class="aside-column">
+            <!-- 分頁切換介面 (卡組設定 / 卡片篩選) -->
+            <div class="editor-tab-container">
+                <div class="editor-tab-headers">
+                    <button type="button" class="editor-tab-btn" :class="{ active: activeTab === 'settings' }"
+                        @click="switchTab('settings')">
+                        卡組設定
+                    </button>
+                    <button type="button" class="editor-tab-btn" :class="{ active: activeTab === 'filter' }"
+                        @click="switchTab('filter')">
+                        卡片篩選
+                    </button>
+                </div>
+
+                <!-- 1. 卡組設定分頁內容 -->
+                <div v-show="activeTab === 'settings'" class="editor-tab-content active-tab">
+                    <div class="editor-settings">
+                        <fieldset class="module-fieldset">
+                            <legend>設定卡組名稱</legend>
+                            <input v-model.trim="deckName" class="module-input-clean" maxlength="80">
+                        </fieldset>
+                        <fieldset class="module-fieldset">
+                            <legend>卡組 Pack</legend>
+                            <div class="editor-pack-row">
+                                <select v-model="packName" class="module-select">
+                                    <option value="">未分類</option>
+                                    <option v-for="pack in packs" :key="pack" :value="pack">{{ pack }}</option>
+                                </select>
+                                <button class="module-btn editor-pack-add" @click="addPack">新增</button>
+                            </div>
+                        </fieldset>
+                        <label class="editor-toggle">
+                            <input v-model="isPublic" type="checkbox">
+                            公開此卡組
+                        </label>
+                        <div class="editor-setting-actions">
+                            <button class="module-btn" @click="saveDeck">儲存</button>
+                            <button class="module-btn" @click="resetDeck">重置</button>
+                            <button class="module-btn" @click="discardChanges">放棄修改</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 卡片篩選分頁內容 -->
+                <div v-show="activeTab === 'filter'" class="editor-tab-content active-tab">
+                    <form th:replace="~{view/cards :: cardSearchForm}"></form>
+                    <form @submit.prevent="handleSearch" class="card-search-form" th:remove="all">
+                        <div class="card-search-form-content">
+                            <div class="card-filter-row" style="display: flex; gap: 10px;">
+                                <!-- 數據庫 -->
+                                <fieldset class="module-fieldset" style="flex: 1;">
+                                    <legend>數據庫</legend>
+                                    <div v-if="loading.cdb" class="collapsible-loading">載入中...</div>
+                                    <div v-else-if="cdbConfigs.length === 0"
+                                        style="color: var(--red-color);padding: 5px;font-weight: bold;">無可用數據庫</div>
+                                    <select v-else v-model="selectedCdbId" @change="handleCdbChange"
+                                        class="module-select card-filter-select">
+                                        <option v-for="item in cdbConfigs" :key="item.id" :value="item.id">{{ item.name
+                                            }}
+                                        </option>
+                                    </select>
+                                </fieldset>
+
+                                <!-- 許可 -->
+                                <fieldset class="module-fieldset" style="flex: 1;">
+                                    <legend>許可</legend>
+                                    <div v-if="loading.rule" class="collapsible-loading">載入中...</div>
+                                    <select v-else v-model.number="selectedRuleIndex"
+                                        class="module-select card-filter-select">
+                                        <option :value="0">N/A</option>
+                                        <option v-for="(item, index) in options.rule" :key="item.code"
+                                            :value="index + 2">
+                                            {{ item.name }}
+                                        </option>
+                                        <option :value="1">其他</option>
+                                    </select>
+                                </fieldset>
+                            </div>
+
+                            <!-- 禁限與狀態選擇列 -->
+                            <div class="card-filter-row" style="display: flex; gap: 10px;">
+                                <!-- 禁限版本 -->
+                                <fieldset class="module-fieldset" style="flex: 1;">
+                                    <legend>禁限</legend>
+                                    <div v-if="loading.iflist" class="collapsible-loading">載入中...</div>
+                                    <div v-else-if="iflistVers.length === 0"
+                                        style="color: var(--red-color);padding: 5px;font-weight: bold;">無可用禁卡表</div>
+                                    <select v-else v-model="selectedIflistVersion" @change="handleIflistVersionChange"
+                                        class="module-select card-filter-select">
+                                        <option v-for="ver in iflistVers" :key="ver" :value="ver">{{ ver }}</option>
+                                    </select>
+                                </fieldset>
+
+                                <!-- 狀態 -->
+                                <fieldset class="module-fieldset" style="flex: 1;">
+                                    <legend>狀態</legend>
+                                    <div v-if="loading.iflist" class="collapsible-loading">-</div>
+                                    <div v-else-if="iflistVers.length === 0"
+                                        style="color: var(--red-color);padding: 5px;font-weight: bold;">-</div>
+                                    <select v-else v-model.number="selectedIflistIndex"
+                                        class="module-select card-filter-select">
+                                        <option value="0">N/A</option>
+                                        <option value="4">無限制</option>
+                                        <option value="3">準限制</option>
+                                        <option value="2">限制</option>
+                                        <option value="1">禁止</option>
+                                    </select>
+                                </fieldset>
+                            </div>
+
+                            <!-- 卡名 / ID 搜尋 -->
+                            <fieldset class="module-fieldset card-filter-row">
+                                <legend>卡名 / ID</legend>
+                                <input v-model="filter.nameId" class="module-input-clean" style="padding: 5px;"
+                                    placeholder="卡名或 ID">
+                            </fieldset>
+
+                            <!-- 效果文本搜尋 -->
+                            <fieldset class="module-fieldset card-filter-row">
+                                <legend>效果文本</legend>
+                                <input v-model="filter.effect" class="module-input-clean" style="padding: 5px;"
+                                    placeholder="效果文本">
+                            </fieldset>
+
+                            <!-- 字段過濾器區塊 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.setname }">
+                                <div class="frame-header" @click="toggleFrame('setname')">
+                                    <div>
+                                        <span class="dot" :class="{ green: options.setname.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>字段</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div style="border-bottom: 1px solid var(--red-color);">
+                                        <input v-model="setnameQuery" class="module-input-clean"
+                                            style="width: 100%; padding: 5px;" placeholder="字段名稱">
+                                    </div>
+                                    <div class="collapsible-grid-mode">
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.setMode === 0 }"
+                                            @click.prevent="andModes.setMode = 0">
+                                            <span>or</span>
+                                        </button>
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.setMode === 1 }"
+                                            @click.prevent="andModes.setMode = 1">
+                                            <span>and</span>
+                                        </button>
+                                    </div>
+                                    <div class="collapsible-grid-2">
+                                        <div v-if="loading.setname" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in filteredSetnames" :key="item.code"
+                                            class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item, 'setname')">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 預設字段過濾器區塊 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.defaultSetname }">
+                                <div class="frame-header" @click="toggleFrame('defaultSetname')">
+                                    <div>
+                                        <span class="dot"
+                                            :class="{ green: options.defaultSetname.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>預設字段</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div style="border-bottom: 1px solid var(--red-color);">
+                                        <input v-model="defaultSetnameQuery" class="module-input-clean"
+                                            style="width: 100%; padding: 5px;" placeholder="字段名稱">
+                                    </div>
+                                    <div class="collapsible-grid-mode">
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.setMode === 0 }"
+                                            @click.prevent="andModes.setMode = 0">
+                                            <span>or</span>
+                                        </button>
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.setMode === 1 }"
+                                            @click.prevent="andModes.setMode = 1">
+                                            <span>and</span>
+                                        </button>
+                                    </div>
+                                    <div class="collapsible-grid-2">
+                                        <div v-if="loading.defaultSetname" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in filteredDefaultSetnames"
+                                            :key="item.code" class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item, 'defaultSetname')">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 主要類型 -->
+                            <div class="module-collapsible-frame card-filter-row">
+                                <div class="frame-header" style="cursor: default;">
+                                    <div>
+                                        <span class="dot" :class="{ green: options.typeMain.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>主要類型</span>
+                                    </div>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-3">
+                                        <div v-if="loading.typeMain" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in options.typeMain" :key="item.code"
+                                            class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 怪獸類型 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.typeMonster }">
+                                <div class="frame-header" @click="toggleFrame('typeMonster')">
+                                    <div>
+                                        <span class="dot"
+                                            :class="{ green: options.typeMonster.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>怪獸類型</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-mode">
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.typMode === 0 }"
+                                            @click.prevent="andModes.typMode = 0">
+                                            <span>or</span>
+                                        </button>
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.typMode === 1 }"
+                                            @click.prevent="andModes.typMode = 1">
+                                            <span>and</span>
+                                        </button>
+                                    </div>
+                                    <div class="collapsible-grid-3">
+                                        <div v-if="loading.typeMonster" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in options.typeMonster"
+                                            :key="item.code" class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 魔陷類型 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.typeSpellTrap }">
+                                <div class="frame-header" @click="toggleFrame('typeSpellTrap')">
+                                    <div>
+                                        <span class="dot"
+                                            :class="{ green: options.typeSpellTrap.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>魔陷類型</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-3">
+                                        <div v-if="loading.typeSpellTrap" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in options.typeSpellTrap"
+                                            :key="item.code" class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 屬性 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.attribute }">
+                                <div class="frame-header" @click="toggleFrame('attribute')">
+                                    <div>
+                                        <span class="dot"
+                                            :class="{ green: options.attribute.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>屬性</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-3">
+                                        <div v-if="loading.attribute" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in options.attribute" :key="item.code"
+                                            class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 種族 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.race }">
+                                <div class="frame-header" @click="toggleFrame('race')">
+                                    <div>
+                                        <span class="dot" :class="{ green: options.race.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>種族</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-2">
+                                        <div v-if="loading.race" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in options.race" :key="item.code"
+                                            class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 等級 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.level }">
+                                <div class="frame-header" @click="toggleFrame('level')">
+                                    <div>
+                                        <span class="dot" :class="{ green: options.level.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>等級/階級/連接數</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-3">
+                                        <button type="button" v-for="item in options.level" :key="item.code"
+                                            class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 靈擺刻度 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.scale }">
+                                <div class="frame-header" @click="toggleFrame('scale')">
+                                    <div>
+                                        <span class="dot" :class="{ green: options.scale.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>刻度</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-3">
+                                        <button type="button" v-for="item in options.scale" :key="item.code"
+                                            class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 連接標記 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.linkMarker }">
+                                <div class="frame-header" @click="toggleFrame('linkMarker')">
+                                    <div>
+                                        <span class="dot" :class="{ green: linkMarkers.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>連接標記</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-mode">
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.linkMode === 0 }"
+                                            @click.prevent="andModes.linkMode = 0">
+                                            <span>or</span>
+                                        </button>
+                                        <button type="button" class="module-toggle"
+                                            :class="{ active: andModes.linkMode === 1 }"
+                                            @click.prevent="andModes.linkMode = 1">
+                                            <span>and</span>
+                                        </button>
+                                    </div>
+                                    <div class="collapsible-grid-3">
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[5].active }"
+                                            @click.prevent="toggleItem(linkMarkers[5])">↖</button>
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[6].active }"
+                                            @click.prevent="toggleItem(linkMarkers[6])">↑</button>
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[7].active }"
+                                            @click.prevent="toggleItem(linkMarkers[7])">↗</button>
+
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[3].active }"
+                                            @click.prevent="toggleItem(linkMarkers[3])">←</button>
+                                        <div
+                                            style="flex: 1 1 calc(33.333% - 4px); box-sizing: border-box; visibility: hidden;">
+                                        </div>
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[4].active }"
+                                            @click.prevent="toggleItem(linkMarkers[4])">→</button>
+
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[0].active }"
+                                            @click.prevent="toggleItem(linkMarkers[0])">↙</button>
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[1].active }"
+                                            @click.prevent="toggleItem(linkMarkers[1])">↓</button>
+                                        <button type="button" class="module-toggle link-marker-btn"
+                                            :class="{ active: linkMarkers[2].active }"
+                                            @click.prevent="toggleItem(linkMarkers[2])">↘</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ATK 輸入框 -->
+                            <fieldset class="module-fieldset card-filter-row"
+                                style="flex-direction: row; align-items: center;">
+                                <legend>ATK</legend>
+                                <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMin"
+                                    class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
+                                <span style="font-weight: bold;">~</span>
+                                <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMax"
+                                    class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
+                            </fieldset>
+
+                            <!-- DEF 輸入框 -->
+                            <fieldset class="module-fieldset card-filter-row"
+                                style="flex-direction: row; align-items: center;">
+                                <legend>DEF</legend>
+                                <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMin"
+                                    class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
+                                <span style="font-weight: bold;">~</span>
+                                <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMax"
+                                    class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
+                            </fieldset>
+
+                            <!-- 效果類型 -->
+                            <div class="module-collapsible-frame card-filter-row"
+                                :class="{ collapsed: frameStates.category }">
+                                <div class="frame-header" @click="toggleFrame('category')">
+                                    <div>
+                                        <span class="dot" :class="{ green: options.category.some(item => item.active) }"
+                                            style="margin-right: 5px;"></span>
+                                        <span>效果類型</span>
+                                    </div>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="frame-content">
+                                    <div class="collapsible-grid-2">
+                                        <div v-if="loading.category" class="collapsible-loading">載入中...</div>
+                                        <button type="button" v-else v-for="item in options.category" :key="item.code"
+                                            class="module-toggle" :class="{ active: item.active }"
+                                            @click.prevent="toggleItem(item)">
+                                            <span>{{ item.name }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 底部按鈕 -->
+                        <div class="card-search-form-footer">
+                            <div style="display: flex; gap: 8px;">
+                                <button type="submit" class="module-btn card-filter-search-btn">搜尋</button>
+                                <button type="button" @click="resetFilter"
+                                    class="module-btn card-filter-reset-btn">重置</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </aside>
+
+        <main class="editor-main-column">
+            <p v-if="loading.page" class="editor-empty-list">正在載入卡組與卡片資料...</p>
+            <p v-else-if="loadError" class="editor-error">{{ loadError }}</p>
+
+            <div v-else class="editor-grid">
+                <section class="editor-panel">
+                    <h2 class="editor-panel-title">牌組區塊</h2>
+                    <div class="editor-panel-scroll">
+                        <section v-for="zone in zones" :key="zone.id" class="editor-zone"
+                            :class="{ 'is-drop-target': dropTarget === zone.id }"
+                            @dragover.prevent="dropTarget = zone.id" @dragleave="dropTarget = ''"
+                            @drop.prevent="dropCard($event, zone.id)">
+                            <div class="editor-zone-heading">
+                                <span>{{ zone.label }}</span>
+                                <span>{{ deckSections[zone.id].length }} / {{ zoneLimits[zone.id] }}</span>
+                            </div>
+                            <div v-if="groupedZoneCards(zone.id).length" class="editor-zone-list">
+                                <div v-for="group in groupedZoneCards(zone.id)" :key="`${zone.id}-${group.cardId}`"
+                                    class="editor-zone-card" draggable="true"
+                                    @mouseenter="hoverCard(findCard(group.cardId))"
+                                    @dragstart="startDeckDrag($event, zone.id, group.cardId)">
+                                    <img v-if="getCardLimitStatus(findCard(group.cardId)) !== null"
+                                        class="editor-zone-limit"
+                                        :src="`/image/limit/limit_${getCardLimitStatus(findCard(group.cardId))}.png`"
+                                        :alt="`限制狀態 ${getCardLimitStatus(findCard(group.cardId))}`">
+                                    <img :src="imageUrl(findCard(group.cardId))"
+                                        :alt="findCard(group.cardId)?.name || group.cardId" @error="useFallbackImage">
+                                    <span class="editor-zone-card-name">
+                                        {{ findCard(group.cardId)?.name || `卡片 ${group.cardId}` }}
+                                    </span>
+                                    <span class="editor-zone-quantity">
+                                        <button type="button" @click.stop="removeCard(zone.id, group.cardId)">−</button>
+                                        <span class="editor-zone-quantity-count">{{ group.count }}</span>
+                                        <button type="button" @click.stop="addCard(group.cardId, zone.id)">+</button>
+                                    </span>
+                                </div>
+                            </div>
+                            <p v-else class="editor-empty-list">拖曳卡片至此</p>
+                        </section>
+                    </div>
+                </section>
+
+                <!-- 中間：懸停卡片 -->
+                <div class="editor-panel editor-info-panel">
+                    <h2 class="editor-panel-title">卡片資訊</h2>
+                    <div v-if="hoveredCard" class="editor-panel-scroll">
+                        <img class="editor-info-image" :src="imageUrl(hoveredCard)" :alt="hoveredCard.name"
+                            @error="useFallbackImage">
+                        <h3 class="editor-info-name">{{ hoveredCard.name || `卡片 ${hoveredCard.id}` }}</h3>
+                        <div class="editor-info-stats">
+                            <span>ID：{{ hoveredCard.id }}</span>
+                            <span>類型：{{ typeLabel(hoveredCard) }}</span>
+                            <span v-if="isType.Monster(hoveredCard)">ATK：{{ hoveredCard.atk }}</span>
+                            <span v-if="isType.Monster(hoveredCard)">DEF：{{ hoveredCard.def }}</span>
+                            <span v-if="isType.Monster(hoveredCard)">等級／階級：{{ hoveredCard.level }}</span>
+                        </div>
+                        <p class="editor-info-desc">{{ hoveredCard.desc || '沒有卡片描述' }}</p>
+                    </div>
+                    <p v-else class="editor-info-empty">將游標移到卡片上以檢視資訊</p>
+                </div>
+
+
+                <!-- 最右側：卡片搜尋結果池 -->
+                <div class="editor-panel" @click.prevent="addRelatedCardFromEvent" @dragstart="startRelatedCardDrag">
+                    <div th:replace="~{fragments/small_card_result :: result}"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+        const classicalSwal = Swal.mixin({
+            customClass: { popup: 'swal-popup', title: 'swal-title' },
+            buttonsStyling: true
+        });
+
+        createApp({
+            setup() {
+                const {
+                    TYPE,
+                    isType,
+                    sortCards,
+                    isRule,
+                    isSetCard
+                } = window.APP_CONSTANTS;
+
+                const root = document.getElementById('editor-app');
+                const deckId = Number(root.dataset.deckId);
+                const loading = reactive({
+                    page: true,
+                    cdb: true,
+                    rule: true,
+                    setname: true,
+                    defaultSetname: true,
+                    typeMain: true,
+                    typeMonster: true,
+                    typeSpellTrap: true,
+                    attribute: true,
+                    race: true,
+                    category: true,
+                    iflist: true
+                });
+                const saving = ref(false);
+                const loadError = ref('');
+                const deckName = ref('');
+                const packName = ref('');
+                const isPublic = ref(false);
+                const packs = ref([]);
+                const cards = ref([]);
+                const cdbConfigs = ref([]);
+                const selectedCdbId = ref(null);
+                const hoveredCard = ref(null);
+                const dropTarget = ref('');
+                const zoneLimits = { main: 60, extra: 15, side: 15 };
+
+                // 分頁切換狀態（預設打開 settings 卡組設定）
+                const activeTab = ref('settings');
+                const switchTab = (tab) => {
+                    activeTab.value = tab; // 點擊當前已打開的分頁時不會改變或關閉，達成類似分頁概念
+                };
+
+                // 區塊折疊狀態管理
+                const frameStates = reactive({
+                    setname: true,
+                    defaultSetname: true,
+                    typeMonster: true,
+                    typeSpellTrap: true,
+                    linkMarker: true,
+                    attribute: true,
+                    race: true,
+                    level: true,
+                    scale: true,
+                    category: true
+                });
+
+                const selectedRuleIndex = ref(0);
+                const linkMarkers = ref([
+                    window.APP_CONSTANTS.LINK_BOTTOM_LEFT,
+                    window.APP_CONSTANTS.LINK_BOTTOM,
+                    window.APP_CONSTANTS.LINK_BOTTOM_RIGHT,
+                    window.APP_CONSTANTS.LINK_LEFT,
+                    window.APP_CONSTANTS.LINK_RIGHT,
+                    window.APP_CONSTANTS.LINK_TOP_LEFT,
+                    window.APP_CONSTANTS.LINK_TOP,
+                    window.APP_CONSTANTS.LINK_TOP_RIGHT
+                ].map((code) => ({ active: false, code })));
+                const andModes = reactive({ setMode: 0, typMode: 0, linkMode: 0 });
+                const iflistVers = ref([]);
+                const selectedIflistVersion = ref('');
+                const selectedIflistIndex = ref(0);
+                const currentIflistMap = ref({});
+                const setnameQuery = ref('');
+                const defaultSetnameQuery = ref('');
+
+                const filter = reactive({
+                    nameId: '',
+                    effect: '',
+                    atkMin: '',
+                    atkMax: '',
+                    defMin: '',
+                    defMax: ''
+                });
+
+                const options = reactive({
+                    rule: [],
+                    setname: [],
+                    defaultSetname: [],
+                    typeMain: [],
+                    typeMonster: [],
+                    typeSpellTrap: [],
+                    attribute: [],
+                    race: [],
+                    level: Array.from({ length: 13 }, (_, index) => ({ code: index + 1, name: String(index + 1), active: false })),
+                    scale: Array.from({ length: 14 }, (_, index) => ({ code: index, name: String(index), active: false })),
+                    category: []
+                });
+
+                const filteredSetnames = computed(() => {
+                    const query = setnameQuery.value.trim().toLowerCase();
+                    return options.setname.filter(item => item.active || !query
+                        || String(item.name || '').toLowerCase().includes(query));
+                });
+
+                const filteredDefaultSetnames = computed(() => {
+                    const query = defaultSetnameQuery.value.trim().toLowerCase();
+                    return options.defaultSetname.filter(item => item.active || !query
+                        || String(item.name || '').toLowerCase().includes(query));
+                });
+
+                const zones = [
+                    { id: 'main', label: '主要卡組' },
+                    { id: 'extra', label: '額外卡組' },
+                    { id: 'side', label: 'Side' }
+                ];
+
+                const selectedMask = (list) => list.filter(item => item.active)
+                    .reduce((mask, item) => mask | Number(item.code), 0);
+
+                const matchesMask = (value, mask, requireAll = false) => {
+                    if (!mask) return true;
+                    const matched = Number(value || 0) & mask;
+                    return requireAll ? matched === mask : matched !== 0;
+                };
+
+                const matchesStatRange = (value, minimum, maximum) => {
+                    if (minimum === '?' || maximum === '?') return Number(value) === -2;
+                    const numericValue = Number(value || 0);
+                    return (minimum === '' || numericValue >= Number(minimum))
+                        && (maximum === '' || numericValue <= Number(maximum));
+                };
+
+                const matchesIflist = (card) => {
+                    const requested = Number(selectedIflistIndex.value);
+                    if (!requested) return true;
+                    const status = getCardLimitStatus(card);
+                    return requested === 4 ? status === null : status === requested - 1;
+                };
+
+                const filteredCards = computed(() => {
+                    const nameId = filter.nameId.trim().toLowerCase();
+                    const effect = filter.effect.trim().toLowerCase();
+                    const typeMainMask = selectedMask(options.typeMain);
+                    const typeMonsterMask = selectedMask(options.typeMonster);
+                    const typeSpellTrapMask = selectedMask(options.typeSpellTrap);
+                    const attributeMask = selectedMask(options.attribute);
+                    const raceMask = selectedMask(options.race);
+                    const levelMask = options.level.filter(item => item.active)
+                        .reduce((mask, item) => mask | (1 << (item.code - 1)), 0);
+                    const scaleMask = options.scale.filter(item => item.active)
+                        .reduce((mask, item) => mask | (1 << item.code), 0);
+                    const linkMask = linkMarkers.value.filter(item => item.active)
+                        .reduce((mask, item) => mask | item.code, 0);
+                    const categoryMask = options.category.filter(item => item.active)
+                        .reduce((mask, item) => mask | BigInt(item.code), 0n);
+                    const selectedSets = [
+                        ...options.setname.filter(item => item.active),
+                        ...options.defaultSetname.filter(item => item.active)
+                    ].map(item => Number(item.code));
+                    const ruleCode = selectedRuleIndex.value === 1 ? -1
+                        : selectedRuleIndex.value > 1 ? options.rule[selectedRuleIndex.value - 2]?.code : 0;
+
+                    return cards.value.filter((card) => {
+                        const cardName = String(card.name || '').toLowerCase();
+                        const cardId = String(card.id || '');
+                        if (nameId && !cardName.includes(nameId) && !cardId.includes(nameId)
+                            && Number(nameId) !== Number(card.alias || 0)) return false;
+                        if (effect && !String(card.desc || '').toLowerCase().includes(effect)) return false;
+                        if (!isRule(card, ruleCode)) return false;
+                        if (!matchesMask(card.type, typeMainMask)) return false;
+                        if (!matchesMask(card.type, typeMonsterMask, andModes.typMode === 1)) return false;
+                        if (typeSpellTrapMask) {
+                            const cardType = Number(card.type || 0);
+                            const cardSpellTrapType = cardType & TYPE.ST;
+                            const normalSpellTrap = (typeSpellTrapMask & TYPE.NORMAL) !== 0
+                                && cardSpellTrapType === cardType;
+                            if (!cardSpellTrapType || (!normalSpellTrap && !matchesMask(cardType, typeSpellTrapMask))) return false;
+                        }
+                        if (!matchesMask(card.attribute, attributeMask) || !matchesMask(card.race, raceMask)) return false;
+                        if (levelMask && !(levelMask & (1 << (Number(card.level || 0) - 1)))) return false;
+                        if (scaleMask && !(scaleMask & (1 << Number(card.scalePlus || 0)))) return false;
+                        if (linkMask && !matchesMask(card.linkMarker, linkMask, andModes.linkMode === 1)) return false;
+                        if (categoryMask && (categoryMask & BigInt(card.category || 0)) === 0n) return false;
+                        if (!matchesStatRange(card.atk, filter.atkMin, filter.atkMax)
+                            || !matchesStatRange(card.def, filter.defMin, filter.defMax)) return false;
+                        if (selectedSets.length) {
+                            const matchesSet = selectedSets.map(code => isSetCard(card, code));
+                            if (andModes.setMode === 1 ? matchesSet.some(value => !value) : !matchesSet.some(Boolean)) return false;
+                        }
+                        return matchesIflist(card);
+                    }).sort(sortCards);
+                });
+
+                const visibleCards = computed(() => filteredCards.value.slice(0, 300));
+                const relatedCards = computed(() => visibleCards.value);
+
+                const imageUrl = (card) => {
+                    if (!card) return '/image/unknown_card.jpg';
+                    const cdbId = card.cdbId || card.databaseId || selectedCdbId.value;
+                    return cdbId ? `/api/cdb/pic/${cdbId}/${card.id}` : '/image/unknown_card.jpg';
+                };
+
+                const useFallbackImage = (event) => {
+                    event.target.onerror = null;
+                    event.target.src = '/image/unknown_card.jpg';
+                };
+
+                const findCard = (id) => cards.value.find((card) => Number(card.id) === Number(id));
+                const hoverCard = (card) => { hoveredCard.value = card || null; };
+                const typeLabel = (card) => {
+                    if (isType.Spell(card)) return '魔法';
+                    if (isType.Trap(card)) return '陷阱';
+                    if (isType.Monster(card)) return '怪獸';
+                    return '其他';
+                };
+
+                const currentState = () => ({
+                    name: deckName.value,
+                    packName: packName.value,
+                    isPublic: isPublic.value,
+                    main: [...deckSections.main],
+                    extra: [...deckSections.extra],
+                    side: [...deckSections.side]
+                });
+
+                const deckSections = reactive({ main: [], extra: [], side: [] });
+                const originalState = ref(null);
+
+                const applyState = (state) => {
+                    deckName.value = state.name;
+                    packName.value = state.packName || '';
+                    isPublic.value = Boolean(state.isPublic);
+                    deckSections.main = [...state.main];
+                    deckSections.extra = [...state.extra];
+                    deckSections.side = [...state.side];
+                };
+
+                const loadDeck = async () => {
+                    const response = await axios.get(`/api/decks/mine/${deckId}`);
+                    const data = response.data;
+                    deckName.value = data.deck.name;
+                    packName.value = data.deck.packName || '';
+                    isPublic.value = Boolean(data.deck.isPublic);
+                    deckSections.main = data.mainDeck || [];
+                    deckSections.extra = data.extraDeck || [];
+                    deckSections.side = data.sideDeck || [];
+                    originalState.value = currentState();
+                };
+
+                const loadCardsFromAllCdbs = async () => {
+                    const configsResponse = await axios.get('/api/cdb_config');
+                    cdbConfigs.value = configsResponse.data || [];
+                    loading.cdb = false;
+                    if (cdbConfigs.value.length === 0) throw new Error('目前沒有可用的卡片資料庫');
+
+                    if (!selectedCdbId.value) {
+                        selectedCdbId.value = cdbConfigs.value[0].id;
+                    }
+
+                    const cardMap = new Map();
+
+                    for (const config of cdbConfigs.value) {
+                        try {
+                            const response = await axios.get(`/api/cdb/card/${config.id}`);
+                            const cardList = response.data;
+
+                            if (Array.isArray(cardList)) {
+                                cardList.forEach(card => {
+                                    cardMap.set(Number(card.id), {
+                                        ...card,
+                                        cdbId: config.id,
+                                        databaseId: config.id
+                                    });
+                                });
+                            }
+                        } catch (e) {
+                            console.error(`讀取 CDB [${config.name}] 失敗：`, e);
+                        }
+                    }
+
+                    cards.value = Array.from(cardMap.values());
+                    await loadFilterOptions(selectedCdbId.value);
+                };
+
+                const fetchFilterOptions = async (key, endpoint) => {
+                    loading[key] = true;
+                    try {
+                        const response = await axios.get(`/api/card_info/${endpoint}`);
+                        options[key] = (response.data || []).map(item => ({ ...item, active: false }));
+                    } catch (error) {
+                        options[key] = [];
+                    } finally {
+                        loading[key] = false;
+                    }
+                };
+
+                const loadFilterOptions = async (configId) => {
+                    await Promise.all([
+                        fetchFilterOptions('rule', 'rules'),
+                        fetchFilterOptions('defaultSetname', 'default-setnames'),
+                        fetchFilterOptions('typeMain', 'types_main'),
+                        fetchFilterOptions('typeMonster', 'types_monster'),
+                        fetchFilterOptions('typeSpellTrap', 'types_spell_trap'),
+                        fetchFilterOptions('attribute', 'attributes'),
+                        fetchFilterOptions('race', 'races'),
+                        fetchFilterOptions('category', 'categories')
+                    ]);
+
+                    loading.setname = true;
+                    try {
+                        const response = await axios.get(`/api/cdb/string/${configId}`);
+                        options.setname = (response.data.setname || []).map(item => ({ ...item, active: false }));
+                    } catch (error) {
+                        options.setname = [];
+                    } finally {
+                        loading.setname = false;
+                    }
+
+                    loading.iflist = true;
+                    try {
+                        const response = await axios.get(`/api/cdb/iflist/${configId}/versions`);
+                        iflistVers.value = Array.isArray(response.data) ? response.data : Array.from(response.data || []);
+                        selectedIflistVersion.value = iflistVers.value[0] || '';
+                        await loadBanlist(configId, selectedIflistVersion.value);
+                    } catch (error) {
+                        iflistVers.value = [];
+                        selectedIflistVersion.value = '';
+                        currentIflistMap.value = {};
+                    } finally {
+                        loading.iflist = false;
+                    }
+                };
+
+                const loadBanlist = async (configId, versionId) => {
+                    if (!configId || !versionId) {
+                        currentIflistMap.value = {};
+                        return;
+                    }
+                    try {
+                        const response = await axios.get(
+                            `/api/cdb/iflist/${configId}/version/${encodeURIComponent(versionId)}`);
+                        currentIflistMap.value = response.data || {};
+                    } catch (error) {
+                        currentIflistMap.value = {};
+                    }
+                };
+
+                const handleCdbChange = async () => {
+                    await loadFilterOptions(selectedCdbId.value);
+                };
+
+                const handleIflistVersionChange = async () => {
+                    await loadBanlist(selectedCdbId.value, selectedIflistVersion.value);
+                };
+
+                const loadPacks = async () => {
+                    try {
+                        const response = await axios.get('/api/decks/packs');
+                        packs.value = response.data;
+                    } catch (e) {
+                        packs.value = [];
+                    }
+                };
+
+                const addPack = async () => {
+                    const result = await classicalSwal.fire({
+                        title: '新增卡組 Pack',
+                        input: 'text',
+                        inputLabel: 'Pack 名稱',
+                        showCancelButton: true,
+                        confirmButtonText: '新增',
+                        cancelButtonText: '取消',
+                        preConfirm: (value) => {
+                            if (!value || !value.trim()) {
+                                Swal.showValidationMessage('Pack 名稱不可為空');
+                                return false;
+                            }
+                            return value.trim();
+                        }
+                    });
+                    if (!result.isConfirmed) return;
+                    try {
+                        const response = await axios.post('/api/decks/packs', { name: result.value });
+                        await loadPacks();
+                        packName.value = response.data;
+                    } catch (error) {
+                        classicalSwal.fire({ icon: 'error', title: '新增失敗', text: error.response?.data?.message || '無法新增 Pack' });
+                    }
+                };
+
+                const getCardLimitStatus = (card) => {
+                    if (!card) return null;
+                    const identifiers = new Set([Number(card.id)]);
+                    if (Number(card.alias) > 0) identifiers.add(Number(card.alias));
+                    for (const [status, items] of Object.entries(currentIflistMap.value || {})) {
+                        if (Array.isArray(items) && items.some(item => identifiers.has(Number(item.id ?? item.cardId)))) {
+                            return Number(status);
+                        }
+                    }
+                    return null;
+                };
+
+                const cardCopyKey = (card) => Number(card?.alias) > 0 ? Number(card.alias) : Number(card?.id);
+                const countCopies = (card) => Object.values(deckSections).flat()
+                    .filter(id => cardCopyKey(findCard(id) || { id }) === cardCopyKey(card)).length;
+                const getCopyLimit = (card) => getCardLimitStatus(card) ?? 3;
+
+                const defaultZoneForCard = (card) => isType.Extra(card) ? 'extra' : 'main';
+
+                const zoneError = (card, zoneId) => {
+                    if (!zoneLimits[zoneId]) return '無效的牌組區域';
+                    if (zoneId === 'main' && isType.Extra(card)) return '此卡只能放入額外牌組或 Side';
+                    if (zoneId === 'extra' && !isType.Extra(card)) return '此卡不能放入額外牌組';
+                    if (deckSections[zoneId].length >= zoneLimits[zoneId]) {
+                        return `${zones.find(zone => zone.id === zoneId)?.label}已滿（${zoneLimits[zoneId]} 張）`;
+                    }
+                    return '';
+                };
+
+                const groupedZoneCards = (zoneId) => {
+                    const groups = new Map();
+                    for (const cardId of deckSections[zoneId]) {
+                        const existing = groups.get(Number(cardId));
+                        if (existing) existing.count++;
+                        else groups.set(Number(cardId), { cardId: Number(cardId), count: 1 });
+                    }
+                    return Array.from(groups.values());
+                };
+
+                const addCard = (cardId, requestedZone) => {
+                    const card = findCard(cardId);
+                    if (!card) return false;
+                    const zoneId = requestedZone || defaultZoneForCard(card);
+                    const placementError = zoneError(card, zoneId);
+                    if (placementError) {
+                        classicalSwal.fire({ icon: 'warning', title: '無法加入', text: placementError });
+                        return false;
+                    }
+                    const limit = getCopyLimit(card);
+                    if (countCopies(card) >= limit) {
+                        const statusText = limit === 0 ? '此卡禁止投入' : `此卡最多只能投入 ${limit} 張`;
+                        classicalSwal.fire({ icon: 'warning', title: '超過禁限卡數量', text: statusText });
+                        return false;
+                    }
+                    deckSections[zoneId].push(Number(cardId));
+                    hoverCard(card);
+                    return true;
+                };
+
+                const removeCard = (zoneId, cardId) => {
+                    const index = deckSections[zoneId].lastIndexOf(Number(cardId));
+                    if (index >= 0) deckSections[zoneId].splice(index, 1);
+                };
+
+                const cardIdFromEvent = (event) => {
+                    const item = event.target.closest('[data-card-id]');
+                    return item ? Number(item.dataset.cardId) : null;
+                };
+
+                const addRelatedCardFromEvent = (event) => {
+                    const cardId = cardIdFromEvent(event);
+                    if (cardId !== null) addCard(cardId);
+                };
+
+                const startRelatedCardDrag = (event) => {
+                    const cardId = cardIdFromEvent(event);
+                    if (cardId === null) return;
+                    event.dataTransfer.effectAllowed = 'copy';
+                    event.dataTransfer.setData('text/plain', JSON.stringify({ source: 'pool', cardId }));
+                    hoverCard(findCard(cardId));
+                };
+
+                const startDeckDrag = (event, zoneId, cardId) => {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', JSON.stringify({ source: zoneId, cardId }));
+                };
+
+                const readDragData = (event) => {
+                    try {
+                        return JSON.parse(event.dataTransfer.getData('text/plain'));
+                    } catch (error) {
+                        return null;
+                    }
+                };
+
+                const dropCard = (event, targetZone) => {
+                    const dragged = readDragData(event);
+                    dropTarget.value = '';
+                    if (!dragged) return;
+                    if (dragged.source === 'pool') {
+                        addCard(dragged.cardId, targetZone);
+                        return;
+                    }
+                    if (!deckSections[dragged.source] || dragged.source === targetZone) return;
+                    const card = findCard(dragged.cardId);
+                    if (!card) return;
+                    const placementError = zoneError(card, targetZone);
+                    if (placementError) {
+                        classicalSwal.fire({ icon: 'warning', title: '無法移動', text: placementError });
+                        return;
+                    }
+                    const sourceIndex = deckSections[dragged.source].indexOf(Number(dragged.cardId));
+                    if (sourceIndex < 0) return;
+                    deckSections[dragged.source].splice(sourceIndex, 1);
+                    deckSections[targetZone].push(Number(dragged.cardId));
+                };
+
+                const saveDeck = async () => {
+                    if (!deckName.value.trim()) {
+                        classicalSwal.fire({ icon: 'warning', title: '名稱不可為空' });
+                        return;
+                    }
+                    saving.value = true;
+                    try {
+                        const response = await axios.put(`/api/decks/${deckId}`, {
+                            name: deckName.value.trim(),
+                            packName: packName.value || null,
+                            isPublic: isPublic.value,
+                            cdbId: selectedCdbId.value,
+                            iflistVersion: selectedIflistVersion.value || null,
+                            mainDeck: deckSections.main,
+                            extraDeck: deckSections.extra,
+                            sideDeck: deckSections.side
+                        });
+                        deckName.value = response.data.name;
+                        originalState.value = currentState();
+                        classicalSwal.fire({ icon: 'success', title: '卡組已儲存', timer: 1100, showConfirmButton: false });
+                    } catch (error) {
+                        classicalSwal.fire({ icon: 'error', title: '儲存失敗', text: error.response?.data?.message || '無法儲存卡組' });
+                    } finally {
+                        saving.value = false;
+                    }
+                };
+
+                const resetDeck = async () => {
+                    if (!originalState.value) return;
+                    const result = await classicalSwal.fire({
+                        title: '重置編輯內容？',
+                        text: '尚未儲存的修改將會還原。',
+                        showCancelButton: true,
+                        confirmButtonText: '重置',
+                        cancelButtonText: '取消'
+                    });
+                    if (result.isConfirmed) applyState(originalState.value);
+                };
+
+                const discardChanges = () => {
+                    window.close();
+                    window.setTimeout(() => { window.location.href = '/personal/decks'; }, 100);
+                };
+
+                const toggleFrame = (key) => { frameStates[key] = !frameStates[key]; };
+                const toggleItem = (item) => { item.active = !item.active; };
+                const handleSearch = () => { };
+                const resetFilter = () => {
+                    Object.assign(filter, { nameId: '', effect: '', atkMin: '', atkMax: '', defMin: '', defMax: '' });
+                    selectedRuleIndex.value = 0;
+                    selectedIflistIndex.value = 0;
+                    andModes.setMode = 0;
+                    andModes.typMode = 0;
+                    andModes.linkMode = 0;
+                    setnameQuery.value = '';
+                    defaultSetnameQuery.value = '';
+                    linkMarkers.value.forEach(item => { item.active = false; });
+                    Object.values(options).forEach(list => {
+                        if (Array.isArray(list)) list.forEach(item => { item.active = false; });
+                    });
+                };
+
+                onMounted(async () => {
+                    try {
+                        await Promise.all([loadDeck(), loadCardsFromAllCdbs(), loadPacks()]);
+                    } catch (error) {
+                        loadError.value = error.response?.status === 404
+                            ? '找不到此卡組，或你沒有編輯權限。'
+                            : error.response?.data?.message || error.message || '載入失敗';
+                    } finally {
+                        loading.page = false;
+                    }
+                });
+
+                return {
+                    loading,
+                    saving,
+                    loadError,
+                    deckName,
+                    packName,
+                    isPublic,
+                    packs,
+                    cards,
+                    hoveredCard,
+                    dropTarget,
+                    filter,
+                    deckSections,
+                    zones,
+                    zoneLimits,
+                    filteredCards,
+                    visibleCards,
+                    relatedCards,
+                    imageUrl,
+                    useFallbackImage,
+                    findCard,
+                    hoverCard,
+                    typeLabel,
+                    addPack,
+                    addCard,
+                    removeCard,
+                    groupedZoneCards,
+                    getCardLimitStatus,
+                    startDeckDrag,
+                    dropCard,
+                    addRelatedCardFromEvent,
+                    startRelatedCardDrag,
+                    saveDeck,
+                    resetDeck,
+                    discardChanges,
+                    frameStates,
+                    toggleFrame,
+                    cdbConfigs,
+                    selectedCdbId,
+                    handleCdbChange,
+                    selectedRuleIndex,
+                    options,
+                    iflistVers,
+                    selectedIflistVersion,
+                    selectedIflistIndex,
+                    handleIflistVersionChange,
+                    andModes,
+                    setnameQuery,
+                    defaultSetnameQuery,
+                    linkMarkers,
+                    toggleItem,
+                    filteredSetnames,
+                    filteredDefaultSetnames,
+                    handleSearch,
+                    resetFilter,
+                    activeTab,
+                    switchTab
+                };
+            }
+        }).mount('#editor-app');
+    </script>
+</body>
+
+</html>

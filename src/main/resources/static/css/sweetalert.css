@@ -1,0 +1,23 @@
+.swal-popup {
+    background-color: var(--white-color);
+    border-radius: 10px;
+}
+
+.swal-title {
+    font-size: 1.5rem;
+    background-color: var(--red-color);
+    color: var(--white-color);
+    padding: 20px 0px;
+    border-radius: 10px 10px 0 0;
+}
+
+.swal-row-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.swal-col-container {
+    display: flex;
+    gap: 15px;
+}

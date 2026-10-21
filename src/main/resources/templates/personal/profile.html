@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人資料</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+
+    <style>
+        .profile-settings {
+            max-width: 760px;
+            border: 1px solid var(--brown-color);
+            border-radius: 5px;
+            background: var(--white-color);
+        }
+
+        .profile-setting-row {
+            display: grid;
+            grid-template-columns: minmax(120px, 1fr) minmax(0, 3fr) auto;
+            align-items: center;
+            gap: 18px;
+            padding: 18px 20px;
+        }
+
+        .profile-setting-row + .profile-setting-row {
+            border-top: 1px solid var(--brown-hover);
+        }
+
+        .profile-setting-label {
+            color: var(--brown-color);
+            font-weight: bold;
+        }
+
+        .profile-setting-value {
+            color: var(--red-color);
+            font-size: 1.15rem;
+            font-weight: bold;
+            overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 640px) {
+            .profile-setting-row {
+                grid-template-columns: 1fr auto;
+                gap: 10px;
+            }
+
+            .profile-setting-label {
+                grid-column: 1 / -1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div id="app" class="two-column-layout-container" th:attr="data-profile-name=${profileName}">
+        <div th:replace="~{personal/menu :: sidebar('profile')}"></div>
+
+        <main class="main-column">
+            <div class="main-top-bar">
+                <div class="main-top-bar-row">
+                    <h2 class="main-top-bar-title">個人資料</h2>
+                </div>
+            </div>
+
+            <section class="profile-settings" aria-label="個人資料設定">
+                <div class="profile-setting-row">
+                    <span class="profile-setting-label">顯示名稱</span>
+                    <strong class="profile-setting-value">{{ displayName }}</strong>
+                    <button class="module-btn" @click="editName">修改名稱</button>
+                </div>
+                <div class="profile-setting-row">
+                    <span class="profile-setting-label">登入密碼</span>
+                    <span>********</span>
+                    <button class="module-btn" @click="editPassword">修改密碼</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue;
+
+        const classicalSwal = Swal.mixin({
+            customClass: {
+                popup: 'swal-popup',
+                title: 'swal-title'
+            },
+            buttonsStyling: true
+        });
+
+        createApp({
+            setup() {
+                const displayName = ref(document.getElementById('app').dataset.profileName);
+
+                const editName = async () => {
+                    const result = await classicalSwal.fire({
+                        title: '修改顯示名稱',
+                        input: 'text',
+                        inputLabel: '新名稱',
+                        inputValue: displayName.value,
+                        inputAutoTrim: true,
+                        showCancelButton: true,
+                        confirmButtonText: '儲存',
+                        cancelButtonText: '取消',
+                        preConfirm: (value) => {
+                            if (!value || !value.trim()) {
+                                Swal.showValidationMessage('名稱不可為空');
+                                return false;
+                            }
+                            return value.trim();
+                        }
+                    });
+
+                    if (!result.isConfirmed) return;
+                    try {
+                        const response = await axios.put('/api/users/profile', { name: result.value });
+                        displayName.value = response.data.name;
+                        classicalSwal.fire({ icon: 'success', title: '名稱已更新', timer: 1200, showConfirmButton: false });
+                    } catch (error) {
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '更新失敗',
+                            text: error.response?.data?.message || '無法更新顯示名稱'
+                        });
+                    }
+                };
+
+                const editPassword = async () => {
+                    const result = await classicalSwal.fire({
+                        title: '修改密碼',
+                        html: `
+                            <div class="swal-row-container">
+                                <fieldset class="module-fieldset">
+                                    <legend>舊密碼</legend>
+                                    <input id="swal-old-password" class="module-input-clean" type="password" autocomplete="current-password">
+                                </fieldset>
+                                <fieldset class="module-fieldset">
+                                    <legend>新密碼</legend>
+                                    <input id="swal-new-password" class="module-input-clean" type="password" autocomplete="new-password">
+                                </fieldset>
+                                <fieldset class="module-fieldset">
+                                    <legend>再次輸入新密碼</legend>
+                                    <input id="swal-confirm-password" class="module-input-clean" type="password" autocomplete="new-password">
+                                </fieldset>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: '更新密碼',
+                        cancelButtonText: '取消',
+                        preConfirm: () => {
+                            const oldPassword = document.getElementById('swal-old-password').value;
+                            const newPassword = document.getElementById('swal-new-password').value;
+                            const confirmPassword = document.getElementById('swal-confirm-password').value;
+
+                            if (!oldPassword || !newPassword || !confirmPassword) {
+                                Swal.showValidationMessage('請完整填寫三個密碼欄位');
+                                return false;
+                            }
+                            if (newPassword !== confirmPassword) {
+                                Swal.showValidationMessage('兩次輸入的新密碼不一致');
+                                return false;
+                            }
+                            return { oldPassword, newPassword };
+                        }
+                    });
+
+                    if (!result.isConfirmed) return;
+                    try {
+                        await axios.put('/api/users/profile', result.value);
+                        classicalSwal.fire({ icon: 'success', title: '密碼已更新', timer: 1200, showConfirmButton: false });
+                    } catch (error) {
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '更新失敗',
+                            text: error.response?.data?.message || '無法更新密碼'
+                        });
+                    }
+                };
+
+                return { displayName, editName, editPassword };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

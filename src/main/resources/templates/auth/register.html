@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用戶註冊</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/auth.css}" href="/css/auth.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div class="auth-layout">
+        <div id="app" class="auth-box">
+            <h2>註冊</h2>
+            <form @submit.prevent="handleRegister">
+                <input type="hidden" name="redirect" th:value="${redirect}">
+                <fieldset class="module-fieldset" style="margin-bottom: 15px;">
+                    <legend>用戶名稱</legend>
+                    <input type="text" id="username" v-model.trim="form.name" class="module-input-clean" required
+                        autocomplete="username" :disabled="loading">
+                </fieldset>
+                <fieldset class="module-fieldset" style="margin-bottom: 15px;">
+                    <legend>設定密碼</legend>
+                    <input type="password" id="password" v-model="form.password" class="module-input-clean" required
+                        autocomplete="new-password" :disabled="loading">
+                </fieldset>
+                <fieldset class="module-fieldset" style="margin-bottom: 15px;">
+                    <legend>確認密碼</legend>
+                    <input type="password" id="confirmPassword" v-model="confirmPassword" class="module-input-clean"
+                        required autocomplete="new-password" :disabled="loading">
+                </fieldset>
+
+                <button type="submit" class="auth-submit-btn" :disabled="loading">
+                    {{ loading ? '建立中...' : '註 冊' }}
+                </button>
+            </form>
+
+            <div class="auth-footer-link">
+                已有帳號？ <a href="/auth/login">前往登入</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue;
+
+        const classicalSwal = Swal.mixin({
+            customClass: {
+                popup: 'swal-popup',
+                title: 'swal-title'
+            },
+            buttonsStyling: true
+        });
+
+        createApp({
+            setup() {
+                const form = ref({ name: '', password: '', isAdmin: false });
+                const confirmPassword = ref('');
+                const loading = ref(false);
+
+                const handleRegister = async () => {
+                    if (form.value.password !== confirmPassword.value) {
+                        classicalSwal.fire({
+                            icon: 'warning',
+                            title: '驗證失敗',
+                            text: '兩次輸入的密碼不一致'
+                        });
+                        return;
+                    }
+
+                    loading.value = true;
+                    try {
+                        await axios.post('/api/users', form.value);
+
+                        await classicalSwal.fire({
+                            icon: 'success',
+                            title: '註冊成功',
+                            text: '帳號已成功建立，即將前往登入頁面...',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+
+                        window.location.href = '/auth/login';
+                    } catch (error) {
+                        const errorMsg = error.response?.data?.message || '註冊失敗，該用戶名稱可能已被佔用';
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '註冊失敗',
+                            text: errorMsg
+                        });
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                return { form, confirmPassword, loading, handleRegister };
+            }
+        }).mount('#app');
+    </script>
+
+</body>
+
+</html>

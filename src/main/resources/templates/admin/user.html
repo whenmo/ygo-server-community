@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理員設定</title>
+
+    <!-- 全局古典風格樣式表 -->
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+
+    <!-- CDN 套件 -->
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+
+    <style>
+        .table-col-is_admin {
+            width: 58px;
+            text-align: center;
+        }
+
+        .table-col-name {}
+
+        .table-item-name {
+            color: var(--red-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div id="app" class="two-column-layout-container">
+        <div th:replace="~{admin/menu :: sidebar('user')}"></div>
+
+        <!-- 右側主要內容區 -->
+        <main class="main-column">
+            <div class="main-top-bar">
+                <div class="main-top-bar-row">
+                    <h2 class="main-top-bar-title">用戶清單</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button @click="openCreateModal" class="main-top-bar-btn">新增用戶</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 資料表格 -->
+            <div class="module-table-container">
+                <table class="module-table">
+                    <thead>
+                        <tr>
+                            <th class="table-col-is_admin">管理</th>
+                            <th class="table-col-name">名稱</th>
+                            <th class="table-col-oper">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="loading">
+                            <td colspan="3" class="table-item-empty-row">載入中...</td>
+                        </tr>
+                        <tr v-else-if="users.length === 0">
+                            <td colspan="3" class="table-item-empty-row">目前尚無用戶資料</td>
+                        </tr>
+                        <tr v-else v-for="item in users" :key="item.id">
+                            <td class="table-col-is_admin" style="border-top: 1px solid var(--brown-hover);">
+                                <div class="dot" :class="{ green: item.isAdmin }"></div>
+                            </td>
+                            <td class="table-col-name" style="border-top: 1px solid var(--brown-hover);">
+                                <strong class="table-item-name">{{ item.name }}</strong>
+                            </td>
+                            <td class="table-col-oper" style="border-top: 1px solid var(--brown-hover);">
+                                <div class="table-col-oper-container">
+                                    <button class="module-btn" @click="openEditModal(item)">編輯</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        const classicalSwal = Swal.mixin({
+            customClass: {
+                popup: 'swal-popup',
+                title: 'swal-title'
+            },
+            buttonsStyling: true
+        });
+
+        createApp({
+            setup() {
+                const users = ref([]);
+                const loading = ref(false);
+
+                // 查詢所有用戶 (對應 UserRestController: GET /api/users)
+                const fetchUsers = async () => {
+                    loading.value = true;
+                    try {
+                        const response = await axios.get('/api/users');
+                        users.value = response.data;
+                    } catch (error) {
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '載入失敗',
+                            text: error.response?.data?.message || '無法取得用戶配置'
+                        });
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                // 單一刪除 (對應 UserRestController: DELETE /api/users/id/{id})
+                const deleteUser = async (id) => {
+                    await axios.delete(`/api/users/id/${id}`);
+                };
+
+                // 共用的 checkbox toggle 同步邏輯
+                const initSwalToggle = (checkboxId, initState) => {
+                    const checkbox = document.getElementById(checkboxId);
+                    if (!checkbox) return;
+
+                    const btn = checkbox.parentElement;
+                    if (!btn) return;
+
+                    if (typeof initState === 'boolean') checkbox.checked = initState;
+
+                    btn.classList.toggle('active', checkbox.checked);
+
+                    if (btn.dataset.hasToggleListener) return;
+                    btn.dataset.hasToggleListener = 'true';
+
+                    btn.addEventListener('click', (e) => {
+                        if (e.target !== checkbox) checkbox.checked = !checkbox.checked;
+                        btn.classList.toggle('active', checkbox.checked);
+                    });
+                };
+
+                // 新增用戶彈窗 (對應 UserRestController: POST /api/users)
+                const openCreateModal = () => {
+                    classicalSwal.fire({
+                        title: '新增用戶',
+                        html: `
+                            <div class="swal-row-container">
+                                <fieldset class="module-fieldset">
+                                    <legend>名稱</legend>
+                                    <input id="swal-username" autocomplete="username" class="module-input-clean">
+                                </fieldset>
+                                <fieldset class="module-fieldset">
+                                    <legend>密碼</legend>
+                                    <input type="password" id="swal-password" autocomplete="new-password" class="module-input-clean">
+                                </fieldset>
+                                <button type="button" class="module-toggle">
+                                    <span class="module-toggle-status"></span>
+                                    <span>管理員</span>
+                                    <input type="checkbox" id="swal-isAdmin">
+                                </button>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: '新增',
+                        cancelButtonText: '取消',
+                        didOpen: () => {
+                            initSwalToggle('swal-isAdmin', false);
+                        },
+                        preConfirm: () => {
+                            const username = document.getElementById('swal-username').value.trim();
+                            const password = document.getElementById('swal-password').value.trim();
+                            const isAdmin = document.getElementById('swal-isAdmin').checked;
+
+                            if (!username || !password) {
+                                Swal.showValidationMessage('帳號與密碼不可為空');
+                                return false;
+                            }
+                            return { username, password, isAdmin };
+                        }
+                    }).then(async (result) => {
+                        if (result.isConfirmed) {
+                            try {
+                                await axios.post('/api/users', result.value);
+                                classicalSwal.fire({ icon: 'success', title: '新增成功', timer: 1200, showConfirmButton: false });
+                                fetchUsers();
+                            } catch (error) {
+                                classicalSwal.fire({ icon: 'error', title: '新增失敗', text: error.response?.data?.message || '操作失敗' });
+                            }
+                        }
+                    });
+                };
+
+                // 編輯用戶彈窗 (對應 UserRestController: PUT /api/users/id/{id})
+                const openEditModal = (item) => {
+                    classicalSwal.fire({
+                        title: '編輯用戶',
+                        html: `
+                            <div class="swal-row-container">
+                                <fieldset class="module-fieldset">
+                                    <legend>帳號</legend>
+                                    <input id="swal-username" class="module-input-clean" value="${item.name}">
+                                </fieldset>
+                                <fieldset class="module-fieldset">
+                                    <legend>新密碼</legend>
+                                    <input type="password" id="swal-password" class="module-input-clean" placeholder="保持空白則不修改">
+                                </fieldset>
+                                <button type="button" class="module-toggle">
+                                    <span class="module-toggle-status"></span>
+                                    <span>管理員</span>
+                                    <input type="checkbox" id="swal-isAdmin">
+                                </button>
+                            </div>
+                        `,
+                        showDenyButton: true,
+                        showCancelButton: true,
+                        confirmButtonText: '儲存',
+                        cancelButtonText: '取消',
+                        denyButtonText: '刪除',
+                        didOpen: () => {
+                            initSwalToggle('swal-isAdmin', item.isAdmin);
+                        },
+                        preConfirm: () => {
+                            const username = document.getElementById('swal-username').value.trim();
+                            const password = document.getElementById('swal-password').value.trim();
+                            const isAdmin = document.getElementById('swal-isAdmin').checked;
+
+                            if (!username) {
+                                Swal.showValidationMessage('帳號不可為空');
+                                return false;
+                            }
+
+                            const payload = { username, isAdmin };
+                            if (password) {
+                                payload.password = password;
+                            }
+                            return payload;
+                        }
+                    }).then(async (result) => {
+                        if (result.isConfirmed) {
+                            try {
+                                await axios.put(`/api/users/id/${item.id}`, result.value);
+                                classicalSwal.fire({ icon: 'success', title: '更新成功', timer: 1200, showConfirmButton: false });
+                                fetchUsers();
+                            } catch (error) {
+                                classicalSwal.fire({ icon: 'error', title: '更新失敗', text: error.response?.data?.message || '操作失敗' });
+                            }
+                        } else if (result.isDenied) {
+                            classicalSwal.fire({
+                                title: '確認刪除？',
+                                text: `確定要刪除用戶「${item.username}」嗎？此操作將無法復原！`,
+                                icon: 'warning',
+                                showCancelButton: true,
+                                confirmButtonText: '確定刪除',
+                                cancelButtonText: '取消'
+                            }).then(async (delResult) => {
+                                if (delResult.isConfirmed) {
+                                    try {
+                                        await deleteUser(item.id);
+                                        classicalSwal.fire({ icon: 'success', title: '已刪除', timer: 1200, showConfirmButton: false });
+                                        fetchUsers();
+                                    } catch (error) {
+                                        classicalSwal.fire({ icon: 'error', title: '刪除失敗', text: error.response?.data?.message || '操作失敗' });
+                                    }
+                                }
+                            });
+                        }
+                    });
+                };
+
+                onMounted(() => {
+                    fetchUsers();
+                });
+
+                return { users, loading, openCreateModal, openEditModal };
+            }
+        }).mount('#app');
+    </script>
+
+</body>
+
+</html>

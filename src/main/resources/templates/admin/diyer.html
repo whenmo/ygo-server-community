@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理員設定</title>
+
+    <!-- 全局古典風格樣式表 -->
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+
+    <!-- CDN 套件 -->
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+
+    <style>
+        .table-col-first {
+            width: 120px;
+        }
+
+        .module-table-container {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+        }
+
+        .table-item-name {
+            color: var(--red-color);
+            font-weight: bold;
+        }
+
+        .diyer-keylabel-container {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .diyer-keylabel {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 5px 10px;
+            color: var(--white-color);
+            background-color: var(--dark-color);
+            border-radius: 5px;
+            border: 0px solid;
+        }
+
+        .table-item-hint-label {
+            color: var(--brown-hover);
+            font-weight: bold;
+        }
+
+        .table-item-settype {
+            background-color: var(--white-hover) !important;
+            color: var(--brown-hover);
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .table-item-setcode {
+            background-color: var(--white-hover) !important;
+        }
+
+        .table-item-setname {
+            background-color: var(--white-hover) !important;
+            color: var(--red-color);
+            font-weight: bold;
+        }
+
+        .table-row-diyer-info {
+            cursor: pointer;
+        }
+
+        .table-row-diyer-info td {
+            border-top: 1px solid var(--brown-hover);
+        }
+
+        .swal-add-fieldset {
+            width: auto;
+            justify-content: space-between;
+            flex-direction: row;
+        }
+
+        .swal-add-fieldset input {
+            width: 100%;
+        }
+
+        .swal-add-fieldset button {
+            padding: 8px 10px;
+        }
+
+        .swal-editor-body td {
+            padding: 5px;
+            border-bottom: 1px solid var(--brown-hover);
+        }
+
+        .swal-editor-body tr:last-child {
+            border-bottom: none;
+        }
+
+        .swal-editor-row input {
+            width: 100%;
+            padding: 5px 0 !important;
+            border-bottom: 2px solid var(--brown-color);
+        }
+
+        .swal-editor-row input:focus {
+            border-bottom: 2px solid var(--red-color);
+        }
+
+        .expand-icon {
+            display: inline-block;
+            transition: transform 0.2s;
+            margin-right: 6px;
+            font-weight: bold;
+        }
+
+        .expand-icon.is-expanded {
+            transform: rotate(90deg);
+        }
+
+        .swal-table-col-check {
+            width: 58px;
+            text-align: center;
+        }
+
+        .swal-table-col-type {
+            width: 120px;
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div id="app" class="two-column-layout-container">
+        <div th:replace="~{admin/menu :: sidebar('diyer')}"></div>
+
+        <!-- 右側主要內容區 -->
+        <main class="main-column">
+            <div class="main-top-bar">
+                <div class="main-top-bar-row" style="flex-wrap: wrap; gap: 10px;">
+                    <h2 class="main-top-bar-title">作者清單</h2>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <select v-model.number="selectedCdbId" @change="persistCdbSelection" class="module-select">
+                            <option v-for="config in cdbConfigs" :key="config.id" :value="config.id">
+                                {{ config.name }}
+                            </option>
+                        </select>
+                        <button @click="exportConfig" class="main-top-bar-btn" :disabled="!selectedCdbId">匯出</button>
+                        <button @click="openDiyerModal()" class="main-top-bar-btn">新增作者</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 資料表格 -->
+            <div class="module-table-container">
+                <table class="module-table">
+                    <thead>
+                        <tr>
+                            <th class="table-col-first">作者</th>
+                            <th>字段區間</th>
+                            <th>卡號區間</th>
+                            <th class="table-col-oper">操作</th>
+                        </tr>
+                        <tr>
+                            <th class="table-col-first">類型</th>
+                            <th>code</th>
+                            <th colspan="2">名稱</th>
+                        </tr>
+                    </thead>
+                    <tbody v-if="loading">
+                        <tr>
+                            <td colspan="4" class="table-item-empty-row">載入中...</td>
+                        </tr>
+                    </tbody>
+                    <tbody v-else-if="sortedDiyers.length === 0">
+                        <tr>
+                            <td colspan="4" class="table-item-empty-row">目前尚無作者資料</td>
+                        </tr>
+                    </tbody>
+                    <template v-else v-for="diyer in sortedDiyers" :key="diyer.id">
+                        <tr class="table-row-diyer-info" @click="ExpandDiyerRow(diyer.id)">
+                            <td>
+                                <span class="expand-icon"
+                                    :class="{ 'is-expanded': expandDiyerIds.has(diyer.id) }">▶</span>
+                                <strong class="table-item-name">{{ diyer.name }}</strong>
+                            </td>
+                            <td>
+                                <div class="diyer-keylabel-container">
+                                    <span v-if="!diyer.setRanges?.length" class="table-item-hint-label">未申請</span>
+                                    <span v-for="range in sortNumbers(diyer.setRanges)" :key="range"
+                                        class="diyer-keylabel">
+                                        {{ Number(range).toString(16).toUpperCase().padStart(2, '0') }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="diyer-keylabel-container">
+                                    <span v-if="!diyer.codeRanges?.length" class="table-item-hint-label">未申請</span>
+                                    <span v-for="code in sortNumbers(diyer.codeRanges)" :key="code"
+                                        class="diyer-keylabel">
+                                        {{ code }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="table-col-oper">
+                                <button class="module-btn" @click.stop="openDiyerModal(diyer)">編輯</button>
+                            </td>
+                        </tr>
+                        <template v-if="expandDiyerIds.has(diyer.id)">
+                            <tr v-if="sortDiyerStrings(diyer).length === 0">
+                                <td colspan="4" class="table-item-empty-row">
+                                    作者未在此 cdb 申請字段/指示物/特殊勝利
+                                </td>
+                            </tr>
+                            <tr v-for="entry in sortDiyerStrings(diyer)" :key="entry.type + '-' + entry.code">
+                                <td class="table-item-settype">{{ typeLabel(entry) }} </td>
+                                <td class="table-item-setcode">{{ entry.code }} </td>
+                                <td class="table-item-setname" colspan="2">{{ entry.name }}</td>
+                            </tr>
+                        </template>
+                    </template>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        const classicalSwal = Swal.mixin({
+            customClass: {
+                popup: 'swal-popup',
+                title: 'swal-title'
+            },
+            buttonsStyling: true
+        });
+
+        createApp({
+            setup() {
+                const diyers = ref([]);
+                const cdbConfigs = ref([]);
+                const selectedCdbId = ref(null);
+                const configuredSetnameCodes = ref([]);
+                const loading = ref(false);
+
+                const expandDiyerIds = ref(new Set());
+
+                /**
+                 * 切換指定作者項目的展開/收合狀態
+                 * @param {number|string} diyerId - 作者 ID
+                 */
+                const ExpandDiyerRow = (diyerId) => {
+                    const nextSet = new Set(expandDiyerIds.value);
+                    if (nextSet.has(diyerId)) {
+                        nextSet.delete(diyerId);
+                    } else {
+                        nextSet.add(diyerId);
+                    }
+                    expandDiyerIds.value = nextSet;
+                };
+
+                /**
+                 * 顯示錯誤訊息的 SweetAlert2 彈窗
+                 * @param {string} title - 標題文字
+                 * @param {string} text - 內容文字
+                 * @param {Object} error - 錯誤物件
+                 */
+                const throwErrorSwal = (title, text, error) => classicalSwal.fire({ icon: 'error', title: title, text: error.response?.data?.message || text });
+
+                /**
+                 * 非同步取得所有作者資料
+                 */
+                const fetchDiyers = async () => {
+                    loading.value = true;
+                    try {
+                        const response = await axios.get('/api/diyers');
+                        diyers.value = response.data;
+                    } catch (error) {
+                        throwErrorSwal('載入失敗', '無法取得作者配置', error);
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                /**
+                 * 非同步取得 CDB 配置列表，並初始化選擇的 CDB
+                 */
+                const fetchCdbConfigs = async () => {
+                    try {
+                        const response = await axios.get('/api/cdb_config');
+                        cdbConfigs.value = response.data;
+                        const savedId = Number(localStorage.getItem('adminSetSelectedCdbId'));
+                        const savedConfig = cdbConfigs.value.find(config => config.id === savedId);
+                        selectedCdbId.value = (savedConfig || cdbConfigs.value[0])?.id ?? null;
+                    } catch (error) {
+                        throwErrorSwal('載入失敗', '無法取得 CDB 配置', error);
+                    }
+                };
+
+                /**
+                 * 非同步取得已配置的 strings.conf 字段代碼
+                 */
+                const fetchConfiguredSetnameCodes = async () => {
+                    try {
+                        const response = await axios.get('/api/card_info/default-setnames');
+                        configuredSetnameCodes.value = response.data;
+                    } catch (error) {
+                        throwErrorSwal('載入失敗', '無法讀取 strings.conf 字段代碼', error);
+                    }
+                };
+
+                /**
+                 * 將目前選中的 CDB ID 持久化儲存到 localStorage 中
+                 */
+                const persistCdbSelection = () => {
+                    if (selectedCdbId.value != null) {
+                        localStorage.setItem('adminSetSelectedCdbId', String(selectedCdbId.value));
+                    }
+                };
+
+                /**
+                 * 計算屬性：將作者列表依據最小卡號區間及名稱進行排序
+                 */
+                const sortedDiyers = computed(() => [...diyers.value].sort((left, right) => {
+                    const leftRange = Math.min(...(left.codeRanges || []).map(Number));
+                    const rightRange = Math.min(...(right.codeRanges || []).map(Number));
+                    return (Number.isFinite(leftRange) ? leftRange : Number.POSITIVE_INFINITY) -
+                        (Number.isFinite(rightRange) ? rightRange : Number.POSITIVE_INFINITY) ||
+                        left.name.localeCompare(right.name);
+                }));
+
+                /**
+                 * 將數值陣列由小到大進行排序
+                 * @param {Array} values - 數值陣列
+                 * @returns {Array} 排序後的陣列
+                 */
+                const sortNumbers = values => [...(values || [])].sort((left, right) => Number(left) - Number(right));
+
+                /**
+                 * 將 字段 進行升序排序
+                 * @returns {Array} 過濾並排序後的字串項目列表
+                 */
+                const sortSetnames = (left, right) => {
+                    const getSetnameSortKeys = code => {
+                        const hexString = String(code).replace(/^0x/i, '').toUpperCase().padStart(4, '0');
+                        const first = hexString[1] + hexString[2];
+                        const second = hexString[0]
+                        const third = hexString[3];
+
+                        return {
+                            first: Number.parseInt(first, 16) || 0,
+                            second: Number.parseInt(second, 16) || 0,
+                            third: Number.parseInt(third, 16) || 0,
+                            full: Number.parseInt(hexString, 16) || 0
+                        };
+                    };
+
+                    const lKeys = getSetnameSortKeys(left.code);
+                    const rKeys = getSetnameSortKeys(right.code);
+
+                    if (lKeys.first !== rKeys.first) return lKeys.first - rKeys.first;
+                    if (lKeys.second !== rKeys.second) return lKeys.second - rKeys.second;
+                    if (lKeys.third !== rKeys.third) return lKeys.third - rKeys.third;
+                    return lKeys.full - rKeys.full;
+                };
+
+                /**
+                 * 將 內置字段 進行排序
+                 * @returns {Array} 過濾並排序後的字串項目列表
+                 */
+                const sortInternal = (left, right) => String(left.name).localeCompare(String(right.name), 'zh-Hant');
+
+                /**
+                 * 將 counter 或 victory 進行升序排序
+                 * @returns {Array} 過濾並排序後的字串項目列表
+                 */
+                const sortCountersOrVictories = (left, right) => {
+                    const leftCodeNum = Number.parseInt(String(left.code).replace(/^0x/i, ''), 16) || 0;
+                    const rightCodeNum = Number.parseInt(String(right.code).replace(/^0x/i, ''), 16) || 0;
+                    return leftCodeNum - rightCodeNum;
+                };
+
+                /**
+                 * 取得指定作者在目前選中 CDB 下的所有字串項目
+                 * @param {Object} diyer - 作者物件
+                 * @returns {Array} 屬於當前 CDB 的原始字串清單
+                 */
+                const getCdbStrings = diyer => (diyer.strings || []).map(item => ({ ...item })).filter(item => Number(item.cdbId) === selectedCdbId.value);
+
+                /**
+                 * 取得指定作者在目前選中 CDB 下的所有字串項目（包含字段、指示物、特殊勝利、內置字段）
+                 * 順序：字段 -> 指示物 -> 特殊勝利 -> 內置字段
+                 * 字段、指示物、特殊勝利以 code 升序顯示，內置字段以名稱排列
+                 * @param {Object} diyer - 作者物件
+                 * @returns {Array} 過濾並排序後的字串項目列表
+                 */
+                const sortDiyerStrings = diyer => {
+                    const getTypeWeight = item => {
+                        if (item.type === 'setname') return 1;
+                        if (item.type === 'counter') return 2;
+                        if (item.type === 'victory') return 3;
+                        if (item.type === 'internal') return 4;
+                        return 5;
+                    };
+
+                    return getCdbStrings(diyer).sort((left, right) => {
+                        const weightDiff = getTypeWeight(left) - getTypeWeight(right);
+                        if (weightDiff !== 0) return weightDiff;
+                        if (left.type === 'setname') return sortSetnames(left, right);
+                        if (left.type !== 'internal') return sortCountersOrVictories(left, right);
+                        return sortInternal(left, right);
+                    });
+                };
+
+                /**
+                 * 根據字串項目內容取得對應的中文型別標籤
+                 * @param {Object} entry - 字串項目物件
+                 * @returns {string} 中文標籤
+                 */
+                const typeLabel = entry => {
+                    if (entry.type === 'setname') return '字段';
+                    if (entry.type === 'counter') return '指示物';
+                    if (entry.type === 'victory') return '特殊勝利';
+                    if (entry.type === 'internal') return '內置字段';
+                    return entry.type;
+                };
+
+                /**
+                 * 跳脫 HTML 特殊字元以防範 XSS 攻擊
+                 * @param {*} value - 原始字串值
+                 * @returns {string} 跳脫後的字串
+                 */
+                const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                })[character]);
+
+                /**
+                 * 檢查輸入的代碼值並輸出標準化後的代碼，若不符合規範則回傳 null
+                 * @param {string} rawCode - 原始的 code 字串
+                 * @param {string} type - 項目類型 ('setname' | 'internal' | 'counter' | 'victory')
+                 * @returns {string|null} 標準化後的代碼
+                 */
+                const checkCodeValue = (rawCode, type) => {
+                    const trimmCode = String(rawCode || '').trim();
+                    if (!trimmCode) return null;
+
+                    if (type === 'internal') return /\s/.test(trimmCode) ? null : trimmCode;
+
+                    const hexCode = trimmCode.replace(/^0x/i, '').toUpperCase();
+                    if (!/^[0-9a-f]+$/i.test(hexCode)) return null;
+
+                    if (type === 'setname') {
+                        if (hexCode.length < 3 || hexCode.length > 4)
+                            return null;
+                        return hexCode.padStart(4, '0');
+                    } else if (type === 'counter') {
+                        if (hexCode.length < 3 || hexCode.length > 4)
+                            return null;
+                    } else if (type === 'victory' && hexCode.length > 4) {
+                        return null;
+                    }
+
+                    return hexCode;
+                };
+
+                /**
+                 * 檢查與其他作者是否有重複項目（名稱、卡號區間、字段區間、同CDB下的字串項目代碼）
+                 */
+                const checkDuplicates = (newName, newCodeRanges, newSetRanges, currentRows, currentItemId = null) => {
+                    let hasDuplicateName = false;
+                    const duplicateCodes = [];
+                    const duplicateSets = [];
+                    const duplicateStringEntries = [];
+
+                    diyers.value.forEach(other => {
+                        if (currentItemId !== null && other.id === currentItemId) return;
+
+                        // 1. 檢查名稱重複
+                        if (other.name === newName) {
+                            hasDuplicateName = true;
+                        }
+
+                        // 2. 檢查卡號區間重疊
+                        if (other.codeRanges) {
+                            other.codeRanges.forEach(code => {
+                                if (newCodeRanges.includes(Number(code))) {
+                                    if (!duplicateCodes.some(d => d.author === other.name)) {
+                                        duplicateCodes.push({ author: other.name, values: [] });
+                                    }
+                                    const entry = duplicateCodes.find(d => d.author === other.name);
+                                    if (!entry.values.includes(Number(code))) entry.values.push(Number(code));
+                                }
+                            });
+                        }
+
+                        // 3. 檢查字段區間重疊
+                        if (other.setRanges) {
+                            other.setRanges.forEach(sRange => {
+                                if (newSetRanges.includes(Number(sRange))) {
+                                    if (!duplicateSets.some(d => d.author === other.name)) {
+                                        duplicateSets.push({ author: other.name, values: [] });
+                                    }
+                                    const entry = duplicateSets.find(d => d.author === other.name);
+                                    if (!entry.values.includes(Number(sRange))) entry.values.push(Number(sRange));
+                                }
+                            });
+                        }
+
+                        // 4. 檢查同 CDB 下是否有相同 type 與 code 的項目
+                        const otherCdbStrings = (other.strings || []).filter(item => Number(item.cdbId) === selectedCdbId.value);
+                        currentRows.forEach(row => {
+                            const matched = otherCdbStrings.find(s => s.type === row.type && String(s.code).toLowerCase() === String(row.code).toLowerCase());
+                            if (matched) {
+                                if (!duplicateStringEntries.some(d => d.author === other.name)) {
+                                    duplicateStringEntries.push({ author: other.name, items: [] });
+                                }
+                                const entry = duplicateStringEntries.find(d => d.author === other.name);
+                                if (!entry.items.some(i => i.type === row.type && i.code === row.code)) {
+                                    entry.items.push({ type: row.type, code: row.code });
+                                }
+                            }
+                        });
+                    });
+
+                    return { hasDuplicateName, duplicateCodes, duplicateSets, duplicateStringEntries };
+                };
+
+                /**
+                 * 初始化區間標籤產生器（處理動態新增/刪除卡號或字段區間的 UI 互動）
+                 * @param {string} inputId - 輸入框 DOM ID
+                 * @param {string} addId - 新增按鈕 DOM ID
+                 * @param {string} containerId - 容器 DOM ID
+                 * @param {Array} [initialValues=[]] - 初始數值陣列
+                 * @param {boolean} [isHex=false] - 是否為十六進位格式
+                 * @param {Function} [onMessage] - 訊息回調函數
+                 * @returns {Object} 包含取得目前數值方法的物件
+                 */
+                const initRangeBuilder = (inputId, addId, containerId, initialValues = [], isHex = false, onMessage = null) => {
+                    const input = document.getElementById(inputId);
+                    const addButton = document.getElementById(addId);
+                    const container = document.getElementById(containerId);
+                    let values = [...initialValues].map(Number);
+
+                    /** 重新渲染區間標籤介面 */
+                    const render = () => {
+                        container.replaceChildren();
+                        const sortedValues = sortNumbers(values);
+                        if (sortedValues.length === 0) {
+                            container.textContent = '無';
+                            return;
+                        }
+                        sortedValues.forEach((value, index) => {
+                            const badge = document.createElement('span');
+                            badge.className = 'diyer-keylabel';
+                            const label = isHex
+                                ? value.toString(16).toUpperCase().padStart(2, '0')
+                                : String(value);
+                            badge.innerHTML = `<span>${label}</span><button type="button" class="module-icon-btn white" data-index="${index}">×</button>`;
+                            container.appendChild(badge);
+                        });
+                    };
+
+                    /** 新增一個數值區間項目 */
+                    const addValue = () => {
+                        const raw = input.value.trim().replace(/^0x/i, '');
+                        if (!raw) return;
+                        const valid = isHex ? /^[0-9a-f]{1,2}$/i.test(raw) : /^\d+$/.test(raw);
+                        const value = Number.parseInt(raw, isHex ? 16 : 10);
+                        const maximum = isHex ? 255 : 2000;
+                        if (!valid || value < 1 || value > maximum) {
+                            if (onMessage) onMessage(isHex ? '字段區間須介於 01 至 FF' : '卡號區間須介於 1 至 2000', true);
+                            return;
+                        }
+
+                        if (!values.includes(value)) {
+                            values.push(value);
+                        }
+
+                        input.value = '';
+                        render();
+                        if (onMessage) onMessage('', false);
+                    };
+
+                    addButton.addEventListener('click', addValue);
+                    input.addEventListener('keydown', event => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            addValue();
+                        }
+                    });
+                    container.addEventListener('click', event => {
+                        const removeButton = event.target.closest('button[data-index]');
+                        if (!removeButton) return;
+                        values.splice(Number(removeButton.dataset.index), 1);
+                        render();
+                    });
+                    render();
+                    return { getValues: () => sortNumbers(values) };
+                };
+
+                /**
+                 * 開啟新增或編輯作者的互動式彈窗 (SweetAlert2)
+                 * @param {Object|null} [diyer=null] - 若為編輯則帶入該作者物件，若為新增則為 null
+                 */
+                const openDiyerModal = (diyer = null) => {
+                    if (selectedCdbId.value == null) {
+                        classicalSwal.fire({ icon: 'warning', title: '請先選擇 CDB' });
+                        return;
+                    }
+                    const initialEntries = diyer ? sortDiyerStrings(diyer) : [];
+                    const initialCodes = diyer?.codeRanges || [];
+                    const initialSetRanges = diyer?.setRanges || [];
+                    let editorState;
+                    let showMessage = () => { };
+
+                    classicalSwal.fire({
+                        title: diyer ? '編輯作者' : '新增作者',
+                        width: 'min(1000px, 96vw)',
+                        html: `
+                        <div class="swal-row-container">
+                            <div class="swal-col-container">
+                                <div class="swal-row-container" style="width: 100%;">
+                                    <fieldset class="module-fieldset">
+                                        <legend>作者名稱</legend>
+                                        <input id="swal-diyer-name" class="module-input-clean" value="${escapeHtml(diyer?.name)}">
+                                    </fieldset>
+                                    <fieldset class="module-fieldset swal-add-fieldset">
+                                        <legend>字段區間</legend>
+                                        <input id="swal-set-input" class="module-input-clean" placeholder="01~FF">
+                                        <button id="swal-set-add" type="button" class="module-icon-btn">+</button>
+                                    </fieldset>
+                                    <fieldset class="module-fieldset swal-add-fieldset">
+                                        <legend>卡號區間</legend>
+                                        <input id="swal-code-input" class="module-input-clean" placeholder="1~2000">
+                                        <button id="swal-code-add" type="button" class="module-icon-btn">+</button>
+                                    </fieldset>
+                                </div>
+                                <div class="swal-row-container" style="width: 100%;">
+                                    <textarea id="swal-string-import-text" class="module-textarea-clean" style="height: 100%;"
+                                        placeholder="!setname 0x144 字段&#10;!counter 0x1 指示物&#10;!victory 0x1 特殊勝利&#10;#cm.xxxx 內置字段"></textarea>
+                                </div>
+                            </div>
+                            <div class="swal-col-container">
+                                <div class="swal-col-container" style="width: 100%;">
+                                    <div id="swal-set-values" class="diyer-keylabel-container" style="width: 100%;"></div>
+                                    <div id="swal-code-values" class="diyer-keylabel-container" style="width: 100%;"></div>
+                                </div>
+                                <div class="swal-col-container" style="width: 100%;">
+                                    <button id="swal-string-add" type="button" class="module-btn">新增列</button>
+                                    <button id="swal-string-import-btn" type="button" class="module-btn">解析匯入內容</button>
+                                    <span id="swal-message-span" style="font-size: 1rem; font-weight: bold; color: var(--brown-hover); display: inline-flex; align-items: center; height: 100%;"></span>
+                                </div>
+                            </div>
+                            <div class="module-table-container" style="max-height: 300px; overflow-y: auto; width: 100%;">
+                                <table class="module-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="swal-table-col-check">檢查</th>
+                                            <th class="swal-table-col-type">類型</th>
+                                            <th>code</th>
+                                            <th>名稱</th>
+                                            <th class="table-col-oper">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="swal-editor-body" class="swal-editor-body"></tbody>
+                                </table>
+                            </div>
+                        </div>`,
+                        showCancelButton: true,
+                        confirmButtonText: diyer ? '儲存' : '新增作者',
+                        cancelButtonText: '取消',
+                        didOpen: () => {
+                            const messageSpan = document.getElementById('swal-message-span');
+                            showMessage = (msg, isError = false) => {
+                                messageSpan.textContent = msg;
+                                messageSpan.style.color = isError ? 'var(--red-color)' : 'var(--brown-hover)';
+                            };
+
+                            const codeBuilder = initRangeBuilder('swal-code-input', 'swal-code-add', 'swal-code-values', initialCodes, false, showMessage);
+                            const setBuilder = initRangeBuilder('swal-set-input', 'swal-set-add', 'swal-set-values', initialSetRanges, true, showMessage);
+                            const rowContainer = document.getElementById('swal-editor-body');
+
+                            const updateRowValidation = (rowTr) => {
+                                const dot = rowTr.querySelector('.dot');
+                                const typeVal = rowTr.querySelector('.string-type').value;
+                                const codeVal = rowTr.querySelector('.string-code').value.trim();
+                                const nameVal = rowTr.querySelector('.string-name').value.trim();
+
+                                const validatedCode = checkCodeValue(codeVal, typeVal);
+                                const isNameValid = nameVal.length > 0;
+
+                                if (validatedCode !== null && isNameValid) {
+                                    dot.classList.add('green');
+                                    dot.classList.remove('red');
+                                } else {
+                                    dot.classList.add('red');
+                                    dot.classList.remove('green');
+                                }
+                            };
+
+                            const appendRow = entry => {
+                                let currentType = entry.type || 'setname';
+                                let codeValue = escapeHtml(entry.code || '');
+
+                                const existingRow = [...rowContainer.querySelectorAll('tr.swal-editor-row')].find(row => {
+                                    const rowType = row.querySelector('.string-type').value;
+                                    const rowCode = row.querySelector('.string-code').value.trim();
+                                    return rowType === currentType && rowCode.toLowerCase() === codeValue.toLowerCase();
+                                });
+
+                                if (existingRow) {
+                                    const nameInput = existingRow.querySelector('.string-name');
+                                    nameInput.value = entry.name || '';
+                                    updateRowValidation(existingRow);
+                                    return;
+                                }
+
+                                rowContainer.insertAdjacentHTML('beforeend', `
+                                    <tr class="swal-editor-row">
+                                        <td class="swal-table-col-check"><div class="dot"></div></td>
+                                        <td class="swal-table-col-type" style="padding: 0; background: var(--white-hover);">
+                                            <select class="module-select string-type" style="border: 0; width: 100%; background: transparent;">
+                                                <option value="setname" ${currentType === 'setname' ? 'selected' : ''}>字段</option>
+                                                <option value="internal" ${currentType === 'internal' ? 'selected' : ''}>內置字段</option>
+                                                <option value="counter" ${currentType === 'counter' ? 'selected' : ''}>指示物</option>
+                                                <option value="victory" ${currentType === 'victory' ? 'selected' : ''}>特殊勝利</option>
+                                            </select>
+                                        </td>
+                                        <td><input class="module-input-clean string-code" value="${codeValue}" placeholder="0x1441 或 cm.XXXX" required></td>
+                                        <td><input class="module-input-clean string-name" value="${escapeHtml(entry.name || '')}" placeholder="名稱" required></td>
+                                        <td class="table-col-oper"><button class="module-btn string-delete">刪除</button></td>
+                                    </tr>`);
+                                updateRowValidation(rowContainer.lastElementChild);
+                            };
+
+                            initialEntries.forEach(appendRow);
+
+                            document.getElementById('swal-string-add').addEventListener('click', () => appendRow({ type: 'setname' }));
+
+                            rowContainer.addEventListener('click', event => {
+                                if (event.target.closest('.string-delete')) {
+                                    event.target.closest('tr').remove();
+                                }
+                            });
+
+                            rowContainer.addEventListener('input', event => {
+                                const row = event.target.closest('.swal-editor-row');
+                                if (row) updateRowValidation(row);
+                            });
+                            rowContainer.addEventListener('change', event => {
+                                const row = event.target.closest('.swal-editor-row');
+                                if (row) updateRowValidation(row);
+                            });
+
+                            document.getElementById('swal-string-import-btn').addEventListener('click', () => {
+                                const importTextarea = document.getElementById('swal-string-import-text');
+                                const text = importTextarea.value.trim();
+                                if (!text) {
+                                    showMessage('請輸入要解析的匯入內容', true);
+                                    return;
+                                }
+                                const entries = parseStringImport(text);
+                                if (entries.length === 0) {
+                                    showMessage('沒有可匯入的有效字串行', true);
+                                    return;
+                                }
+                                entries.forEach(appendRow);
+                                importTextarea.value = '';
+                                showMessage(`成功匯入 ${entries.length} 筆資料`, false);
+                            });
+
+                            editorState = { codeBuilder, setBuilder };
+                        },
+                        preConfirm: () => {
+                            const name = document.getElementById('swal-diyer-name').value.trim();
+                            if (!name) {
+                                showMessage('作者名稱不可為空', true);
+                                return false;
+                            }
+
+                            const rawRows = [...document.querySelectorAll('#swal-editor-body tr')];
+                            const rows = [];
+
+                            for (const row of rawRows) {
+                                const typeVal = row.querySelector('.string-type').value;
+                                const rawCode = row.querySelector('.string-code').value.trim();
+                                const rowName = row.querySelector('.string-name').value.trim();
+
+                                const validatedCode = checkCodeValue(rawCode, typeVal);
+
+                                if (validatedCode !== null && rowName.length > 0) {
+                                    rows.push({
+                                        type: typeVal,
+                                        code: validatedCode,
+                                        name: rowName
+                                    });
+                                }
+                            }
+
+                            const keys = rows.map(row => `${row.type}\0${row.code}`);
+                            if (new Set(keys).size !== keys.length) {
+                                showMessage('同一類型不可有重複 code', true);
+                                return false;
+                            }
+
+                            showMessage('', false);
+                            return { name, codeRanges: editorState.codeBuilder.getValues(), setRanges: editorState.setBuilder.getValues(), rows };
+                        }
+                    }).then(async result => {
+                        if (!result.isConfirmed) return;
+                        const form = result.value;
+
+                        const checkAndSave = async (currentForm) => {
+                            const { hasDuplicateName, duplicateCodes, duplicateSets, duplicateStringEntries } = checkDuplicates(
+                                currentForm.name,
+                                currentForm.codeRanges,
+                                currentForm.setRanges,
+                                currentForm.rows,
+                                diyer?.id ?? null
+                            );
+
+                            const duplicateSetnames = currentForm.rows.filter(row => row.type === 'setname' &&
+                                /^0x[0-9a-f]+$/i.test(row.code) &&
+                                configuredSetnameCodes.value.includes(Number.parseInt(row.code, 16)));
+
+                            if (hasDuplicateName || duplicateCodes.length > 0 || duplicateSets.length > 0 || duplicateStringEntries.length > 0 || duplicateSetnames.length > 0) {
+                                let warningHtml = '<div style="text-align: left; max-height: 220px; overflow-y: auto; font-size: 0.9rem; line-height: 1.6;">';
+
+                                if (hasDuplicateName) {
+                                    warningHtml += `<p style="color: var(--red-color); font-weight: bold; margin-bottom: 4px;">• 作者名稱「${escapeHtml(currentForm.name)}」與其他作者重複！</p>`;
+                                }
+
+                                if (duplicateCodes.length > 0) {
+                                    warningHtml += '<p style="color: var(--red-color); font-weight: bold; margin-bottom: 4px;">以下卡號區間與其他作者重複：</p>';
+                                    duplicateCodes.forEach(d => {
+                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${d.author}</b>：${d.values.join(', ')} <br>`;
+                                    });
+                                }
+
+                                if (duplicateSets.length > 0) {
+                                    warningHtml += '<p style="color: var(--red-color); font-weight: bold; margin-top: 8px; margin-bottom: 4px;">以下字段區間與其他作者重複：</p>';
+                                    duplicateSets.forEach(d => {
+                                        const hexValues = d.values.map(v => Number(v).toString(16).toUpperCase().padStart(2, '0'));
+                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${d.author}</b>：${hexValues.join(', ')} <br>`;
+                                    });
+                                }
+
+                                if (duplicateStringEntries.length > 0) {
+                                    warningHtml += '<p style="color: var(--red-color); font-weight: bold; margin-top: 8px; margin-bottom: 4px;">以下項目與其他作者在當前 CDB 擁 有相同的類型與 Code：</p>';
+                                    duplicateStringEntries.forEach(d => {
+                                        const itemsDesc = d.items.map(i => `[${i.type}] ${i.code}`).join(', ');
+                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${d.author}</b>：${itemsDesc} <br>`;
+                                    });
+                                }
+
+                                if (duplicateSetnames.length > 0) {
+                                    warningHtml += '<p style="color: var(--red-color); font-weight: bold; margin-top: 8px; margin-bottom: 4px;">以下字段代碼已存在於 strings.conf：</p>';
+                                    warningHtml += `&nbsp;&nbsp;• <b>${duplicateSetnames.map(row => `0x${row.code}`).join(', ')}</b><br>`;
+                                }
+
+                                warningHtml += '<p style="margin-top: 12px; color: #666; font-weight: bold;">是否確定要繼續儲存？</p></div>';
+
+                                const confirm = await classicalSwal.fire({
+                                    icon: 'warning',
+                                    title: '資料重疊或重複提醒',
+                                    html: warningHtml,
+                                    showCancelButton: true,
+                                    confirmButtonText: '仍然儲存',
+                                    cancelButtonText: '返回編輯'
+                                });
+
+                                if (!confirm.isConfirmed) {
+                                    openDiyerModal({
+                                        id: diyer?.id,
+                                        name: currentForm.name,
+                                        codeRanges: currentForm.codeRanges,
+                                        setRanges: currentForm.setRanges,
+                                        strings: currentForm.rows.map(row => ({
+                                            cdbId: selectedCdbId.value,
+                                            code: row.code,
+                                            name: row.name,
+                                            type: row.type
+                                        }))
+                                    });
+                                    return;
+                                }
+                            }
+
+                            const diyerId = diyer?.id;
+                            const payload = {
+                                ...(diyerId ? { id: diyerId } : {}),
+                                name: currentForm.name,
+                                codeRanges: currentForm.codeRanges,
+                                setRanges: currentForm.setRanges,
+                                strings: [
+                                    ...(diyer?.strings || []).filter(item => Number(item.cdbId) !== selectedCdbId.value),
+                                    ...currentForm.rows.map(row => ({
+                                        cdbId: selectedCdbId.value,
+                                        code: row.code,
+                                        name: row.name,
+                                        type: row.type
+                                    }))
+                                ]
+                            };
+                            try {
+                                if (diyerId)
+                                    await axios.put('/api/diyers', payload);
+                                else
+                                    await axios.post('/api/diyers', payload);
+                                await fetchDiyers();
+                                classicalSwal.fire({ icon: 'success', title: diyerId ? '更新成功' : '新增作者成功', timer: 1200, showConfirmButton: false });
+                            } catch (error) {
+                                throwErrorSwal('儲存失敗', '無法儲存作者字串資料', error);
+                            }
+                        };
+
+                        await checkAndSave(form);
+                    });
+                };
+
+                /**
+                 * 解析批次匯入的字串純文字內容並標準化代碼
+                 * @param {string} content - 輸入的純文字內容
+                 * @returns {Array} 包含成功解析且合法的 entries 陣列
+                 */
+                const parseStringImport = content => {
+                    const entries = [];
+
+                    content.replace(/^\uFEFF/, '').split(/\r?\n/).forEach(rawLine => {
+                        const line = rawLine.trim();
+                        if (!line) return;
+
+                        const entry = matchString(line);
+                        if (entry) entries.push(entry);
+                    });
+
+                    return entries;
+                };
+
+                /**
+                 * 匹配單行文字，解析出類型、原始代碼與名稱
+                 * @param {string} line - 輸入的單行純文字
+                 * @returns {Object|null} 解析出的物件，若不符合則回傳 null
+                 */
+                const matchString = line => {
+                    if (line.startsWith('#')) {
+                        const content = line.slice(1).trim();
+                        const spaceIndex = content.indexOf(' ');
+                        if (spaceIndex === -1) return null;
+
+                        const code = checkCodeValue(content.slice(0, spaceIndex), 'internal');
+                        const name = content.slice(spaceIndex + 1).trim();
+                        if (!code || !name) return null;
+
+                        return { type: 'internal', code, name };
+                    }
+
+                    if (line.startsWith('!')) {
+                        const matchType = line.match(/^!(setname|counter|victory)\s+/);
+                        if (!matchType) return null;
+
+                        const type = matchType[1];
+                        const remainder = line.slice(matchType[0].length).trim();
+
+                        const spaceIndex = remainder.indexOf(' ');
+                        if (spaceIndex === -1) return null;
+
+                        const code = checkCodeValue(remainder.slice(0, spaceIndex), type);
+                        const name = remainder.slice(spaceIndex + 1).trim();
+                        if (!code || !name) return null;
+
+                        return { type, code, name };
+                    }
+
+                    return null;
+                };
+
+                /**
+                 * 匯出目前 CDB 設定為 .conf 格式的文字檔案
+                 */
+                const exportConfig = () => {
+                    const sections = [...diyers.value]
+                        .sort((left, right) => {
+                            const leftRanges = [...(left.codeRanges || [])].map(Number).sort((a, b) => a - b);
+                            const rightRanges = [...(right.codeRanges || [])].map(Number).sort((a, b) => a - b);
+                            const rangeCount = Math.max(leftRanges.length, rightRanges.length);
+                            for (let index = 0; index < rangeCount; index++) {
+                                const leftRange = leftRanges[index] ?? Number.POSITIVE_INFINITY;
+                                const rightRange = rightRanges[index] ?? Number.POSITIVE_INFINITY;
+                                if (leftRange !== rightRange) return leftRange - rightRange;
+                            }
+                            return left.name.localeCompare(right.name);
+                        })
+                        .map(diyer => {
+                            const parts = [`#${diyer.name}`];
+                            const codeRanges = [...(diyer.codeRanges || [])].sort((a, b) => a - b);
+                            if (codeRanges.length > 0) {
+                                parts.push(codeRanges.join(','));
+                            }
+                            const setRangesArr = [...(diyer.setRanges || [])].sort((a, b) => a - b)
+                                .map(range => Number(range).toString(16).toUpperCase().padStart(2, '0'));
+                            if (setRangesArr.length > 0) {
+                                parts.push(`0x${setRangesArr.join(',')}`);
+                            }
+                            const lines = [parts.join(' ')];
+
+                            const entries = getCdbStrings(diyer);
+
+                            entries.filter(e => e.type === 'setname').sort(sortSetnames).forEach(entry => {
+                                const entryName = String(entry.name || '').replace(/[\r\n]+/g, ' ');
+                                lines.push(`!setname 0x${entry.code} ${entryName}`);
+                            });
+
+                            entries.filter(e => e.type === 'internal').sort(sortInternal).forEach(entry => {
+                                const entryName = String(entry.name || '').replace(/[\r\n]+/g, ' ');
+                                lines.push(`#${entry.code} ${entryName}`);
+                            });
+
+                            const counters = entries.filter(e => e.type === 'counter').sort(sortCountersOrVictories);
+                            if (counters.length > 0) {
+                                lines.push('#counter');
+                                counters.forEach(entry => {
+                                    const entryName = String(entry.name || '').replace(/[\r\n]+/g, ' ');
+                                    lines.push(`!counter 0x${entry.code} ${entryName}`);
+                                });
+                            }
+
+                            const victories = entries.filter(e => e.type === 'victory').sort(sortCountersOrVictories);
+                            if (victories.length > 0) {
+                                lines.push('#victory');
+                                victories.forEach(entry => {
+                                    const entryName = String(entry.name || '').replace(/[\r\n]+/g, ' ');
+                                    lines.push(`!victory 0x${entry.code} ${entryName}`);
+                                });
+                            }
+
+                            return lines.join('\n');
+                        });
+
+                    const content = sections.join('\n\n');
+                    const config = cdbConfigs.value.find(item => item.id === selectedCdbId.value);
+                    const filename = `${(config?.name || 'cdb').replace(/[\\/:*?"<>|]+/g, '_')}.conf`;
+                    const url = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    link.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 0);
+                };
+
+                // Vue 元件掛載完成後的生命週期勾子，用以初始化資料
+                onMounted(() => {
+                    fetchDiyers();
+                    fetchCdbConfigs();
+                    fetchConfiguredSetnameCodes();
+                });
+
+                return {
+                    diyers, cdbConfigs, selectedCdbId, sortedDiyers, loading,
+                    expandDiyerIds, ExpandDiyerRow,
+                    persistCdbSelection, sortNumbers, sortDiyerStrings, typeLabel,
+                    openDiyerModal, exportConfig
+                };
+            }
+        }).mount('#app');
+    </script>
+
+</body>
+
+</html>

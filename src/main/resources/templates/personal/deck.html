@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的卡組</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+
+    <style>
+        .deck-table-col-public {
+            width: 58px;
+            text-align: center;
+        }
+
+        .deck-table-col-name {
+            min-width: 180px;
+        }
+
+        .deck-table-col-pack {
+            min-width: 120px;
+        }
+
+        .deck-table-col-time {
+            width: 190px;
+        }
+
+        .deck-table-name {
+            color: var(--red-color);
+            font-weight: bold;
+        }
+
+        .deck-table-name:hover {
+            color: var(--red-hover);
+            text-decoration: underline;
+        }
+
+        .deck-actions {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        @media (max-width: 760px) {
+            .deck-table-col-time {
+                width: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div id="app" class="two-column-layout-container">
+        <div th:replace="~{personal/menu :: sidebar('decks')}"></div>
+
+        <main class="main-column">
+            <div class="main-top-bar">
+                <div class="main-top-bar-row">
+                    <h2 class="main-top-bar-title">我的卡組</h2>
+                    <button @click="openUploadModal" class="main-top-bar-btn">上傳卡組</button>
+                </div>
+            </div>
+
+            <div class="module-table-container">
+                <table class="module-table">
+                    <thead>
+                        <tr>
+                            <th class="deck-table-col-public">公開</th>
+                            <th class="deck-table-col-name">名稱</th>
+                            <th class="deck-table-col-pack">Pack</th>
+                            <th class="deck-table-col-time">最後操作時間</th>
+                            <th class="table-col-oper">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="loading">
+                            <td colspan="5" class="table-item-empty-row">載入中...</td>
+                        </tr>
+                        <tr v-else-if="decks.length === 0">
+                            <td colspan="5" class="table-item-empty-row">目前尚無卡組</td>
+                        </tr>
+                        <tr v-else v-for="item in decks" :key="item.id">
+                            <td class="table-col-is_admin" style="border-top: 1px solid var(--brown-hover);">
+                                <div class="dot" :class="{ green: item.isPublic }"></div>
+                            </td>
+                            <td class="deck-table-col-name" style="border-top: 1px solid var(--brown-hover);">
+                                <a class="deck-table-name" :href="deckUrl(item)" target="_blank" rel="noopener">
+                                    {{ item.name }}
+                                </a>
+                            </td>
+                            <td class="deck-table-col-pack" style="border-top: 1px solid var(--brown-hover);">
+                                {{ item.packName || '—' }}
+                            </td>
+                            <td class="deck-table-col-time" style="border-top: 1px solid var(--brown-hover);">
+                                {{ formatTime(item.updatedAt) }}
+                            </td>
+                            <td class="table-col-oper" style="border-top: 1px solid var(--brown-hover);">
+                                <button class="module-btn" @click="editDeck(item)">編輯</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        const classicalSwal = Swal.mixin({
+            customClass: { popup: 'swal-popup', title: 'swal-title' },
+            buttonsStyling: true
+        });
+
+        createApp({
+            setup() {
+                const decks = ref([]);
+                const packs = ref([]);
+                const loading = ref(false);
+
+                const fetchDecks = async () => {
+                    loading.value = true;
+                    try {
+                        const response = await axios.get('/api/decks/mine');
+                        decks.value = response.data;
+                    } catch (error) {
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '載入失敗',
+                            text: error.response?.data?.message || '無法取得卡組清單'
+                        });
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const fetchPacks = async () => {
+                    try {
+                        const response = await axios.get('/api/decks/packs');
+                        packs.value = response.data;
+                    } catch (error) {
+                        packs.value = [];
+                    }
+                };
+
+                const deckUrl = (item) => `/view/deck/${item.userId}/${item.id}`;
+                const formatTime = (value) => value ? new Date(value).toLocaleString() : '—';
+                const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                })[character]);
+
+                const createPack = async () => {
+                    const result = await classicalSwal.fire({
+                        title: '新增卡組 Pack',
+                        input: 'text',
+                        inputLabel: 'Pack 名稱',
+                        showCancelButton: true,
+                        confirmButtonText: '新增',
+                        cancelButtonText: '取消',
+                        preConfirm: (value) => {
+                            if (!value || !value.trim()) {
+                                Swal.showValidationMessage('Pack 名稱不可為空');
+                                return false;
+                            }
+                            return value.trim();
+                        }
+                    });
+                    if (!result.isConfirmed) return;
+                    try {
+                        await axios.post('/api/decks/packs', { name: result.value });
+                        await fetchPacks();
+                        classicalSwal.fire({ icon: 'success', title: 'Pack 已新增', timer: 1000, showConfirmButton: false });
+                    } catch (error) {
+                        classicalSwal.fire({ icon: 'error', title: '新增失敗', text: error.response?.data?.message || '無法新增 Pack' });
+                    }
+                };
+
+                const editDeck = (item) => {
+                    window.open(`/personal/decks/${item.id}/edit`, '_blank', 'noopener');
+                };
+
+                const openUploadModal = async () => {
+                    await fetchPacks();
+                    const packOptions = packs.value.map((pack) =>
+                        `<option value="${escapeHtml(pack)}">${escapeHtml(pack)}</option>`).join('');
+                    const result = await classicalSwal.fire({
+                        title: '上傳卡組',
+                        html: `
+                            <div class="swal-row-container">
+                                <fieldset class="module-fieldset">
+                                    <legend>名稱（可留空，使用檔名）</legend>
+                                    <input id="swal-deck-name" class="module-input-clean" maxlength="80">
+                                </fieldset>
+                                <fieldset class="module-fieldset">
+                                    <legend>YDK 檔案</legend>
+                                    <input id="swal-deck-file" class="module-input-clean" type="file" accept=".ydk">
+                                </fieldset>
+                                <fieldset class="module-fieldset">
+                                    <legend>Pack（可不選）</legend>
+                                    <select id="swal-deck-pack" class="module-select">
+                                        <option value="">未分類</option>${packOptions}
+                                    </select>
+                                    <button type="button" id="swal-create-pack" class="module-btn">新增 Pack</button>
+                                </fieldset>
+                                <label style="display:flex;align-items:center;gap:8px;">
+                                    <input id="swal-deck-public" type="checkbox">
+                                    公開此卡組
+                                </label>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: '上傳',
+                        cancelButtonText: '取消',
+                        didOpen: () => {
+                            document.getElementById('swal-create-pack').addEventListener('click', async () => {
+                                await createPack();
+                                classicalSwal.close();
+                                await openUploadModal();
+                            });
+                        },
+                        preConfirm: () => {
+                            const file = document.getElementById('swal-deck-file').files[0];
+                            if (!file) {
+                                Swal.showValidationMessage('請選擇 YDK 檔案');
+                                return false;
+                            }
+                            if (!file.name.toLowerCase().endsWith('.ydk')) {
+                                Swal.showValidationMessage('只接受 YDK 檔案');
+                                return false;
+                            }
+                            return {
+                                name: document.getElementById('swal-deck-name').value.trim(),
+                                packName: document.getElementById('swal-deck-pack').value,
+                                isPublic: document.getElementById('swal-deck-public').checked,
+                                file
+                            };
+                        }
+                    });
+
+                    if (!result.isConfirmed) return;
+                    try {
+                        const formData = new FormData();
+                        formData.append('name', result.value.name);
+                        formData.append('packName', result.value.packName);
+                        formData.append('isPublic', result.value.isPublic);
+                        formData.append('file', result.value.file);
+                        await axios.post('/api/decks', formData);
+                        classicalSwal.fire({ icon: 'success', title: '上傳成功', timer: 1200, showConfirmButton: false });
+                        await fetchDecks();
+                    } catch (error) {
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '上傳失敗',
+                            text: error.response?.data?.message || '無法上傳卡組'
+                        });
+                    }
+                };
+
+                onMounted(async () => {
+                    await Promise.all([fetchDecks(), fetchPacks()]);
+                });
+                return { decks, loading, deckUrl, formatTime, openUploadModal, editDeck, createPack };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

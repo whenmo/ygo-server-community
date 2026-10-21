@@ -1,0 +1,135 @@
+/* 古典風格主題變數 */
+:root {
+    --white-color: #f4efe6;
+    --white-hover: #dfd5c0;
+    --red-color: #7a1f1d;
+    --red-hover: #9e2a2b;
+    --gold-color: #e5c158;
+    --gold-hover: #f7d774;
+    --brown-color: #8c6d46;
+    --brown-hover: #6f5535;
+    --dark-color: #2c221e;
+    --green-color: #4CAF50;
+    --gray-color: #a89f91;
+    --gray-hover: #736b60;
+
+    --shadow-color: rgba(44, 34, 30, 0.15);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background-color: var(--white-color);
+    color: var(--dark-color);
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* 滾動條樣式 */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gray-color);
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-hover);
+}
+
+/* ============================================================
+   導覽列 Header 樣式
+   ============================================================ */
+.site-navbar {
+    background-color: var(--red-color);
+    width: 100%;
+    padding: 0 25px;
+    height: 60px;
+    position: relative;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* 主頁按鈕 (Logo / Title) */
+.nav-home {
+    text-decoration: none;
+    color: var(--white-color);
+    font-size: 1.3rem;
+    font-weight: bold;
+    letter-spacing: 1.5px;
+    font-variant: small-caps;
+    transition: color 0.2s ease;
+}
+
+.nav-home:hover {
+    color: var(--gold-color);
+}
+
+/* 導覽連結清單 */
+.nav-links {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    gap: 20px;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: var(--white-color);
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.nav-links a:hover:not(.nav-btn) {
+    color: var(--gold-color);
+}
+
+/* 登入 / 登出 按鈕古典風造型 */
+.nav-btn {
+    background-color: var(--gold-color) !important;
+    color: var(--dark-color) !important;
+    box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.nav-btn:hover {
+    background-color: var(--gold-hover) !important;
+}
+
+/*//////////////////////////////////////////////////////////////////////////////////*/
+
+.dot {
+    display: inline-block;
+    background-color: var(--gray-color);
+    margin: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.dot.green {
+    background-color: var(--green-color);
+    box-shadow: 0 0 5px var(--green-color);
+}
+
+.dot.red {
+    background-color: var(--red-color);
+    box-shadow: 0 0 5px var(--red-color);
+}

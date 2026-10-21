@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用戶登入</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/auth.css}" href="/css/auth.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div class="auth-layout">
+        <div id="app" class="auth-box">
+            <h2>登入</h2>
+            <form th:action="@{/auth/login}" method="post">
+                <input type="hidden" name="redirect" th:value="${redirect}">
+                <fieldset class="module-fieldset" style="margin-bottom: 15px;">
+                    <legend>用戶名稱</legend>
+                    <input type="text" id="username" name="name" th:value="${name}" class="module-input-clean" required
+                        autocomplete="username">
+                </fieldset>
+                <fieldset class="module-fieldset" style="margin-bottom: 15px;">
+                    <legend>密碼</legend>
+                    <input type="password" id="password" name="password" class="module-input-clean" required
+                        autocomplete="current-password">
+                </fieldset>
+
+                <button type="submit" class="auth-submit-btn">登入</button>
+            </form>
+
+            <div class="auth-footer-link">
+                尚未擁有帳號？ <a th:href="@{/auth/register}">前往註冊</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 錯誤訊息提示 (若登入失敗由後端傳入 msg) -->
+    <script th:if="${msg != null}">
+        const classicalSwal = Swal.mixin({
+            customClass: {
+                popup: 'swal-popup',
+                title: 'swal-title'
+            },
+            buttonsStyling: true
+        });
+
+        classicalSwal.fire({
+            icon: 'error',
+            title: '登入失敗',
+            text: /*[[${msg}]]*/ '帳號或密碼錯誤'
+        });
+    </script>
+
+</body>
+
+</html>
