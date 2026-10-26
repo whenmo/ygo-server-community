@@ -9,26 +9,55 @@
     <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
     <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
+
     <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/pageHelper.js}" src="/js/pageHelper.js"></script>
 
     <style>
-        .public-deck-name {
+        .deck-table-item-name,
+        .deck-table-item-pack,
+        .deck-table-item-user,
+        .deck-table-item-count,
+        .deck-table-item-time {
+            border-top: 1px solid var(--brown-hover);
+        }
+
+        .deck-table-item-pack,
+        .deck-table-item-user,
+        .deck-table-item-count,
+        .deck-table-item-time {
+            width: 1%;
+            white-space: nowrap;
+        }
+
+        .deck-table-item-pack,
+        .deck-table-item-user {
+            text-align: center;
+        }
+
+        .deck-table-name {
             color: var(--red-color);
             font-weight: bold;
         }
 
-        .public-deck-name:hover {
+        .deck-table-name:hover {
             color: var(--red-hover);
             text-decoration: underline;
         }
 
-        .public-deck-time {
-            width: 210px;
+        .deck-table-filter-btn {
+            background: transparent;
+            padding: 0;
+            color: var(--red-color);
+            font-weight: bold;
         }
 
-        .public-deck-pack {
-            min-width: 140px;
+        .deck-table-filter-btn:hover {
+            background: transparent;
+            color: var(--red-hover);
+            text-decoration: none;
         }
     </style>
 </head>
@@ -37,66 +66,304 @@
     <div th:replace="~{fragments/layout :: navbar}"></div>
 
     <div id="app" class="two-column-layout-container">
-        <main class="main-column">
-            <div class="main-top-bar">
-                <div class="main-top-bar-row">
-                    <h2 class="main-top-bar-title">公開卡組</h2>
+        <!-- 卡組篩選 -->
+        <aside class="aside-column">
+            <h3 class="aside-title">卡組篩選</h3>
+            <div class="aside-content">
+                <!-- 卡組名稱搜尋 -->
+                <fieldset class="module-fieldset aside-fieldset">
+                    <legend>卡組名稱</legend>
+                    <input v-model="filter.name" class="module-input-clean" placeholder="卡組名稱">
+                </fieldset>
+
+                <!-- 卡包搜索 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">卡包</p>
+                    <p v-if="loading.pack" class="span-hint-msg">載入中...</p>
+                    <p v-else-if="packs.length === 0" class="span-hint-msg">無可用卡包</p>
+                    <select v-else v-model="filter.pack" class="module-select">
+                        <option value="__ALL__">N/A</option>
+                        <option value="__UNCLASSIFIED__">未分類</option>
+                        <option v-for="pack in packs" :key="pack" :value="pack">{{ pack }}</option>
+                    </select>
+                </div>
+
+                <!-- 用戶搜索 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">用戶</p>
+                    <p v-if="loading.user" class="span-hint-msg">載入中...</p>
+                    <p v-else-if="users.length === 0" class="span-hint-msg">無可用用戶</p>
+                    <select v-else v-model="filter.user" class="module-select">
+                        <option value="__ALL__">N/A</option>
+                        <option v-for="u in users" :key="u.id" :value="u.id">{{ u.name }}</option>
+                    </select>
+                </div>
+
+                <!-- 排序方式 (主要排序 + 次要排序為名稱) -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">排序</p>
+                    <select v-model="filter.sort" class="module-select">
+                        <option value="time">更新時間</option>
+                        <option value="pack">卡包</option>
+                        <option value="user">作者</option>
+                    </select>
+                </div>
+
+                <!-- 每頁顯示數量 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">每頁顯示</p>
+                    <select v-model.number="pageSize" class="module-select">
+                        <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 張</option>
+                    </select>
                 </div>
             </div>
 
-            <div class="module-table-container">
+            <!-- 底部按鈕 -->
+            <div class="aside-footer">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" @click="resetFilter" class="module-btn"
+                        style="width: 100%; background: var(--gray-hover); border-color: var(--gray-hover);">重置</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-column" style="display: flex; flex-direction: column; height: calc(100vh - 60px);">
+            <div class="main-top-bar" style="flex-shrink: 0;">
+                <div class="main-top-bar-row">
+                    <h2 class="main-top-bar-title">搜索結果 ({{ resultDecks.length }})</h2>
+                </div>
+            </div>
+
+            <div class="module-table-container" style="overflow-y: auto; margin-bottom: 10px;">
                 <table class="module-table">
                     <thead>
                         <tr>
                             <th>名稱</th>
-                            <th class="public-deck-pack">Pack</th>
-                            <th>作者</th>
-                            <th class="public-deck-time">最後操作時間</th>
+                            <th style="text-align: center;">卡包</th>
+                            <th style="text-align: center;">作者</th>
+                            <th style="text-align: center;">張數</th>
+                            <th style="text-align: center;">最後修正</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-if="loading">
-                            <td colspan="4" class="table-item-empty-row">載入中...</td>
+                        <tr v-if="loading.deck">
+                            <td colspan="5" class="table-item-empty-row">載入中...</td>
                         </tr>
-                        <tr v-else-if="decks.length === 0">
-                            <td colspan="4" class="table-item-empty-row">目前沒有公開卡組</td>
+                        <tr v-else-if="pagedDecks.length === 0">
+                            <td colspan="5" class="table-item-empty-row">無可檢視卡組</td>
                         </tr>
-                        <tr v-else v-for="item in decks" :key="item.id">
-                            <td style="border-top: 1px solid var(--brown-hover);">
-                                <a class="public-deck-name" :href="deckUrl(item)">{{ item.name }}</a>
+                        <tr v-for="item in pagedDecks" :key="item.deckInfo.id">
+                            <td class="deck-table-item-name">
+                                <a class="deck-table-name" :href="`/view/deck/${item.user.id}/${item.deckInfo.id}`"
+                                    target="_blank">{{ item.deckInfo.name }}</a>
                             </td>
-                            <td class="public-deck-pack" style="border-top: 1px solid var(--brown-hover);">
-                                {{ item.packName || '—' }}
+                            <td class="deck-table-item-pack">
+                                <button type="button" v-if="item.deckInfo.packName"
+                                    class="module-btn deck-table-filter-btn"
+                                    @click="selectPack(item.deckInfo.packName)">
+                                    {{ item.deckInfo.packName }}
+                                </button>
+                                <span v-else>-</span>
                             </td>
-                            <td style="border-top: 1px solid var(--brown-hover);">{{ item.userName }}</td>
-                            <td class="public-deck-time" style="border-top: 1px solid var(--brown-hover);">
-                                {{ formatTime(item.updatedAt) }}
+                            <td class="deck-table-item-user">
+                                <button type="button" class="module-btn deck-table-filter-btn"
+                                    @click="selectUser(item.user.id)">
+                                    {{ item.user.name }}
+                                </button>
                             </td>
+                            <td class="deck-table-item-count">
+                                <span>{{ formatDeckCount(item) }}</span>
+                            </td>
+                            <td class="deck-table-item-time">{{ formatTime(item.deckInfo.updatedAt) }}</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- 分頁選擇器 -->
+            <div class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
+                <button @click="previousPage" :disabled="currentPage === 1">上一頁</button>
+                <span>
+                    <input class="module-input-clean" :value="currentPage" @input="onPageInput"
+                        @blur="validatePage" /> / {{ totalPages }}
+                </span>
+                <button @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
             </div>
         </main>
     </div>
 
     <script>
-        const { createApp, ref, onMounted } = Vue;
+        const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
         createApp({
             setup() {
                 const decks = ref([]);
-                const loading = ref(true);
-                const fetchDecks = async () => {
+                const packs = ref([]);
+                const users = ref([]);
+
+                const loading = reactive({
+                    deck: false,
+                    pack: false,
+                    user: false
+                });
+
+                const filter = ref({
+                    name: '',
+                    pack: '__ALL__',
+                    user: '__ALL__',
+                    sort: 'time'
+                });
+
+                const fetchData = async () => {
                     try {
-                        const response = await axios.get('/api/decks/public');
-                        decks.value = response.data;
+                        loading.deck = true;
+                        loading.pack = true;
+                        loading.user = true;
+
+                        const [deckRes, packRes, userRes] = await Promise.all([
+                            axios.get('/api/decks/public'),
+                            axios.get('/api/decks/packNames'),
+                            axios.get('/api/decks/users')
+                        ]);
+
+                        decks.value = deckRes.data;
+                        packs.value = packRes.data;
+                        users.value = userRes.data;
+                    } catch (error) {
+                        console.error('獲取資料失敗', error);
                     } finally {
-                        loading.value = false;
+                        loading.deck = false;
+                        loading.pack = false;
+                        loading.user = false;
                     }
                 };
-                const deckUrl = (item) => `/view/deck/${item.userId}/${item.id}`;
-                const formatTime = (value) => value ? new Date(value).toLocaleString() : '—';
-                onMounted(fetchDecks);
-                return { decks, loading, deckUrl, formatTime };
+
+                const resultDecks = computed(() => {
+                    let list = decks.value.filter(item => {
+                        const deck = item.deckInfo || {};
+                        const matchName = !filter.value.name || (deck.name && deck.name.toLowerCase().includes(filter.value.name.toLowerCase()));
+
+                        let matchPack = true;
+                        if (filter.value.pack === '__ALL__') {
+                            matchPack = true;
+                        } else if (filter.value.pack === '__UNCLASSIFIED__') {
+                            matchPack = !deck.packName || deck.packName.trim() === '';
+                        } else {
+                            matchPack = deck.packName === filter.value.pack;
+                        }
+
+                        let matchUser = true;
+                        if (filter.value.user === '__ALL__') {
+                            matchUser = true;
+                        } else {
+                            matchUser = item.user && item.user.id === Number(filter.value.user);
+                        }
+
+                        return matchName && matchPack && matchUser;
+                    });
+
+                    // 排序邏輯：指定主排序，次要排序固定為名稱
+                    list.sort((a, b) => {
+                        const deckA = a.deckInfo || {};
+                        const deckB = b.deckInfo || {};
+                        const nameA = deckA.name || '';
+                        const nameB = deckB.name || '';
+                        const timeA = deckA.updatedAt ? new Date(deckA.updatedAt).getTime() : 0;
+                        const timeB = deckB.updatedAt ? new Date(deckB.updatedAt).getTime() : 0;
+                        const packA = deckA.packName || '\uFFFF';
+                        const packB = deckB.packName || '\uFFFF';
+                        const userNameA = a.user?.name || '';
+                        const userNameB = b.user?.name || '';
+
+                        if (filter.value.sort === 'time') {
+                            // 主要：更新時間 (新到舊)，次要：名稱
+                            if (timeA !== timeB) return timeB - timeA;
+                            return nameA.localeCompare(nameB, 'zh-Hant');
+                        } else if (filter.value.sort === 'pack') {
+                            // 主要：卡包，次要：名稱
+                            const packCmp = packA.localeCompare(packB, 'zh-Hant');
+                            if (packCmp !== 0) return packCmp;
+                            return nameA.localeCompare(nameB, 'zh-Hant');
+                        } else if (filter.value.sort === 'user') {
+                            // 主要：作者，次要：名稱
+                            const userCmp = userNameA.localeCompare(userNameB, 'zh-Hant');
+                            if (userCmp !== 0) return userCmp;
+                            return nameA.localeCompare(nameB, 'zh-Hant');
+                        } else {
+                            return nameA.localeCompare(nameB, 'zh-Hant');
+                        }
+                    });
+
+                    return list;
+                });
+
+                // 引入分頁輔助
+                const {
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards: pagedDecks,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                } = usePageHelper(resultDecks, 20);
+
+                // 當篩選條件或排序改變時，自動重置回第 1 頁
+                watch([() => filter.value.name, () => filter.value.pack, () => filter.value.user, () => filter.value.sort], () => {
+                    currentPage.value = 1;
+                });
+
+                const formatDeckCount = (item) => {
+                    const packLen = item.pack?.length ?? 0;
+                    if (packLen > 0) return packLen;
+                    return `${item.main?.length ?? 0} / ${item.extra?.length ?? 0} / ${item.side?.length ?? 0}`;
+                };
+
+                const selectPack = (packName) => {
+                    if (!packName || packName.trim() === '') {
+                        filter.value.pack = '__UNCLASSIFIED__';
+                    } else {
+                        filter.value.pack = packName;
+                    }
+                };
+
+                const selectUser = (userId) => filter.value.user = userId;
+
+                const resetFilter = () => {
+                    filter.value = {
+                        name: '',
+                        pack: '__ALL__',
+                        user: '__ALL__',
+                        sort: 'time'
+                    };
+                };
+
+                const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
+
+                onMounted(fetchData);
+
+                return {
+                    packs,
+                    users,
+                    loading,
+                    filter,
+                    resultDecks,
+                    pagedDecks,
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage,
+                    formatDeckCount,
+                    selectPack,
+                    selectUser,
+                    resetFilter,
+                    formatTime
+                };
             }
         }).mount('#app');
     </script>

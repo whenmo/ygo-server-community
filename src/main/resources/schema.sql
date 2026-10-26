@@ -52,11 +52,12 @@ CREATE TABLE IF NOT EXISTS diyer_strings (
     FOREIGN KEY (diyer_id) REFERENCES diyers (id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- 7. Users 卡組表
+-- 7. 卡組卡包表
 CREATE TABLE IF NOT EXISTS deck_packs (
     name TEXT NOT NULL UNIQUE
 );
 
+-- 8. Users 卡組表
 CREATE TABLE IF NOT EXISTS user_decks (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id     INTEGER NOT NULL,

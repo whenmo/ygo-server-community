@@ -21,6 +21,6 @@ public class UserResponse {
             return null;
 
         return UserResponse.builder().id(model.getId()).name(model.getName()).isAdmin(model.getIsAdmin())
-                .diyer(DiyerDto.fromDiyer(model.getDiyer())).build();
+                .diyer(DiyerDto.fromModel(model.getDiyer())).build();
     }
 }

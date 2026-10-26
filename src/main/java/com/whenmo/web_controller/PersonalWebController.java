@@ -36,7 +36,16 @@ public class PersonalWebController {
         if (getAuthenticatedUserId(request) == null) {
             return "redirect:" + securityProps.getLoginPath() + "?redirect=/personal/decks";
         }
-        return "personal/deck";
+        return "personal/decks";
+    }
+
+    @GetMapping("/decks/create")
+    public String createDeckPage(HttpServletRequest request, Model model) {
+        if (getAuthenticatedUserId(request) == null) {
+            return "redirect:" + securityProps.getLoginPath() + "?redirect=/personal/decks/create";
+        }
+        model.addAttribute("deckId", null);
+        return "personal/deck-edit";
     }
 
     @GetMapping("/decks/{deckId}/edit")

@@ -15,7 +15,7 @@
     height: calc(100vh - 60px);
     overflow-y: auto;
     padding: 20px 15px;
-    border-right: 2px solid var(--brown-color);
+    border-right: 2px solid var(--red-color);
     overflow: hidden;
 }
 
@@ -45,6 +45,68 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.aside-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-right: 4px;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.aside-long-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.aside-long-row-title {
+    color: var(--brown-color);
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.aside-long-row-label {
+    color: var(--red-color);
+    font-weight: bold;
+    font-size: 1rem;
+}
+
+.span-hint-msg {
+    color: var(--gray-hover);
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.aside-fieldset select {
+    padding: 5px;
+    border: 0px;
+    background: transparent;
+}
+
+.aside-fieldset input {
+    padding: 5px;
+}
+
+.aside-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-top: 10px;
+    margin-top: 10px;
+    border-top: 2px solid var(--red-color);
+    flex-shrink: 0;
+}
+
+.aside-footer button {
+    font-weight: bold;
+    font-size: 1rem;
+    justify-content: center;
+    border: 1px solid;
 }
 
 /* 列表內的按鈕項目 (a 標籤) */

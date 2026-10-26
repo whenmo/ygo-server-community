@@ -100,7 +100,7 @@ const hasType = (card, code) => {
     const type = Number(card?.type || 0);
     const target = Number(code || 0);
     if (type === 0 || target === 0) return false;
-    return (type & target) === target;
+    return (type & target) > 0;
 };
 
 const isType = {
@@ -137,6 +137,18 @@ const getCardLimitStatus = (card, iflistMap) => {
     return null;
 };
 
+const getCardUrl = (card) => {
+    if (!(card?.cdbId && card?.id))
+        return '/image/unknown_card.jpg';
+    return `/api/cdb/pic/${card?.cdbId}/${card?.id}`;
+}
+
+const getCardUrlError = (event) => {
+    event.target.onerror = null;
+    if (event.target.src.includes('/image/unknown_card.jpg')) return;
+    event.target.src = '/image/unknown_card.jpg';
+};
+
 window.APP_CONSTANTS = {
     RULE,
     TYPE,
@@ -150,4 +162,6 @@ window.APP_CONSTANTS = {
     formatAtkDefValue,
     getCardAtkDef,
     getCardLimitStatus,
+    getCardUrl,
+    getCardUrlError
 };

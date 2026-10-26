@@ -13,7 +13,7 @@ public class UserDto {
     private String name;
     private Boolean isAdmin;
 
-    public static UserDto fromUser(User user) {
+    public static UserDto fromModel(User user) {
         if (user == null)
             return null;
 

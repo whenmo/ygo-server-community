@@ -6,17 +6,16 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+import com.whenmo.model.database.dto.DeckInfoDto;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserDeckEditRequest {
 
-    private String name;
-    private String packName;
-    private Boolean isPublic;
-    private Integer cdbId;
-    private String iflistVersion;
-    private List<Integer> mainDeck;
-    private List<Integer> extraDeck;
-    private List<Integer> sideDeck;
+    private DeckInfoDto deckInfo;
+    private List<Integer> pack;
+    private List<Integer> main;
+    private List<Integer> extra;
+    private List<Integer> side;
 }

@@ -8,8 +8,8 @@
 
     <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
-    <link rel="stylesheet" th:href="@{/css/card_filter.css}" href="/css/card_filter.css">
     <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
 
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
@@ -127,59 +127,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-
-        .result-page-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            flex-shrink: 0;
-            padding-top: 10px;
-            margin-top: 10px;
-            border-top: 2px solid var(--red-color);
-        }
-
-        .result-page-row button {
-            padding: 10px;
-            border: 1px solid var(--brown-color);
-            background: var(--white-color);
-            color: var(--red-color);
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 1rem;
-        }
-
-        .result-page-row button:hover {
-            background: var(--white-hover);
-        }
-
-        .result-page-row button:disabled {
-            cursor: not-allowed;
-            opacity: 0.45;
-        }
-
-        .result-page-row span {
-            height: 100%;
-            font-size: 1rem;
-        }
-
-        .result-page-row input {
-            padding: 0;
-            border: 1px solid var(--brown-color);
-            border-radius: 5px;
-            font-size: 1rem;
-            width: 50px;
-            text-align: center;
-            display: inline-block;
-            height: 100%;
-        }
-
-        .result-page-row input:focus {
-            outline: none;
-            box-shadow: none;
-            border-color: var(--red-color);
-        }
     </style>
 </head>
 
@@ -190,423 +137,399 @@
         <!-- 卡片篩選 -->
         <aside class="aside-column">
             <h3 class="aside-title">卡片篩選</h3>
-            <form th:fragment="cardSearchForm" @submit.prevent="handleSearch" class="card-search-form">
-                <div class="card-search-form-content">
-                    <div class="card-filter-row" style="display: flex; gap: 10px;">
-                        <!-- 數據庫 -->
-                        <fieldset class="module-fieldset" style="flex: 1;">
-                            <legend>數據庫</legend>
-                            <div v-if="loading.cdb" class="collapsible-loading">載入中...</div>
-                            <div v-else-if="cdbConfigs.length === 0"
-                                style="color: var(--red-color);padding: 5px;font-weight: bold;">無可用數據庫</div>
-                            <select v-else v-model="selectedCdbId" @change="handleCdbChange"
-                                class="module-select card-filter-select">
-                                <option v-for="item in cdbConfigs" :key="item.id" :value="item.id">{{ item.name }}
-                                </option>
-                            </select>
-                        </fieldset>
+            <div class="aside-content">
+                <!-- 數據庫 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">數據庫</p>
+                    <p v-if="loading.cdb" class="span-hint-msg">載入中...</p>
+                    <p v-else-if="cdbConfigs.length === 0" class="span-hint-msg">無數據庫</p>
+                    <select v-else v-model="selectedCdbId" @change="handleCdbChange" class="module-select">
+                        <option v-for="item in cdbConfigs" :key="item.id" :value="item.id">{{ item.name }}
+                        </option>
+                    </select>
+                </div>
 
-                        <!-- 許可 -->
-                        <fieldset class="module-fieldset" style="flex: 1;">
-                            <legend>許可</legend>
-                            <div v-if="loading.rule" class="collapsible-loading">載入中...</div>
-                            <select v-else v-model.number="selectedRuleIndex" class="module-select card-filter-select">
-                                <option :value="0">N/A</option>
-                                <option v-for="(item, index) in options.rule" :key="item.code" :value="index + 2">
-                                    {{ item.name }}
-                                </option>
-                                <option :value="1">其他</option>
-                            </select>
-                        </fieldset>
-                    </div>
+                <!-- 禁限版本 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">禁限</p>
+                    <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
+                    <p v-else-if="iflistVers.length === 0" class="span-hint-msg">無禁卡表</p>
+                    <select v-else v-model="selectedIflistVersion" @change="handleIflistVersionChange"
+                        class="module-select">
+                        <option v-for="ver in iflistVers" :key="ver" :value="ver">{{ ver }}</option>
+                    </select>
+                </div>
 
-                    <!-- 禁限與狀態選擇列 -->
-                    <div class="card-filter-row" style="display: flex; gap: 10px;">
-                        <!-- 禁限版本 -->
-                        <fieldset class="module-fieldset" style="flex: 1;">
-                            <legend>禁限</legend>
-                            <div v-if="loading.iflist" class="collapsible-loading">載入中...</div>
-                            <div v-else-if="iflistVers.length === 0"
-                                style="color: var(--red-color);padding: 5px;font-weight: bold;">無可用禁卡表</div>
-                            <select v-else v-model="selectedIflistVersion" @change="handleIflistVersionChange"
-                                class="module-select card-filter-select">
-                                <option v-for="ver in iflistVers" :key="ver" :value="ver">{{ ver }}</option>
-                            </select>
-                        </fieldset>
-
-                        <!-- 狀態 -->
-                        <fieldset class="module-fieldset" style="flex: 1;">
-                            <legend>狀態</legend>
-                            <div v-if="loading.iflist" class="collapsible-loading">-</div>
-                            <div v-else-if="iflistVers.length === 0"
-                                style="color: var(--red-color);padding: 5px;font-weight: bold;">-</div>
-                            <select v-else v-model.number="selectedIflistIndex"
-                                class="module-select card-filter-select">
-                                <option value="0">N/A</option>
-                                <option value="4">無限制</option>
-                                <option value="3">準限制</option>
-                                <option value="2">限制</option>
-                                <option value="1">禁止</option>
-                            </select>
-                        </fieldset>
-                    </div>
-
-                    <!-- 卡名 / ID 搜尋 -->
-                    <fieldset class="module-fieldset card-filter-row">
-                        <legend>卡名 / ID</legend>
-                        <input v-model="filter.nameId" class="module-input-clean" style="padding: 5px;"
-                            placeholder="卡名或 ID">
+                <div style="display: flex; gap: 10px;">
+                    <!-- 許可 -->
+                    <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
+                        <legend>許可</legend>
+                        <p v-if="loading.rule" class="span-hint-msg">載入中...</p>
+                        <select v-else v-model.number="selectedRuleIndex" class="module-select">
+                            <option :value="0">N/A</option>
+                            <option v-for="(item, index) in options.rule" :key="item.code" :value="index + 2">
+                                {{ item.name }}
+                            </option>
+                            <option :value="1">其他</option>
+                        </select>
                     </fieldset>
 
-                    <!-- 效果文本搜尋 -->
-                    <fieldset class="module-fieldset card-filter-row">
-                        <legend>效果文本</legend>
-                        <input v-model="filter.effect" class="module-input-clean" style="padding: 5px;"
-                            placeholder="效果文本">
+                    <!-- 狀態 -->
+                    <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
+                        <legend>狀態</legend>
+                        <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
+                        <div v-else-if="iflistVers.length === 0" class="span-hint-msg">-</div>
+                        <select v-else v-model.number="selectedIflistIndex" class="module-select">
+                            <option value="0">N/A</option>
+                            <option value="4">無限制</option>
+                            <option value="3">準限制</option>
+                            <option value="2">限制</option>
+                            <option value="1">禁止</option>
+                        </select>
                     </fieldset>
+                </div>
 
-                    <!-- 字段過濾器區塊 -->
-                    <div class="module-collapsible-frame card-filter-row" :class="{ collapsed: frameStates.setname }">
-                        <div class="frame-header" @click="toggleFrame('setname')">
-                            <div>
-                                <span class="dot" :class="{ green: options.setname.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>字段</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
+                <!-- 卡名 / ID 搜尋 -->
+                <fieldset class="module-fieldset">
+                    <legend>卡名 / ID</legend>
+                    <input v-model="filter.nameId" class="module-input-clean" style="padding: 5px;"
+                        placeholder="卡名或 ID">
+                </fieldset>
+
+                <!-- 效果文本搜尋 -->
+                <fieldset class="module-fieldset">
+                    <legend>效果文本</legend>
+                    <input v-model="filter.effect" class="module-input-clean" style="padding: 5px;" placeholder="效果文本">
+                </fieldset>
+
+                <!-- 字段過濾器區塊 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.setname }">
+                    <div class="frame-header" @click="toggleFrame('setname')">
+                        <div>
+                            <span class="dot" :class="{ green: options.setname.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>字段</span>
                         </div>
-                        <div class="frame-content">
-                            <div style="border-bottom: 1px solid var(--red-color);">
-                                <input v-model="setnameQuery" class="module-input-clean"
-                                    style="width: 100%; padding: 5px;" placeholder="字段名稱">
-                            </div>
-                            <div class="collapsible-grid-mode">
-                                <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 0 }"
-                                    @click.prevent="andModes.setMode = 0">
-                                    <span>or</span>
-                                </button>
-                                <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 1 }"
-                                    @click.prevent="andModes.setMode = 1">
-                                    <span>and</span>
-                                </button>
-                            </div>
-                            <div class="collapsible-grid-2">
-                                <div v-if="loading.setname" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in filteredSetnames" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item, 'setname')">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
+                        <span class="toggle-icon">▼</span>
                     </div>
-
-                    <!-- 預設字段過濾器區塊 -->
-                    <div class="module-collapsible-frame card-filter-row"
-                        :class="{ collapsed: frameStates.defaultSetname }">
-                        <div class="frame-header" @click="toggleFrame('defaultSetname')">
-                            <div>
-                                <span class="dot" :class="{ green: options.defaultSetname.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>預設字段</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
+                    <div class="frame-content">
+                        <input v-model="setnameQuery" class="module-input-clean" placeholder="字段名稱"
+                            style="width: 100%; padding: 5px; border-bottom: 1px solid var(--red-color);">
+                        <div class="collapsible-grid-2"
+                            style="border-bottom: 1px solid var(--red-color); padding-bottom: 5px;">
+                            <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 0 }"
+                                @click.prevent="andModes.setMode = 0">
+                                <span>or</span>
+                            </button>
+                            <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 1 }"
+                                @click.prevent="andModes.setMode = 1">
+                                <span>and</span>
+                            </button>
                         </div>
-                        <div class="frame-content">
-                            <div style="border-bottom: 1px solid var(--red-color);">
-                                <input v-model="defaultSetnameQuery" class="module-input-clean"
-                                    style="width: 100%; padding: 5px;" placeholder="字段名稱">
-                            </div>
-                            <div class="collapsible-grid-mode">
-                                <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 0 }"
-                                    @click.prevent="andModes.setMode = 0">
-                                    <span>or</span>
-                                </button>
-                                <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 1 }"
-                                    @click.prevent="andModes.setMode = 1">
-                                    <span>and</span>
-                                </button>
-                            </div>
-                            <div class="collapsible-grid-2">
-                                <div v-if="loading.defaultSetname" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in filteredDefaultSetnames" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item, 'defaultSetname')">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 主要類型 -->
-                    <div class="module-collapsible-frame card-filter-row">
-                        <div class="frame-header" style="cursor: default;">
-                            <div>
-                                <span class="dot" :class="{ green: options.typeMain.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>主要類型</span>
-                            </div>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-3">
-                                <div v-if="loading.typeMain" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in options.typeMain" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 怪獸類型 -->
-                    <div class="module-collapsible-frame card-filter-row"
-                        :class="{ collapsed: frameStates.typeMonster }">
-                        <div class="frame-header" @click="toggleFrame('typeMonster')">
-                            <div>
-                                <span class="dot" :class="{ green: options.typeMonster.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>怪獸類型</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-mode">
-                                <button type="button" class="module-toggle" :class="{ active: andModes.typMode === 0 }"
-                                    @click.prevent="andModes.typMode = 0">
-                                    <span>or</span>
-                                </button>
-                                <button type="button" class="module-toggle" :class="{ active: andModes.typMode === 1 }"
-                                    @click.prevent="andModes.typMode = 1">
-                                    <span>and</span>
-                                </button>
-                            </div>
-                            <div class="collapsible-grid-3">
-                                <div v-if="loading.typeMonster" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in options.typeMonster" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 魔陷類型 -->
-                    <div class="module-collapsible-frame card-filter-row"
-                        :class="{ collapsed: frameStates.typeSpellTrap }">
-                        <div class="frame-header" @click="toggleFrame('typeSpellTrap')">
-                            <div>
-                                <span class="dot" :class="{ green: options.typeSpellTrap.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>魔陷類型</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-3">
-                                <div v-if="loading.typeSpellTrap" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in options.typeSpellTrap" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 屬性 -->
-                    <div class="module-collapsible-frame card-filter-row" :class="{ collapsed: frameStates.attribute }">
-                        <div class="frame-header" @click="toggleFrame('attribute')">
-                            <div>
-                                <span class="dot" :class="{ green: options.attribute.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>屬性</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-3">
-                                <div v-if="loading.attribute" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in options.attribute" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 種族 -->
-                    <div class="module-collapsible-frame card-filter-row" :class="{ collapsed: frameStates.race }">
-                        <div class="frame-header" @click="toggleFrame('race')">
-                            <div>
-                                <span class="dot" :class="{ green: options.race.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>種族</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-2">
-                                <div v-if="loading.race" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in options.race" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 等級 -->
-                    <div class="module-collapsible-frame card-filter-row" :class="{ collapsed: frameStates.level }">
-                        <div class="frame-header" @click="toggleFrame('level')">
-                            <div>
-                                <span class="dot" :class="{ green: options.level.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>等級/階級/連接數</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-3">
-                                <button type="button" v-for="item in options.level" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 靈擺刻度 -->
-                    <div class="module-collapsible-frame card-filter-row" :class="{ collapsed: frameStates.scale }">
-                        <div class="frame-header" @click="toggleFrame('scale')">
-                            <div>
-                                <span class="dot" :class="{ green: options.scale.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>刻度</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-3">
-                                <button type="button" v-for="item in options.scale" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 連接標記 -->
-                    <div class="module-collapsible-frame card-filter-row"
-                        :class="{ collapsed: frameStates.linkMarker }">
-                        <div class="frame-header" @click="toggleFrame('linkMarker')">
-                            <div>
-                                <span class="dot" :class="{ green: linkMarkers.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>連接標記</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-mode">
-                                <button type="button" class="module-toggle" :class="{ active: andModes.linkMode === 0 }"
-                                    @click.prevent="andModes.linkMode = 0">
-                                    <span>or</span>
-                                </button>
-                                <button type="button" class="module-toggle" :class="{ active: andModes.linkMode === 1 }"
-                                    @click.prevent="andModes.linkMode = 1">
-                                    <span>and</span>
-                                </button>
-                            </div>
-                            <div class="collapsible-grid-3">
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[5].active }"
-                                    @click.prevent="toggleItem(linkMarkers[5])">↖</button>
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[6].active }"
-                                    @click.prevent="toggleItem(linkMarkers[6])">↑</button>
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[7].active }"
-                                    @click.prevent="toggleItem(linkMarkers[7])">↗</button>
-
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[3].active }"
-                                    @click.prevent="toggleItem(linkMarkers[3])">←</button>
-                                <div style="flex: 1 1 calc(33.333% - 4px); box-sizing: border-box; visibility: hidden;">
-                                </div>
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[4].active }"
-                                    @click.prevent="toggleItem(linkMarkers[4])">→</button>
-
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[0].active }"
-                                    @click.prevent="toggleItem(linkMarkers[0])">↙</button>
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[1].active }"
-                                    @click.prevent="toggleItem(linkMarkers[1])">↓</button>
-                                <button type="button" class="module-toggle link-marker-btn"
-                                    :class="{ active: linkMarkers[2].active }"
-                                    @click.prevent="toggleItem(linkMarkers[2])">↘</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ATK 輸入框 -->
-                    <fieldset class="module-fieldset card-filter-row" style="flex-direction: row; align-items: center;">
-                        <legend>ATK</legend>
-                        <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMin"
-                            class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
-                        <span style="font-weight: bold;">~</span>
-                        <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMax"
-                            class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
-                    </fieldset>
-
-                    <!-- DEF 輸入框 -->
-                    <fieldset class="module-fieldset card-filter-row" style="flex-direction: row; align-items: center;">
-                        <legend>DEF</legend>
-                        <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMin"
-                            class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
-                        <span style="font-weight: bold;">~</span>
-                        <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMax"
-                            class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
-                    </fieldset>
-
-                    <!-- 效果類型 -->
-                    <div class="module-collapsible-frame card-filter-row" :class="{ collapsed: frameStates.category }">
-                        <div class="frame-header" @click="toggleFrame('category')">
-                            <div>
-                                <span class="dot" :class="{ green: options.category.some(item => item.active) }"
-                                    style="margin-right: 5px;"></span>
-                                <span>效果類型</span>
-                            </div>
-                            <span class="toggle-icon">▼</span>
-                        </div>
-                        <div class="frame-content">
-                            <div class="collapsible-grid-2">
-                                <div v-if="loading.category" class="collapsible-loading">載入中...</div>
-                                <button type="button" v-else v-for="item in options.category" :key="item.code"
-                                    class="module-toggle" :class="{ active: item.active }"
-                                    @click.prevent="toggleItem(item)">
-                                    <span>{{ item.name }}</span>
-                                </button>
-                            </div>
+                        <div class="collapsible-grid-2">
+                            <p v-if="loading.setname" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in filteredSetnames" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item, 'setname')">
+                                <span>{{ item.name }}</span>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- 底部按鈕 -->
-                <div class="card-search-form-footer">
-                    <div style="display: flex; gap: 8px;">
-                        <button type="submit" class="module-btn card-filter-search-btn">搜尋</button>
-                        <button type="button" @click="resetFilter" class="module-btn card-filter-reset-btn">重置</button>
+                <!-- 預設字段過濾器區塊 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.defaultSetname }">
+                    <div class="frame-header" @click="toggleFrame('defaultSetname')">
+                        <div>
+                            <span class="dot" :class="{ green: options.defaultSetname.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>預設字段</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <input v-model="defaultSetnameQuery" class="module-input-clean" placeholder="字段名稱"
+                            style="width: 100%; padding: 5px; border-bottom: 1px solid var(--red-color);">
+                        <div class="collapsible-grid-2"
+                            style="border-bottom: 1px solid var(--red-color); padding-bottom: 5px;">
+                            <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 0 }"
+                                @click.prevent="andModes.setMode = 0">
+                                <span>or</span>
+                            </button>
+                            <button type="button" class="module-toggle" :class="{ active: andModes.setMode === 1 }"
+                                @click.prevent="andModes.setMode = 1">
+                                <span>and</span>
+                            </button>
+                        </div>
+                        <div class="collapsible-grid-2">
+                            <p v-if="loading.defaultSetname" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in filteredDefaultSetnames" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item, 'defaultSetname')">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </form>
+
+                <!-- 主要類型 -->
+                <div class="module-collapsible-frame">
+                    <div class="frame-header" style="cursor: default;">
+                        <div>
+                            <span class="dot" :class="{ green: options.typeMain.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>主要類型</span>
+                        </div>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-3">
+                            <p v-if="loading.typeMain" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in options.typeMain" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 怪獸類型 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.typeMonster }">
+                    <div class="frame-header" @click="toggleFrame('typeMonster')">
+                        <div>
+                            <span class="dot" :class="{ green: options.typeMonster.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>怪獸類型</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-2"
+                            style="border-bottom: 1px solid var(--red-color); padding-bottom: 5px;">
+                            <button type="button" class="module-toggle" :class="{ active: andModes.typMode === 0 }"
+                                @click.prevent="andModes.typMode = 0">
+                                <span>or</span>
+                            </button>
+                            <button type="button" class="module-toggle" :class="{ active: andModes.typMode === 1 }"
+                                @click.prevent="andModes.typMode = 1">
+                                <span>and</span>
+                            </button>
+                        </div>
+                        <div class="collapsible-grid-3">
+                            <p v-if="loading.typeMonster" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in options.typeMonster" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 魔陷類型 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.typeSpellTrap }">
+                    <div class="frame-header" @click="toggleFrame('typeSpellTrap')">
+                        <div>
+                            <span class="dot" :class="{ green: options.typeSpellTrap.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>魔陷類型</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-3">
+                            <p v-if="loading.typeSpellTrap" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in options.typeSpellTrap" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 屬性 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.attribute }">
+                    <div class="frame-header" @click="toggleFrame('attribute')">
+                        <div>
+                            <span class="dot" :class="{ green: options.attribute.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>屬性</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-3">
+                            <p v-if="loading.attribute" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in options.attribute" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 種族 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.race }">
+                    <div class="frame-header" @click="toggleFrame('race')">
+                        <div>
+                            <span class="dot" :class="{ green: options.race.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>種族</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-2">
+                            <p v-if="loading.race" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in options.race" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 等級 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.level }">
+                    <div class="frame-header" @click="toggleFrame('level')">
+                        <div>
+                            <span class="dot" :class="{ green: options.level.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>等級/階級/連接數</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-3">
+                            <button type="button" v-for="item in options.level" :key="item.code" class="module-toggle"
+                                :class="{ active: item.active }" @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 靈擺刻度 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.scale }">
+                    <div class="frame-header" @click="toggleFrame('scale')">
+                        <div>
+                            <span class="dot" :class="{ green: options.scale.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>刻度</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-3">
+                            <button type="button" v-for="item in options.scale" :key="item.code" class="module-toggle"
+                                :class="{ active: item.active }" @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 連接標記 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.linkMarker }">
+                    <div class="frame-header" @click="toggleFrame('linkMarker')">
+                        <div>
+                            <span class="dot" :class="{ green: linkMarkers.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>連接標記</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-2"
+                            style="border-bottom: 1px solid var(--red-color); padding-bottom: 5px;">
+                            <button type="button" class="module-toggle" :class="{ active: andModes.linkMode === 0 }"
+                                @click.prevent="andModes.linkMode = 0">
+                                <span>or</span>
+                            </button>
+                            <button type="button" class="module-toggle" :class="{ active: andModes.linkMode === 1 }"
+                                @click.prevent="andModes.linkMode = 1">
+                                <span>and</span>
+                            </button>
+                        </div>
+                        <div class="collapsible-grid-3">
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[5].active }"
+                                @click.prevent="toggleItem(linkMarkers[5])">↖</button>
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[6].active }"
+                                @click.prevent="toggleItem(linkMarkers[6])">↑</button>
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[7].active }"
+                                @click.prevent="toggleItem(linkMarkers[7])">↗</button>
+
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[3].active }"
+                                @click.prevent="toggleItem(linkMarkers[3])">←</button>
+                            <div style="flex: 1 1 calc(33.333% - 4px); box-sizing: border-box; visibility: hidden;">
+                            </div>
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[4].active }"
+                                @click.prevent="toggleItem(linkMarkers[4])">→</button>
+
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[0].active }"
+                                @click.prevent="toggleItem(linkMarkers[0])">↙</button>
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[1].active }"
+                                @click.prevent="toggleItem(linkMarkers[1])">↓</button>
+                            <button type="button" class="module-toggle" :class="{ active: linkMarkers[2].active }"
+                                @click.prevent="toggleItem(linkMarkers[2])">↘</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ATK 輸入框 -->
+                <fieldset class="module-fieldset" style="flex-direction: row; align-items: center;">
+                    <legend>ATK</legend>
+                    <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMin"
+                        class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
+                    <span style="font-weight: bold;">~</span>
+                    <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMax"
+                        class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
+                </fieldset>
+
+                <!-- DEF 輸入框 -->
+                <fieldset class="module-fieldset" style="flex-direction: row; align-items: center;">
+                    <legend>DEF</legend>
+                    <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMin"
+                        class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
+                    <span style="font-weight: bold;">~</span>
+                    <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMax"
+                        class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
+                </fieldset>
+
+                <!-- 效果類型 -->
+                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.category }">
+                    <div class="frame-header" @click="toggleFrame('category')">
+                        <div>
+                            <span class="dot" :class="{ green: options.category.some(item => item.active) }"
+                                style="margin-right: 5px;"></span>
+                            <span>效果類型</span>
+                        </div>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="frame-content">
+                        <div class="collapsible-grid-2">
+                            <p v-if="loading.category" class="span-hint-msg">載入中...</p>
+                            <button type="button" v-else v-for="item in options.category" :key="item.code"
+                                class="module-toggle" :class="{ active: item.active }"
+                                @click.prevent="toggleItem(item)">
+                                <span>{{ item.name }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部按鈕 -->
+            <div class="aside-footer">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" @click="handleSearch" class="module-btn" style="flex: 1;">搜尋</button>
+                    <button type="button" @click="resetFilter" class="module-btn"
+                        style="background: var(--gray-hover); border-color: var(--gray-hover);">重置</button>
+                </div>
+            </div>
         </aside>
 
         <!-- 中欄 -->

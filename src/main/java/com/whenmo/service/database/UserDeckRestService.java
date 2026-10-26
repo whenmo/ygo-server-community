@@ -9,10 +9,8 @@ import com.whenmo.model.cdb.CdbCardResponse;
 import com.whenmo.model.database.response.CdbConfigResponse;
 import com.whenmo.model.database.request.DeckPackCreateRequest;
 import com.whenmo.model.database.request.UserDeckEditRequest;
-import com.whenmo.model.database.request.UserDeckUploadRequest;
-import com.whenmo.model.database.request.UserDeckVisibilityRequest;
-import com.whenmo.model.database.response.UserDeckResponse;
-import com.whenmo.model.database.response.UserDeckViewResponse;
+import com.whenmo.model.database.response.DeckResponse;
+import com.whenmo.model.database.response.UserResponse;
 import com.whenmo.repository.database.UserDeckRepository;
 import com.whenmo.repository.database.DeckPackRepository;
 import com.whenmo.repository.database.UserRepository;
@@ -20,6 +18,7 @@ import com.whenmo.service.cdb.CdbCardService;
 import com.whenmo.service.cdb.CdbIflistService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -49,86 +48,137 @@ public class UserDeckRestService {
     private final UserDeckRepository deckRepository;
     private final UserRepository userRepository;
     private final DeckPackRepository deckPackRepository;
-    private final CdbConfigRestService cdbConfigService;
-    private final CdbCardService cdbCardService;
-    private final CdbIflistService cdbIflistService;
 
     @Value("${app.user-decks.storage-dir:../decks}")
     private String deckStorageDirectory;
 
+    // ============================================================
+    // Read
+    // ============================================================
+
     @Transactional(readOnly = true)
-    public List<UserDeckResponse> getUserDecks(Integer userId) {
-        String userName = getUser(userId).getName();
+    public List<DeckResponse> getUserDecks(Integer userId) {
+        User user = getUser(userId);
         return deckRepository.findByUserIdOrderByUpdatedAtDesc(userId).stream()
-                .map(deck -> UserDeckResponse.fromModel(deck, userName))
-                .toList();
+                .map(deck -> buildDeckResponse(deck, user)).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<UserDeckResponse> getPublicDecks() {
-        Map<Integer, String> userNames = userRepository.findAll().stream()
-                .collect(Collectors.toMap(User::getId, User::getName));
+    public List<DeckResponse> getPublicDecks() {
+        Map<Integer, User> usersMap = userRepository.findAll().stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         return deckRepository.findByIsPublicTrueOrderByUpdatedAtDesc().stream()
-                .map(deck -> UserDeckResponse.fromModel(deck, userNames.getOrDefault(deck.getUserId(), "未知用戶")))
-                .toList();
+                .map(deck -> buildDeckResponse(deck, usersMap.get(deck.getUserId()))).toList();
     }
 
     @Transactional(readOnly = true)
     public List<String> getDeckPacks() {
-        return deckPackRepository.findAll().stream()
-                .map(DeckPack::getName)
-                .sorted(String.CASE_INSENSITIVE_ORDER)
+        return deckPackRepository.findAll().stream().map(DeckPack::getName).sorted(String.CASE_INSENSITIVE_ORDER)
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> getDeckUsers() {
+        List<Integer> userIds = deckRepository.findAllDeckUserIds();
+        if (userIds.isEmpty())
+            return List.of();
+        return userRepository.findAllById(userIds).stream().map(UserResponse::fromModel).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<DeckResponse> getDeckForView(Integer ownerId, Integer deckId, Integer viewerId) {
+        Optional<UserDeck> optionalDeck = deckRepository.findByIdAndUserId(deckId, ownerId);
+        if (optionalDeck.isEmpty())
+            return Optional.empty();
+
+        UserDeck deck = optionalDeck.get();
+        if (!Boolean.TRUE.equals(deck.getIsPublic()) && !ownerId.equals(viewerId))
+            return Optional.empty();
+
+        return Optional.of(buildDeckResponse(deck, getUser(ownerId)));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<DeckResponse> getDeckForEdit(Integer userId, Integer deckId) {
+        Optional<UserDeck> deckOpt = deckRepository.findByIdAndUserId(deckId, userId);
+        if (deckOpt.isEmpty()) {
+            System.out.println("找不到卡組或無權限編輯: deckId=" + deckId + ", userId=" + userId);
+        }
+        return deckOpt.map(deck -> buildDeckResponse(deck, getUser(userId)));
+    }
+
+    @Transactional(readOnly = true)
+    public Resource loadDeckFileResource(Integer ownerId, Integer deckId, Integer viewerId) {
+        UserDeck deck = deckRepository.findByIdAndUserId(deckId, ownerId)
+                .orElseThrow(() -> new IllegalArgumentException("找不到卡組"));
+
+        // 檢查檢視權限（若非公開且非本人，則拒絕）
+        if (!Boolean.TRUE.equals(deck.getIsPublic()) && !ownerId.equals(viewerId)) {
+            throw new SecurityException("無權限存取此卡組");
+        }
+
+        try {
+            Path filePath = getDeckPath(ownerId, deck.getName());
+            Resource resource = new UrlResource(filePath.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                return resource;
+            }
+            throw new IllegalStateException("伺服器上找不到對應的 YDK 檔案");
+        } catch (Exception e) {
+            throw new IllegalStateException("無法讀取 YDK 檔案", e);
+        }
+    }
+    // ============================================================
+    // Create
+    // ============================================================
 
     @Transactional
     public String createDeckPack(DeckPackCreateRequest request) {
         String name = normalizeName(request.getName());
-        if (name == null || name.isBlank()) throw new IllegalArgumentException("卡組 pack 名稱不可為空");
-        if (name.length() > 80) throw new IllegalArgumentException("卡組 pack 名稱不可超過 80 個字元");
-        if (deckPackRepository.existsByName(name)) throw new IllegalArgumentException("卡組 pack 名稱已存在");
+        if (name == null || name.isBlank())
+            throw new IllegalArgumentException("卡組 pack 名稱不可為空");
+        if (name.length() > 80)
+            throw new IllegalArgumentException("卡組 pack 名稱不可超過 80 個字元");
+        if (deckPackRepository.existsByName(name))
+            throw new IllegalArgumentException("卡組 pack 名稱已存在");
         return deckPackRepository.save(new DeckPack(name)).getName();
     }
 
     @Transactional
-    public UserDeckResponse uploadDeck(Integer userId, UserDeckUploadRequest request, MultipartFile file) {
-        getUser(userId);
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("請選擇 YDK 檔案");
+    public DeckResponse createDeck(Integer userId, UserDeckEditRequest request) {
+        User user = getUser(userId);
+        if (request.getDeckInfo() == null) {
+            throw new IllegalArgumentException("卡組資訊不可為空");
         }
 
-        String originalName = file.getOriginalFilename();
-        if (originalName == null || !originalName.toLowerCase(Locale.ROOT).endsWith(".ydk")) {
-            throw new IllegalArgumentException("只接受 YDK 檔案");
-        }
-
-        String deckName = normalizeName(request.getName());
-        if (deckName == null || deckName.isBlank()) {
-            String fileName = originalName.replace('\\', '/');
-            fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
-            deckName = normalizeName(fileName.substring(0, fileName.length() - 4));
-        }
+        String deckName = normalizeName(request.getDeckInfo().getName());
         validateName(deckName);
-        String packName = validatePackName(request.getPackName());
+        String packName = validatePackName(request.getDeckInfo().getPackName());
+        Boolean isPublic = request.getDeckInfo().getIsPublic();
+        if (isPublic == null) {
+            isPublic = false;
+        }
+
         if (deckRepository.existsByUserIdAndNameIgnoreCase(userId, deckName)) {
             throw new IllegalArgumentException("卡組名稱已存在");
         }
 
         Path filePath = getDeckPath(userId, deckName);
         boolean copied = false;
+        String contents = getValidateYdkContent(user, request);
         try {
             Files.createDirectories(filePath.getParent());
-            Files.copy(file.getInputStream(), filePath);
+            Files.writeString(filePath, contents);
             copied = true;
 
             UserDeck deck = UserDeck.builder()
                     .userId(userId)
                     .name(deckName)
                     .packName(packName)
-                    .isPublic(Boolean.TRUE.equals(request.getIsPublic()))
+                    .isPublic(isPublic)
                     .updatedAt(LocalDateTime.now())
                     .build();
-            return UserDeckResponse.fromModel(deckRepository.save(deck), getUser(userId).getName());
+            return DeckResponse.fromModel(deckRepository.save(deck), user);
         } catch (IOException | RuntimeException exception) {
             if (copied) {
                 try {
@@ -137,34 +187,43 @@ public class UserDeckRestService {
                     exception.addSuppressed(ignored);
                 }
             }
-            if (exception instanceof RuntimeException runtimeException) throw runtimeException;
+            if (exception instanceof RuntimeException runtimeException)
+                throw runtimeException;
             throw new IllegalStateException("無法儲存 YDK 檔案", exception);
         }
     }
 
+    // ============================================================
+    // Update
+    // ============================================================
+
     @Transactional
-    public UserDeckResponse editDeck(Integer userId, Integer deckId, UserDeckEditRequest request) {
+    public DeckResponse editDeck(Integer userId, Integer deckId, UserDeckEditRequest request) {
+        User user = getUser(userId);
         UserDeck deck = getOwnedDeck(userId, deckId);
-        String newName = normalizeName(request.getName());
+        if (request.getDeckInfo() == null) {
+            throw new IllegalArgumentException("卡組資訊不可為空");
+        }
+
+        String newName = normalizeName(request.getDeckInfo().getName());
         validateName(newName);
-        String packName = validatePackName(request.getPackName());
-        if (request.getIsPublic() == null) throw new IllegalArgumentException("公開狀態不可為空");
+        String packName = validatePackName(request.getDeckInfo().getPackName());
+        Boolean isPublic = request.getDeckInfo().getIsPublic();
+        if (isPublic == null)
+            throw new IllegalArgumentException("公開狀態不可為空");
 
         if (!deck.getName().equalsIgnoreCase(newName)
                 && deckRepository.existsByUserIdAndNameIgnoreCase(userId, newName)) {
             throw new IllegalArgumentException("卡組名稱已存在");
         }
 
-        List<Integer> main = validateCardIds(request.getMainDeck());
-        List<Integer> extra = validateCardIds(request.getExtraDeck());
-        List<Integer> side = validateCardIds(request.getSideDeck());
-        validateDeckRules(request.getCdbId(), request.getIflistVersion(), main, extra, side);
-        String contents = toYdk(main, extra, side);
-
         Path oldPath = getDeckPath(userId, deck.getName());
         Path newPath = getDeckPath(userId, newName);
         boolean renamed = !oldPath.equals(newPath);
-        if (renamed && Files.exists(newPath)) throw new IllegalArgumentException("相同檔名的 YDK 檔案已存在");
+        if (renamed && Files.exists(newPath))
+            throw new IllegalArgumentException("相同檔名的 YDK 檔案已存在");
+
+        String contents = getValidateYdkContent(user, request);
 
         try {
             Files.createDirectories(newPath.getParent());
@@ -178,26 +237,20 @@ public class UserDeckRestService {
 
             deck.setName(newName);
             deck.setPackName(packName);
-            deck.setIsPublic(request.getIsPublic());
+            deck.setIsPublic(isPublic);
             deck.setUpdatedAt(LocalDateTime.now());
             UserDeck saved = deckRepository.save(deck);
-            if (renamed) Files.deleteIfExists(oldPath);
-            return UserDeckResponse.fromModel(saved, getUser(userId).getName());
+            if (renamed)
+                Files.deleteIfExists(oldPath);
+            return DeckResponse.fromModel(saved, user);
         } catch (IOException exception) {
             throw new IllegalStateException("無法儲存卡組內容", exception);
         }
     }
 
-    @Transactional
-    public UserDeckResponse updateVisibility(Integer userId, Integer deckId, UserDeckVisibilityRequest request) {
-        if (request.getIsPublic() == null) {
-            throw new IllegalArgumentException("公開狀態不可為空");
-        }
-        UserDeck deck = getOwnedDeck(userId, deckId);
-        deck.setIsPublic(request.getIsPublic());
-        deck.setUpdatedAt(LocalDateTime.now());
-        return UserDeckResponse.fromModel(deckRepository.save(deck), getUser(userId).getName());
-    }
+    // ============================================================
+    // Delete
+    // ============================================================
 
     @Transactional
     public void deleteDeck(Integer userId, Integer deckId) {
@@ -211,34 +264,31 @@ public class UserDeckRestService {
         deckRepository.delete(deck);
     }
 
-    @Transactional(readOnly = true)
-    public Optional<UserDeckViewResponse> getDeckForView(Integer ownerId, Integer deckId, Integer viewerId) {
-        Optional<UserDeck> optionalDeck = deckRepository.findByIdAndUserId(deckId, ownerId);
-        if (optionalDeck.isEmpty()) return Optional.empty();
+    // ============================================================
+    // Helpers / View
+    // ============================================================
 
-        UserDeck deck = optionalDeck.get();
-        if (!Boolean.TRUE.equals(deck.getIsPublic()) && !ownerId.equals(viewerId)) return Optional.empty();
-
-        return Optional.of(toViewResponse(ownerId, deck));
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<UserDeckViewResponse> getDeckForEdit(Integer userId, Integer deckId) {
-        return deckRepository.findByIdAndUserId(deckId, userId)
-                .map(deck -> toViewResponse(userId, deck));
-    }
-
-    private UserDeckViewResponse toViewResponse(Integer ownerId, UserDeck deck) {
-        UserDeckResponse deckResponse = UserDeckResponse.fromModel(deck, getUser(ownerId).getName());
+    private DeckResponse buildDeckResponse(UserDeck deck, User user) {
+        DeckResponse response = DeckResponse.fromModel(deck, user);
         try {
+            Path filePath = getDeckPath(deck.getUserId(), deck.getName());
+            if (!Files.exists(filePath)) {
+                return response;
+            }
+            List<String> lines = Files.readAllLines(filePath);
+            boolean hasMain = lines.stream().anyMatch(line -> line.trim().equalsIgnoreCase("#main"));
+
+            List<Integer> pack = new ArrayList<>();
             List<Integer> main = new ArrayList<>();
             List<Integer> extra = new ArrayList<>();
             List<Integer> side = new ArrayList<>();
-            List<Integer> current = main;
+            List<Integer> current = hasMain ? main : pack;
 
-            for (String line : Files.readAllLines(getDeckPath(ownerId, deck.getName()))) {
+            for (String line : lines) {
                 String value = line.trim();
-                if (value.equalsIgnoreCase("#extra")) {
+                if (value.equalsIgnoreCase("#main")) {
+                    current = main;
+                } else if (value.equalsIgnoreCase("#extra")) {
                     current = extra;
                 } else if (value.equalsIgnoreCase("!side")) {
                     current = side;
@@ -247,15 +297,13 @@ public class UserDeckRestService {
                 }
             }
 
-                return UserDeckViewResponse.builder()
-                    .deck(deckResponse)
-                    .mainDeck(main)
-                    .extraDeck(extra)
-                    .sideDeck(side)
-                    .build();
-        } catch (IOException exception) {
-            throw new IllegalStateException("無法讀取 YDK 檔案", exception);
+            response.setPack(pack);
+            response.setMain(main);
+            response.setExtra(extra);
+            response.setSide(side);
+        } catch (IOException ignored) {
         }
+        return response;
     }
 
     private User getUser(Integer userId) {
@@ -288,99 +336,58 @@ public class UserDeckRestService {
 
     private String validatePackName(String packName) {
         String normalized = normalizeName(packName);
-        if (normalized == null || normalized.isBlank()) return null;
+        if (normalized == null || normalized.isBlank())
+            return null;
         if (!deckPackRepository.existsByName(normalized)) {
             throw new IllegalArgumentException("找不到指定的卡組 pack");
         }
         return normalized;
     }
 
-    private List<Integer> validateCardIds(List<Integer> cardIds) {
-        if (cardIds == null) return List.of();
-        if (cardIds.size() > 80) throw new IllegalArgumentException("單一牌組區最多只能有 80 張卡");
-        if (cardIds.stream().anyMatch(id -> id == null || id <= 0)) {
-            throw new IllegalArgumentException("卡片 ID 無效");
-        }
-        return List.copyOf(cardIds);
-    }
+    private String getValidateYdkContent(User user, UserDeckEditRequest request) {
+        List<Integer> pack = validatePacks(request.getPack(), 90, "展示卡組最多 90 張");
+        List<Integer> main = validatePacks(request.getMain(), 60, "主要卡組最多 60 張");
+        List<Integer> extra = validatePacks(request.getExtra(), 15, "額外卡組最多 15 張");
+        List<Integer> side = validatePacks(request.getSide(), 15, "副卡組最多 15 張");
 
-    private void validateDeckRules(Integer cdbId, String iflistVersion,
-            List<Integer> main, List<Integer> extra, List<Integer> side) {
-        if (main.size() > 60) throw new IllegalArgumentException("主要卡組最多 60 張");
-        if (extra.size() > 15) throw new IllegalArgumentException("額外卡組最多 15 張");
-        if (side.size() > 15) throw new IllegalArgumentException("Side 最多 15 張");
-        if (cdbId == null) throw new IllegalArgumentException("請先選擇卡片資料庫");
-
-        CdbConfigResponse config = cdbConfigService.getConfigById(cdbId);
-        Map<Integer, CdbCardResponse> cardsById = cdbCardService.readCdb(config).stream()
-                .collect(Collectors.toMap(CdbCardResponse::getId, Function.identity(), (first, latest) -> latest));
-
-        long extraMask = CardType.FUSION.getCode() | CardType.SYNCHRO.getCode()
-                | CardType.XYZ.getCode() | CardType.LINK.getCode();
-        for (Integer cardId : main) {
-            CdbCardResponse card = cardsById.get(cardId);
-            if (card != null && (card.getType() & extraMask) != 0) {
-                throw new IllegalArgumentException("額外牌組卡不能放入主要卡組: " + card.getName());
-            }
-        }
-        for (Integer cardId : extra) {
-            CdbCardResponse card = cardsById.get(cardId);
-            if (card != null && (card.getType() & extraMask) == 0) {
-                throw new IllegalArgumentException("此卡不能放入額外卡組: " + card.getName());
-            }
+        Map<Integer, Integer> cardCounts = new HashMap<>();
+        List<Integer> allCards = new ArrayList<>(pack.size() + main.size() + extra.size() + side.size());
+        allCards.addAll(pack);
+        allCards.addAll(main);
+        allCards.addAll(extra);
+        allCards.addAll(side);
+        for (Integer cardId : allCards) {
+            if (cardId == null)
+                continue;
+            cardCounts.merge(cardId, 1, Integer::sum);
         }
 
-        Map<Integer, List<IflistItem>> banlist = iflistVersion == null || iflistVersion.isBlank()
-                ? Map.of()
-                : cdbIflistService.getBanlistByVersion(config, iflistVersion);
-        Map<Integer, Integer> copyCounts = new HashMap<>();
-        Map<Integer, Integer> copyLimits = new HashMap<>();
+        for (Map.Entry<Integer, Integer> entry : cardCounts.entrySet())
+            if (entry.getValue() > 3)
+                throw new IllegalArgumentException("相同卡號最多只能投入 3 張: " + entry.getKey());
 
-        for (Integer cardId : concat(main, extra, side)) {
-            CdbCardResponse card = cardsById.get(cardId);
-            int copyKey = card != null && card.getAlias() > 0 ? card.getAlias() : cardId;
-            copyCounts.merge(copyKey, 1, Integer::sum);
-            int limit = card == null ? 3 : getBanlistLimit(card, banlist);
-            copyLimits.merge(copyKey, limit, Math::min);
+        StringBuilder content = new StringBuilder("$#created by {user.getName()}\n");
+        if (pack != null && !pack.isEmpty()) {
+            pack.forEach(id -> content.append(id).append('\n'));
+        } else {
+            content.append("#main\n");
+            main.forEach(id -> content.append(id).append('\n'));
+            content.append("#extra\n");
+            extra.forEach(id -> content.append(id).append('\n'));
+            content.append("!side\n");
+            side.forEach(id -> content.append(id).append('\n'));
         }
 
-        for (Map.Entry<Integer, Integer> entry : copyCounts.entrySet()) {
-            int maximum = copyLimits.getOrDefault(entry.getKey(), 3);
-            if (entry.getValue() > maximum) {
-                throw new IllegalArgumentException(maximum == 0
-                        ? "卡組包含禁止投入的卡片: " + entry.getKey()
-                        : "同卡（含 alias）最多只能投入 " + maximum + " 張: " + entry.getKey());
-            }
-        }
-    }
-
-    private int getBanlistLimit(CdbCardResponse card, Map<Integer, List<IflistItem>> banlist) {
-        int alias = card.getAlias();
-        for (Map.Entry<Integer, List<IflistItem>> entry : banlist.entrySet()) {
-            if (entry.getValue().stream().anyMatch(item -> item.getId() == card.getId()
-                    || (alias > 0 && item.getId() == alias))) {
-                return entry.getKey();
-            }
-        }
-        return 3;
-    }
-
-    private List<Integer> concat(List<Integer> main, List<Integer> extra, List<Integer> side) {
-        List<Integer> all = new ArrayList<>(main.size() + extra.size() + side.size());
-        all.addAll(main);
-        all.addAll(extra);
-        all.addAll(side);
-        return all;
-    }
-
-    private String toYdk(List<Integer> main, List<Integer> extra, List<Integer> side) {
-        StringBuilder content = new StringBuilder("#main\n");
-        main.forEach(id -> content.append(id).append('\n'));
-        content.append("#extra\n");
-        extra.forEach(id -> content.append(id).append('\n'));
-        content.append("!side\n");
-        side.forEach(id -> content.append(id).append('\n'));
         return content.toString();
+    }
+
+    private List<Integer> validatePacks(List<Integer> cardIds, int maxCount, String errMsg) {
+        if (cardIds == null)
+            return List.of();
+        List<Integer> filteredIds = cardIds.stream().filter(id -> id != null && id > 0).toList();
+        if (filteredIds.size() > maxCount)
+            throw new IllegalArgumentException(errMsg);
+        return filteredIds;
     }
 
     private void moveReplacing(Path source, Path target) throws IOException {

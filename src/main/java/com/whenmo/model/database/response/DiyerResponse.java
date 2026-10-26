@@ -30,7 +30,7 @@ public class DiyerResponse {
         return DiyerResponse.builder()
                 .id(model.getId())
                 .name(model.getName())
-                .user(UserDto.fromUser(model.getUser()))
+                .user(UserDto.fromModel(model.getUser()))
                 .codeRanges(model.getCodeRanges())
                 .setRanges(model.getSetRanges())
                 .strings(strings.stream().map(DiyerStringResponse::fromModel).collect(Collectors.toSet()))

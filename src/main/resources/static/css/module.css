@@ -291,7 +291,6 @@
     border: 1px solid var(--brown-color);
     border-radius: 4px;
     background-color: var(--white-color);
-    overflow: hidden;
     transition: all 0.3s ease;
 }
 
@@ -324,4 +323,29 @@
 
 .module-collapsible-frame.collapsed .frame-content {
     display: none;
+}
+
+.module-collapsible-frame .frame-content .collapsible-grid-2,
+.module-collapsible-frame .frame-content .collapsible-grid-3 {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: stretch;
+}
+
+.module-collapsible-frame .frame-content .collapsible-grid-2>button {
+    flex: 1 1 calc(50% - 3px);
+}
+
+.module-collapsible-frame .frame-content .collapsible-grid-3>button {
+    flex: 1 1 calc(33.333% - 4px);
+}
+
+.module-collapsible-frame .frame-content .collapsible-grid-2>button,
+.module-collapsible-frame .frame-content .collapsible-grid-3>button {
+    padding: 5px 10px;
+    box-sizing: border-box;
+    align-items: center;
+    justify-content: center;
+    height: stretch;
 }

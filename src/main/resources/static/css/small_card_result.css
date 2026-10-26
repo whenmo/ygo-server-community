@@ -1,32 +1,32 @@
-.small-card-result {
+/* 標題列 */
+.small-card-result-top {
     display: flex;
-    width: 320px;
-    min-height: 0;
-    gap: 10px;
-    flex-direction: column;
-    overflow: hidden;
-    padding-bottom: 10px;
-    flex-shrink: 0;
-    margin-bottom: 50px;
+    justify-content: space-between;
+    align-items: center;
     border-bottom: 2px solid var(--red-color);
+    padding-bottom: 10px;
 }
 
-.small-card-result-title {
-    padding-bottom: 5px;
-    border-bottom: 2px solid var(--red-color);
+.small-card-result-top-title {
     color: var(--red-color);
     font-size: 1rem;
-    flex-shrink: 0;
+}
+
+/* 內容 */
+.small-card-result {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
 }
 
 .small-card-result-list {
-    flex: 1;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 5px;
     padding-right: 5px;
     padding-bottom: 10px;
+    width: 100%;
 }
 
 .small-card-result-item {
@@ -34,12 +34,11 @@
     display: flex;
     align-items: start;
     border: 1px solid var(--brown-color);
-    color: var(--dark-color);
     border-radius: 5px;
     text-decoration: none;
     transition: all 0.2s ease;
-    flex-shrink: 0;
     box-shadow: 0 1px 1px var(--dark-color);
+    cursor: pointer;
 }
 
 .small-card-result-item:hover {
@@ -87,4 +86,59 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* 換頁 */
+.small-card-result-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding-top: 10px;
+    border-top: 2px solid var(--red-color);
+}
+
+.small-card-result-footer button {
+    padding: 6px 10px;
+    border: 1px solid var(--brown-color);
+    background: var(--white-color);
+    color: var(--red-color);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+
+.small-card-result-footer button:hover {
+    background: var(--white-hover);
+}
+
+.small-card-result-footer button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+.small-card-result-footer span {
+    font-size: 0.85rem;
+    color: var(--red-color);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: bold;
+}
+
+.small-card-result-footer input {
+    padding: 2px;
+    border: 1px solid var(--brown-color);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    width: 35px;
+    text-align: center;
+    display: inline-block;
+}
+
+.small-card-result-footer input:focus {
+    outline: none;
+    border-color: var(--red-color);
 }

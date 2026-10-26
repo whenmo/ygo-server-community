@@ -12,7 +12,7 @@ public class DiyerDto {
     private Integer id;
     private String name;
 
-    public static DiyerDto fromDiyer(Diyer diyer) {
+    public static DiyerDto fromModel(Diyer diyer) {
         if (diyer == null)
             return null;
         return DiyerDto.builder().id(diyer.getId()).name(diyer.getName()).build();
