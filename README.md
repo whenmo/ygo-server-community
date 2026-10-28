@@ -7,7 +7,7 @@
 ## 技術棧 (Tech Stack)
 
 * **後端核心**：Spring Boot, Spring Data JPA, Hibernate
-* **資料庫**：SQLite（支援解析與查詢 `.cdb` 卡片資料庫及 `strings.conf` 配置檔）
+* **資料庫**：SQLite（支援解析與查詢 `.cdb` 卡片資料庫及 `strings.conf` 配置檔及 `iflist.conf` 配置檔）
 * **前端與視圖**：Thymeleaf, HTML5, CSS3, JavaScript (結合前端互動元件)
 * **版控與工具**：Maven, Git
 
@@ -33,5 +33,5 @@
 ---
 
 ### 環境需求
-* JDK 17 或以上
+* JDK 25
 * Maven
