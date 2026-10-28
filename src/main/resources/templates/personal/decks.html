@@ -15,7 +15,7 @@
     <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
-    <script th:src="@{/js/pageHelper.js}" src="/js/pageHelper.js"></script>
+    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
 
     <style>
         .deck-table-item-public,
@@ -301,13 +301,13 @@
                     }
                 };
 
-                const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
-
                 const formatDeckCount = (item) => {
                     const packLen = item.pack?.length ?? 0;
                     if (packLen > 0) return packLen;
                     return `${item.main?.length ?? 0} / ${item.extra?.length ?? 0} / ${item.side?.length ?? 0}`;
                 };
+
+                const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
 
                 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
                     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -448,7 +448,7 @@
                                         batchItems.push({
                                             name: defaultName,
                                             packName: '',
-                                            isPublic: false,
+                                            isPublic: true,
                                             main: parsed.main,
                                             extra: parsed.extra,
                                             side: parsed.side,

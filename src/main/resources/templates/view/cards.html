@@ -15,7 +15,12 @@
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
     <!-- <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script> -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script th:src="@{/js/constants.js}" src="/js/constants.js"></script>
+
+    <!-- 模組化 JS 引入 -->
+    <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
+    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
+    <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
+    <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
 
     <style>
         .result-display {
@@ -164,8 +169,7 @@
                     <!-- 許可 -->
                     <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
                         <legend>許可</legend>
-                        <p v-if="loading.rule" class="span-hint-msg">載入中...</p>
-                        <select v-else v-model.number="selectedRuleIndex" class="module-select">
+                        <select v-model.number="selectedRuleIndex" class="module-select">
                             <option :value="0">N/A</option>
                             <option v-for="(item, index) in options.rule" :key="item.code" :value="index + 2">
                                 {{ item.name }}
@@ -283,7 +287,6 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-3">
-                            <p v-if="loading.typeMain" class="span-hint-msg">載入中...</p>
                             <button type="button" v-else v-for="item in options.typeMain" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
@@ -316,7 +319,6 @@
                             </button>
                         </div>
                         <div class="collapsible-grid-3">
-                            <p v-if="loading.typeMonster" class="span-hint-msg">載入中...</p>
                             <button type="button" v-else v-for="item in options.typeMonster" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
@@ -338,7 +340,6 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-3">
-                            <p v-if="loading.typeSpellTrap" class="span-hint-msg">載入中...</p>
                             <button type="button" v-else v-for="item in options.typeSpellTrap" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
@@ -360,7 +361,6 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-3">
-                            <p v-if="loading.attribute" class="span-hint-msg">載入中...</p>
                             <button type="button" v-else v-for="item in options.attribute" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
@@ -382,7 +382,6 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-2">
-                            <p v-if="loading.race" class="span-hint-msg">載入中...</p>
                             <button type="button" v-else v-for="item in options.race" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
@@ -511,7 +510,6 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-2">
-                            <p v-if="loading.category" class="span-hint-msg">載入中...</p>
                             <button type="button" v-else v-for="item in options.category" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
@@ -554,18 +552,17 @@
                     <div class="cards-grid">
                         <a v-for="card in pagedCards" :key="card.sourceFilePath + ':' + card.id" class="card-item"
                             :href="`/view/card/${card.cdbId || card.databaseId}/${card.id}`" target="_blank">
-                            <img v-if="getCardLimitStatus(card, currentIflistMap) !== null" class="card-limit-badge"
-                                :src="`/image/limit/limit_${getCardLimitStatus(card, currentIflistMap)}.png`"
-                                :alt="`限制狀態 ${getCardLimitStatus(card, currentIflistMap)}`">
-                            <img class="card-item-image" :src="cardImageUrl(card)" :alt="card.name || '卡片圖片'"
-                                @error="useFallbackImage">
+                            <img v-if="getCardLimitStatus(card, currentIflistMap) < 3" class="card-limit-badge"
+                                :src="`/image/limit/limit_${getCardLimitStatus(card, currentIflistMap)}.png`">
+                            <img class="card-item-image" :src="getCardUrl(card)" :alt="card.name || '卡片圖片'"
+                                @error="getCardUrlError">
                             <div class="card-item-body">
                                 <span class="card-item-name" :title="card.name || '未命名卡片'">
                                     <span>{{ card.name || '未命名卡片' }}</span>
                                 </span>
-                                <span class="card-item-detail">{{ getResultCardSecondInfo(card) }}</span>
+                                <span class="card-item-detail">{{ getCardInfoRowTwo(card) }}</span>
                                 <span class="card-item-detail" v-if="isType.Monster(card)">
-                                    {{ getResultCardThirdInfo(card) }}
+                                    {{ getCardInfoRowThree(card) }}
                                 </span>
                             </div>
                         </a>
@@ -588,14 +585,27 @@
         createApp({
             setup() {
                 const {
+                    RULE,
+                    RULE_CN,
+                    TYPE_MAIN,
+                    TYPE_MONSTER,
+                    TYPE_SPELL_TRAP,
                     TYPE,
+                    TYPE_CN,
+                    ATTRIBUTE,
+                    ATTRIBUTE_CN,
+                    RACE,
+                    RACE_CN,
+                    CATEGORY,
+                    CATEGORY_CN,
                     LINK,
-                    sortCards,
-                    isRule,
                     isType,
-                    isSetCard,
-                    getCardAtkDef,
+                    MatcheFilterCards,
                     getCardLimitStatus,
+                    getCardUrl,
+                    getCardUrlError,
+                    getCardInfoRowTwo,
+                    getCardInfoRowThree
                 } = window.APP_CONSTANTS;
 
                 // 區塊展開/折疊狀態管理
@@ -647,17 +657,18 @@
                 const selectedIflistIndex = ref(0);
                 const currentIflistMap = ref({});
 
-                // 分頁邏輯設定 (預設 30 張/頁)
-                const pageSizeOptions = [10, 20, 30, 40, 50];
-                const pageSize = ref(30);
-                const currentPage = ref(1);
-
-                const totalPages = computed(() => Math.max(1, Math.ceil(resultCards.value.length / pageSize.value)));
-
-                const pagedCards = computed(() => {
-                    const start = (currentPage.value - 1) * pageSize.value;
-                    return resultCards.value.slice(start, start + pageSize.value);
-                });
+                // 使用 usePageHelper 簡化分頁邏輯 (預設每頁 30 張)
+                const {
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                } = window.usePageHelper(resultCards, 30);
 
                 const updateCardNameOverflow = () => {
                     document.querySelectorAll('.card-item-name').forEach(nameElement => {
@@ -678,97 +689,30 @@
 
                 onBeforeUnmount(() => window.removeEventListener('resize', updateCardNameOverflow));
 
-                const namesForMask = (value, items) => {
-                    const mask = Number(value || 0);
-                    return items.filter(item => (mask & Number(item.code)) !== 0).map(item => item.name);
-                };
+                // 直接從 RULE 與 RULE_CN 對應產生 options.rule
+                const initialRules = Object.entries(RULE).map(([key, code]) => ({
+                    code: code,
+                    name: RULE_CN[code] || key
+                }));
 
-                const getResultCardSecondInfo = (card) => {
-                    if (!isType.Monster(card)) {
-                        const typeOptions = [...options.typeMain, ...options.typeMonster, ...options.typeSpellTrap];
-                        return namesForMask(card?.type, typeOptions).join(' | ') || '無';
-                    }
-
-                    const attr = namesForMask(card?.attribute, options.attribute).join(' | ');
-                    const race = namesForMask(card?.race, options.race).join(' | ');
-                    const attrRace = [attr, race].filter(Boolean).join(' | ') || '無';
-
-                    const level = Number(card?.level || 0);
-                    let levelLabel = '';
-                    if (level > 0) {
-                        if (isType.Link(card)) {
-                            levelLabel = ` LK-${level}`;
-                        } else if (isType.Xyz(card)) {
-                            levelLabel = ` RK-${level}`;
-                        } else {
-                            levelLabel = ` LV-${level}`;
-                        }
-                    }
-
-                    return `${attrRace}${levelLabel}`;
-                };
-
-                const getResultCardThirdInfo = (card) => {
-                    const scale = Number(card?.scalePlus || 0);
-                    const pendulum = (isType.Pendulum(card) && scale > 0) ? ` P-${scale - 1}` : '';
-                    return `${getCardAtkDef(card)}${pendulum}`;
-                };
-
-                const cardImageUrl = (card) => {
-                    const cdbId = card.cdbId || card.databaseId;
-                    return `/api/cdb/pic/${cdbId}/${card.id}`;
-                };
-
-                const useFallbackImage = (event) => {
-                    if (event.target.src.includes('/image/unknown_card.jpg')) {
-                        event.target.onerror = null;
-                        return;
-                    }
-
-                    event.target.src = '/image/unknown_card.jpg';
-                    event.target.onerror = null;
-                };
-
-                const previousPage = () => { if (currentPage.value > 1) currentPage.value--; };
-                const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++; };
-
-                const onPageInput = (event) => {
-                    let value = event.target.value.replace(/[^0-9]/g, '');
-                    if (value === '') {
-                        currentPage.value = '';
-                        return;
-                    }
-                    let page = Number(value);
-                    if (page > totalPages.value) {
-                        page = totalPages.value;
-                    } else if (page < 1) {
-                        page = 1;
-                    }
-                    event.target.value = page;
-                    currentPage.value = page;
-                };
-
-                const validatePage = () => {
-                    let page = Number(currentPage.value);
-                    if (isNaN(page) || page < 1) {
-                        currentPage.value = 1;
-                    } else if (page > totalPages.value) {
-                        currentPage.value = totalPages.value;
-                    }
-                };
+                const mapToOptions = (obj, cnObj) => Object.entries(obj).map(([key, code]) => ({
+                    code: code,
+                    name: cnObj[code] || key,
+                    active: false
+                }));
 
                 const options = reactive({
-                    rule: [],
+                    rule: initialRules,
                     setname: [],
                     defaultSetname: [],
-                    typeMain: [],
-                    typeMonster: [],
-                    typeSpellTrap: [],
-                    attribute: [],
-                    race: [],
+                    typeMain: mapToOptions(TYPE_MAIN, TYPE_CN),
+                    typeMonster: mapToOptions(TYPE_MONSTER, TYPE_CN),
+                    typeSpellTrap: mapToOptions(TYPE_SPELL_TRAP, TYPE_CN),
+                    attribute: mapToOptions(ATTRIBUTE, ATTRIBUTE_CN),
+                    race: mapToOptions(RACE, RACE_CN),
                     level: Array.from({ length: 13 }, (_, i) => ({ code: i + 1, name: String(i + 1), active: false })),
                     scale: Array.from({ length: 14 }, (_, i) => ({ code: i, name: String(i), active: false })),
-                    category: []
+                    category: mapToOptions(CATEGORY, CATEGORY_CN)
                 });
 
                 const filteredSetnames = computed(() => {
@@ -791,15 +735,8 @@
 
                 const loading = reactive({
                     cdb: false,
-                    rule: false,
                     setname: false,
                     defaultSetname: false,
-                    typeMain: false,
-                    typeMonster: true,
-                    typeSpellTrap: true,
-                    attribute: false,
-                    race: false,
-                    category: false,
                     iflist: false
                 });
 
@@ -967,10 +904,10 @@
                         category: options.category.filter(i => i.active).map(i => BigInt(i.code)).reduce((acc, code) => acc | code, 0n),
                         level: options.level.filter(i => i.active).reduce((acc, item) => acc | (1 << (item.code - 1)), 0),
                         scale: options.scale.filter(i => i.active).reduce((acc, item) => acc | (1 << item.code), 0),
-                        sets: [
+                        sets: [...new Set([
                             ...options.setname.filter(i => i.active).map(i => Number(i.code)),
                             ...options.defaultSetname.filter(i => i.active).map(i => Number(i.code))
-                        ],
+                        ])],
                         ...andModes,
                         ...filter.value
                     };
@@ -984,127 +921,6 @@
                     selectedFilter.effect = selectedFilter.effect.trim().toLowerCase();
 
                     return selectedFilter;
-                };
-
-                const matchIflist = (card, selectedFilter) => {
-                    const status = selectedFilter.iflistStatus;
-                    if (!status || status === '0') return true;
-
-                    const iflist = currentIflistMap.value;
-                    if (!iflist || Object.keys(iflist).length === 0) return true;
-
-                    let targetCount = Number(selectedFilter.iflistStatus) - 1;
-
-                    let actualCount = -1;
-                    for (const [statusCode, items] of Object.entries(iflist)) {
-                        if (Array.isArray(items) && items.some(item => Number(item.cardId || item.id) === Number(card.id))) {
-                            actualCount = Number(statusCode);
-                            break;
-                        }
-                    }
-
-                    if (targetCount === 3) return actualCount === -1;
-                    return actualCount === targetCount;
-                };
-
-                const matchTypeMonster = (cardType, selectedMask) => {
-                    if (selectedMask === 0 || selectedMask === 1) return true;
-                    if ((cardType & TYPE.MONSTER) === 0) return false;
-                    if ((andModes.typMode === 0)) return (selectedMask & cardType) > 0;
-                    return (selectedMask & cardType) === selectedMask;
-                };
-
-                const matchTypeSpellTrap = (cardType, selectedMask) => {
-                    if (selectedMask === 0) return true;
-                    const withTypeSpellTrap = cardType & TYPE.ST;
-                    if (withTypeSpellTrap === 0) return false;
-                    if ((selectedMask & TYPE.NORMAL) > 0 && withTypeSpellTrap === cardType) return true;
-                    return (selectedMask & cardType) > 0;
-                };
-
-                const matchBitmask = (cardValue, filterValue) => filterValue === 0 || (filterValue & Number(cardValue || 0)) > 0;
-
-                const matchLvScale = (cardValue, filterValue) => {
-                    if (!filterValue) return true;
-                    const cardVal = Number(cardValue || 0);
-                    return Boolean(cardVal && (filterValue & (1 << (cardVal - 1))));
-                };
-
-                const matchAtkDef = (card, selectedFilter, property) => {
-                    let min = selectedFilter[property + 'Min'];
-                    min = min === '?' ? -2 : (min === '' ? null : Number(min));
-                    let max = selectedFilter[property + 'Max'];
-                    max = max === '?' ? -2 : (max === '' ? null : Number(max));
-                    if (min === -2 || max === -2) return card[property] === -2;
-                    return (min === null || card[property] >= min) && (max === null || card[property] <= max);
-                };
-
-                const matchSetcode = (card, selectedFilter) => {
-                    const selectedSets = selectedFilter.sets;
-                    if (!selectedSets || selectedSets.length === 0) return true;
-
-                    if (selectedFilter.setMode === 1) {
-                        return selectedSets.every(targetCode => isSetCard(card, targetCode));
-                    } else {
-                        return selectedSets.some(targetCode => isSetCard(card, targetCode));
-                    }
-                };
-
-                const cardMatchesFilter = (card, selectedFilter) => {
-                    const cardType = Number(card.type || 0);
-
-                    let matchNameOrId = true;
-                    let matchEffect = true;
-                    let matchLinkMarker = true;
-                    let matchCategory = true;
-
-                    const selectedNameId = selectedFilter.nameId;
-                    if (selectedNameId) {
-                        matchNameOrId = (card.name || '').toLowerCase().includes(selectedNameId);
-                        const selectedId = Number(selectedNameId);
-                        if (!isNaN(selectedId)) {
-                            const cardId = String(card.id || '');
-                            matchNameOrId ||= cardId.startsWith(selectedNameId) || cardId.endsWith(selectedNameId);
-                            matchNameOrId ||= selectedId === card.alias;
-                        }
-                    }
-
-                    const selectedEffect = selectedFilter.effect;
-                    if (selectedEffect) {
-                        matchEffect = (card.desc || '').toLowerCase().includes(selectedEffect);
-                    }
-
-                    const selectedLinkMask = selectedFilter.linkMarker;
-                    if (selectedLinkMask) {
-                        if (andModes.linkMode === 1) {
-                            matchLinkMarker = (selectedLinkMask & Number(card.linkMarker || 0)) === selectedLinkMask;
-                        } else {
-                            matchLinkMarker = matchBitmask(card.linkMarker, selectedLinkMask);
-                        }
-                    }
-
-                    const selectedCategory = selectedFilter.category;
-                    if (selectedCategory > 0n) {
-                        const cardCategory = BigInt(card.category || 0);
-                        matchCategory = (selectedCategory & cardCategory) > 0n;
-                    }
-
-                    let ruleCode = selectedFilter.ruleCode;
-                    if (selectedFilter.ruleIndex === 1) ruleCode = -1;
-
-                    return matchNameOrId && matchEffect && matchCategory && matchLinkMarker
-                        && isRule(card, ruleCode)
-                        && matchIflist(card, selectedFilter)
-                        && matchBitmask(card.type, selectedFilter.typeMain)
-                        && matchTypeMonster(cardType, selectedFilter.typeMonster)
-                        && matchTypeSpellTrap(cardType, selectedFilter.typeSpellTrap)
-                        && matchBitmask(card.attribute, selectedFilter.attribute)
-                        && matchBitmask(card.race, selectedFilter.race)
-                        && matchLvScale(card.level, selectedFilter.level)
-                        && matchLvScale(card.scalePlus, selectedFilter.scale)
-                        && matchAtkDef(card, selectedFilter, 'atk')
-                        && matchAtkDef(card, selectedFilter, 'def')
-                        && matchSetcode(card, selectedFilter);
                 };
 
                 function compressBits(value, fullMask) {
@@ -1293,7 +1109,7 @@
 
                     const selectedFilter = getSelectedFilter();
 
-                    resultCards.value = cardGroups.flat().filter(card => cardMatchesFilter(card, selectedFilter)).sort(sortCards);
+                    resultCards.value = MatcheFilterCards(cardGroups, selectedFilter, currentIflistMap.value);
 
                     hasSearched.value = true;
 
@@ -1348,14 +1164,7 @@
                     window.addEventListener('resize', updateCardNameOverflow);
                     await Promise.all([
                         fetchCdbConfigs(),
-                        fetchCardInfo('rule', 'rules'),
-                        fetchCardInfo('defaultSetname', 'default-setnames'),
-                        fetchCardInfo('typeMain', 'types_main'),
-                        fetchCardInfo('typeMonster', 'types_monster'),
-                        fetchCardInfo('typeSpellTrap', 'types_spell_trap'),
-                        fetchCardInfo('attribute', 'attributes'),
-                        fetchCardInfo('race', 'races'),
-                        fetchCardInfo('category', 'categories')
+                        fetchCardInfo('defaultSetname', 'default-setnames')
                     ]);
 
                     loadFiltersFromUrl();
@@ -1379,8 +1188,8 @@
                     pageSize,
                     currentPage,
                     totalPages,
-                    cardImageUrl,
-                    useFallbackImage,
+                    getCardUrl,
+                    getCardUrlError,
                     previousPage,
                     nextPage,
                     onPageInput,
@@ -1403,8 +1212,8 @@
                     handleSearch,
                     resetFilter,
                     getCardLimitStatus,
-                    getResultCardSecondInfo,
-                    getResultCardThirdInfo
+                    getCardInfoRowTwo,
+                    getCardInfoRowThree
                 };
             }
         }).mount('#app');

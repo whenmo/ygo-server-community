@@ -13,7 +13,8 @@
 
     <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
-    <script th:src="@{/js/pageHelper.js}" src="/js/pageHelper.js"></script>
+
+    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
 
     <style>
         .deck-table-item-name,
@@ -184,8 +185,8 @@
             <div class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
                 <button @click="previousPage" :disabled="currentPage === 1">上一頁</button>
                 <span>
-                    <input class="module-input-clean" :value="currentPage" @input="onPageInput"
-                        @blur="validatePage" /> / {{ totalPages }}
+                    <input class="module-input-clean" :value="currentPage" @input="onPageInput" @blur="validatePage" />
+                    / {{ totalPages }}
                 </span>
                 <button @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
             </div>
@@ -320,6 +321,8 @@
                     return `${item.main?.length ?? 0} / ${item.extra?.length ?? 0} / ${item.side?.length ?? 0}`;
                 };
 
+                const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
+
                 const selectPack = (packName) => {
                     if (!packName || packName.trim() === '') {
                         filter.value.pack = '__UNCLASSIFIED__';
@@ -338,8 +341,6 @@
                         sort: 'time'
                     };
                 };
-
-                const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
 
                 onMounted(fetchData);
 

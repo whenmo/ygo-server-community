@@ -11,11 +11,14 @@
     <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
     <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
 
     <!-- CDN 套件 -->
     <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+
+    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
 
     <style>
         .table-col-first {
@@ -23,7 +26,6 @@
         }
 
         .module-table-container {
-            flex: 1;
             min-height: 0;
             overflow: auto;
         }
@@ -148,6 +150,10 @@
                 <div class="main-top-bar-row" style="flex-wrap: wrap; gap: 10px;">
                     <h2 class="main-top-bar-title">作者清單</h2>
                     <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <!-- 每頁筆數選擇器 (置於數據庫 select 左方，預設 10) -->
+                        <select v-model.number="pageSize" class="module-select" style="width: auto;">
+                            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}張/頁</option>
+                        </select>
                         <select v-model.number="selectedCdbId" @change="persistCdbSelection" class="module-select">
                             <option v-for="config in cdbConfigs" :key="config.id" :value="config.id">
                                 {{ config.name }}
@@ -185,7 +191,7 @@
                             <td colspan="4" class="table-item-empty-row">目前尚無作者資料</td>
                         </tr>
                     </tbody>
-                    <template v-else v-for="diyer in sortedDiyers" :key="diyer.id">
+                    <template v-else v-for="diyer in pagedItems" :key="diyer.id">
                         <tr class="table-row-diyer-info" @click="ExpandDiyerRow(diyer.id)">
                             <td>
                                 <span class="expand-icon"
@@ -229,6 +235,16 @@
                     </template>
                 </table>
             </div>
+
+            <!-- 分頁選擇器 -->
+            <div class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
+                <button @click="previousPage" :disabled="currentPage === 1">上一頁</button>
+                <span>
+                    <input class="module-input-clean" :value="currentPage" @input="onPageInput" @blur="validatePage" />
+                    / {{ totalPages }}
+                </span>
+                <button @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
+            </div>
         </main>
     </div>
 
@@ -252,6 +268,30 @@
                 const loading = ref(false);
 
                 const expandDiyerIds = ref(new Set());
+
+                /**
+                 * 計算屬性：將作者列表依據最小卡號區間及名稱進行排序
+                 */
+                const sortedDiyers = computed(() => [...diyers.value].sort((left, right) => {
+                    const leftRange = Math.min(...(left.codeRanges || []).map(Number));
+                    const rightRange = Math.min(...(right.codeRanges || []).map(Number));
+                    return (Number.isFinite(leftRange) ? leftRange : Number.POSITIVE_INFINITY) -
+                        (Number.isFinite(rightRange) ? rightRange : Number.POSITIVE_INFINITY) ||
+                        left.name.localeCompare(right.name);
+                }));
+
+                // 套用分頁 Helper (預設每頁 10 筆)
+                const {
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards: pagedItems,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                } = usePageHelper(sortedDiyers, 10);
 
                 /**
                  * 切換指定作者項目的展開/收合狀態
@@ -325,17 +365,6 @@
                         localStorage.setItem('adminSetSelectedCdbId', String(selectedCdbId.value));
                     }
                 };
-
-                /**
-                 * 計算屬性：將作者列表依據最小卡號區間及名稱進行排序
-                 */
-                const sortedDiyers = computed(() => [...diyers.value].sort((left, right) => {
-                    const leftRange = Math.min(...(left.codeRanges || []).map(Number));
-                    const rightRange = Math.min(...(right.codeRanges || []).map(Number));
-                    return (Number.isFinite(leftRange) ? leftRange : Number.POSITIVE_INFINITY) -
-                        (Number.isFinite(rightRange) ? rightRange : Number.POSITIVE_INFINITY) ||
-                        left.name.localeCompare(right.name);
-                }));
 
                 /**
                  * 將數值陣列由小到大進行排序
@@ -1067,7 +1096,16 @@
                     diyers, cdbConfigs, selectedCdbId, sortedDiyers, loading,
                     expandDiyerIds, ExpandDiyerRow,
                     persistCdbSelection, sortNumbers, sortDiyerStrings, typeLabel,
-                    openDiyerModal, exportConfig
+                    openDiyerModal, exportConfig,
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedItems,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
                 };
             }
         }).mount('#app');

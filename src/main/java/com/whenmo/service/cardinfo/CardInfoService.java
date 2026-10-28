@@ -1,12 +1,6 @@
 package com.whenmo.service.cardinfo;
 
-import com.whenmo.model.cardinfo.CardAttribute;
-import com.whenmo.model.cardinfo.CardCategory;
 import com.whenmo.model.cardinfo.CardInfoItem;
-import com.whenmo.model.cardinfo.CardRace;
-import com.whenmo.model.cardinfo.CardRule;
-import com.whenmo.model.cardinfo.CardType;
-
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -14,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -23,39 +16,6 @@ public class CardInfoService {
     private List<CardInfoItem> cachedDefaultSetnames;
     private List<CardInfoItem> cachedDefaultCounters;
     private List<CardInfoItem> cachedDefaultVictorys;
-
-    public List<CardInfoItem> getRules() {
-        return Arrays.stream(CardRule.values()).map(r -> new CardInfoItem("rule", r.getCode(), r.getName())).toList();
-    }
-
-    public List<CardInfoItem> getAttributes() {
-        return Arrays.stream(CardAttribute.values()).map(a -> new CardInfoItem("attribute", a.getCode(), a.getName()))
-                .toList();
-    }
-
-    public List<CardInfoItem> getCategories() {
-        return Arrays.stream(CardCategory.values()).map(c -> new CardInfoItem("category", c.getCode(), c.getName()))
-                .toList();
-    }
-
-    public List<CardInfoItem> getRaces() {
-        return Arrays.stream(CardRace.values()).map(r -> new CardInfoItem("race", r.getCode(), r.getName())).toList();
-    }
-
-    public List<CardInfoItem> getTypesMain() {
-        return Arrays.stream(CardType.values()).filter(CardType::isTypeMain)
-                .map(r -> new CardInfoItem("typeMain", r.getCode(), r.getName())).toList();
-    }
-
-    public List<CardInfoItem> getTypesMonster() {
-        return Arrays.stream(CardType.values()).filter(CardType::isTypeMonster)
-                .map(r -> new CardInfoItem("typeMonster", r.getCode(), r.getName())).toList();
-    }
-
-    public List<CardInfoItem> getTypesSpellTrap() {
-        return Arrays.stream(CardType.values()).filter(CardType::isTypeSpellTrap)
-                .map(r -> new CardInfoItem("typeSpellTrap", r.getCode(), r.getName())).toList();
-    }
 
     public List<CardInfoItem> getDefaultSetnames() {
         if (cachedDefaultSetnames == null || cachedDefaultSetnames.isEmpty())

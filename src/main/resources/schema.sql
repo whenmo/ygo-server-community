@@ -5,7 +5,8 @@
 CREATE TABLE IF NOT EXISTS cdb_configs (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL,
-    file_path   TEXT NOT NULL UNIQUE
+    file_path   TEXT NOT NULL UNIQUE,
+    pic_cdn     TEXT NOT NULL
 );
 
 -- 2. Users 主表

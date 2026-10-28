@@ -3,7 +3,6 @@ package com.whenmo.service.database;
 import com.whenmo.model.database.domain.User;
 import com.whenmo.model.database.domain.DeckPack;
 import com.whenmo.model.database.domain.UserDeck;
-import com.whenmo.model.cardinfo.CardType;
 import com.whenmo.model.cardinfo.IflistItem;
 import com.whenmo.model.cdb.CdbCardResponse;
 import com.whenmo.model.database.response.CdbConfigResponse;
