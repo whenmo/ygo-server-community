@@ -167,7 +167,7 @@
     <main id="app" class="card-detail-layout" th:attr="data-config-id=${configId},data-card-id=${cardId}">
         <!-- 左側：圖片與屬性基本資料 -->
         <div class="card-detail-left">
-            <img :src="getCardUrl(card)" @error="getCardUrlError">
+            <img v-if="getCardUrl(card)" :src="getCardUrl(card)" @error="getCardUrlError">
             <div class="card-detail-row-container">
                 <div class="card-detail-row">
                     <span class="row-title">許可</span>
@@ -334,12 +334,12 @@
                         :href="`/view/card/${cardItem.cdbId}/${cardItem.id}`" target="_blank">
 
                         <!-- 禁限圖標 -->
-                        <img v-if="getCardLimitStatus(cardItem, currentIflistMap) < 3" class="small-card-result-limit"
-                            :src="`/image/limit/limit_${getCardLimitStatus(cardItem, currentIflistMap)}.png`"
+                        <img v-if="getCardLimitUrl(cardItem, currentIflistMap)" class="small-card-result-limit"
+                            :src="getCardLimitUrl(cardItem, currentIflistMap)"
                             alt="Limit Status">
 
                         <!-- 卡片圖片 -->
-                        <img class="small-card-result-image" :src="getCardUrl(cardItem)" @error="getCardUrlError">
+                        <img v-if="getCardUrl(cardItem)" class="small-card-result-image" :src="getCardUrl(cardItem)" @error="getCardUrlError">
 
                         <!-- 卡片詳細資訊 -->
                         <div class="small-card-result-card-info">
@@ -377,6 +377,7 @@
                     isSetCard,
                     formatAtkDefValue,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     getCardUrl,
                     getCardUrlError,
                     getCardInfoRowTwo,
@@ -625,6 +626,7 @@
                     formatAtkDefValue,
                     currentIflistMap,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     getCardInfoRowTwo,
                     getCardInfoRowThree,
                     pageSizeOptions,

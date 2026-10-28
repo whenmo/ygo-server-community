@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 public class CdbCardResponse {
 
     private int cdbId;
+    private String picCdn;
     private int id;
     private int rule;
     private int alias;
@@ -37,8 +38,10 @@ public class CdbCardResponse {
     public static CdbCardResponse fromModel(CdbCard model, CdbConfigResponse configResponse) {
         CdbCardResponse response = fromModel(model);
 
-        if (configResponse != null)
+        if (configResponse != null) {
             response.setCdbId(configResponse.getId().intValue());
+            response.setPicCdn(configResponse.getPicCdn());
+        }
 
         return response;
     }

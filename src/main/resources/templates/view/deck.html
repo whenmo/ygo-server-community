@@ -238,10 +238,10 @@
                         <a v-for="(card, index) in packCards" :key="`pack-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId || selectedCdbId}/${card.id}`" target="_blank"
                             rel="noopener" @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitStatus(card, currentIflistMap) < 3" class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(card, currentIflistMap)}.png`"
+                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
+                                :src="getCardLimitUrl(card, currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
+                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
@@ -254,10 +254,10 @@
                         <a v-for="(card, index) in mainCards" :key="`main-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId || selectedCdbId}/${card.id}`" target="_blank"
                             rel="noopener" @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitStatus(card, currentIflistMap) < 3" class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(card, currentIflistMap)}.png`"
+                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
+                                :src="getCardLimitUrl(card, currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
+                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
@@ -270,10 +270,10 @@
                         <a v-for="(card, index) in extraCards" :key="`extra-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId || selectedCdbId}/${card.id}`" target="_blank"
                             rel="noopener" @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitStatus(card, currentIflistMap) < 3" class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(card, currentIflistMap)}.png`"
+                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
+                                :src="getCardLimitUrl(card, currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
+                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
@@ -286,10 +286,10 @@
                         <a v-for="(card, index) in sideCards" :key="`side-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId || selectedCdbId}/${card.id}`" target="_blank"
                             rel="noopener" @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitStatus(card, currentIflistMap) < 3" class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(card, currentIflistMap)}.png`"
+                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
+                                :src="getCardLimitUrl(card, currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
+                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)" :alt="card.name"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
@@ -302,7 +302,7 @@
         <aside class="deck-view-card-col">
             <div v-if="hoveredCard"
                 style="display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0;">
-                <img class="hover-card-image" :src="getCardUrl(hoveredCard)" :alt="hoveredCard.name"
+                <img v-if="getCardUrl(hoveredCard)" class="hover-card-image" :src="getCardUrl(hoveredCard)" :alt="hoveredCard.name"
                     @error="getCardUrlError">
                 <h4 class="hover-card-name">{{ hoveredCard.name }}[{{ hoveredCard.id }}]</h4>
                 <div class="hover-card-stats">
@@ -328,6 +328,7 @@
                 const {
                     isType,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     getCardUrl,
                     getCardUrlError,
                     getTypesView,
@@ -428,7 +429,8 @@
                                     cardMap.set(Number(card.id), {
                                         ...card,
                                         cdbId: config.id,
-                                        databaseId: config.id
+                                        databaseId: config.id,
+                                        picCdn: config.picCdn
                                     });
                                 });
                             }
@@ -525,6 +527,7 @@
                     handleCdbChange,
                     handleIflistVersionChange,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     currentIflistMap,
                     exportYdk
                 };

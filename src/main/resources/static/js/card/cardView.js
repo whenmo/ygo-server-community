@@ -73,19 +73,34 @@
     };
 
     // 產生卡片圖片網址
+    const FALLBACK_UNKNOWN_CARD = 'https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/unknown_card.jpg';
+
     const getCardUrl = (card) => {
-        const cdbId = card?.cdbId || card?.databaseId;
-        if (!(cdbId && card?.id)) {
-            return '/image/unknown_card.jpg';
-        }
-        return `/api/cdb/pic/${cdbId}/${card?.id}`;
+        const picCdn = typeof card?.picCdn === 'string' ? card.picCdn.trim() : '';
+        if (!picCdn || !card?.id) return null;
+
+        return `${picCdn}/${card.id}.jpg`;
+    };
+
+    const getCardLimitUrl = (card, iflistMap) => {
+        const status = window.APP_CONSTANTS?.getCardLimitStatus?.(card, iflistMap);
+        if (![0, 1, 2].includes(status)) return null;
+        return `https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_${status}.png`;
     };
 
     // 圖片載入失敗時的預設圖處置
     const getCardUrlError = (event) => {
-        event.target.onerror = null;
-        if (event.target.src.includes('/image/unknown_card.jpg')) return;
-        event.target.src = '/image/unknown_card.jpg';
+        const image = event?.target;
+        if (!image) return;
+
+        if (!image.dataset.triedFallback) {
+            image.dataset.triedFallback = 'true';
+            image.src = FALLBACK_UNKNOWN_CARD;
+        } else {
+            image.onerror = null;
+            image.removeAttribute('src');
+            image.style.display = 'none';
+        }
     };
 
     const cardView = {
@@ -100,6 +115,7 @@
         formatAtkDefValue,
         getCardAtkDef,
         getCardUrl,
+        getCardLimitUrl,
         getCardUrlError,
         getCardInfoRowTwo,
         getCardInfoRowThree,

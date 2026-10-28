@@ -3,7 +3,23 @@ param(
 	[int]$Port = 8080
 )
 
-Set-Location $PSScriptRoot
+$ErrorActionPreference = 'Stop'
+
+$projectRoot = (Resolve-Path -LiteralPath $PSScriptRoot).Path
+$mavenWrapper = Join-Path $projectRoot 'mvnw.cmd'
+Set-Location -LiteralPath $projectRoot
+
+if (-not (Test-Path -LiteralPath $mavenWrapper -PathType Leaf)) {
+	throw "Maven Wrapper not found: $mavenWrapper"
+}
+
+$javaVersion = (& java --version | Out-String)
+if ($javaVersion -notmatch '(?:version "|java\s+)25(?:\.|\s)') {
+	throw "Java 25 is required. Detected Java version output:`n$javaVersion"
+}
+
+Write-Host "Project root: $projectRoot" -ForegroundColor DarkGray
+Write-Host "Using Java 25" -ForegroundColor DarkGray
 
 if ($HardReboot) {
 	Write-Host "Hard reboot mode enabled" -ForegroundColor Yellow
@@ -43,17 +59,27 @@ if ($HardReboot) {
 		}
 	}
 
-	if (Test-Path ".\target") {
-		Remove-Item ".\target" -Recurse -Force
+	$targetDirectory = Join-Path $projectRoot 'target'
+	if (Test-Path -LiteralPath $targetDirectory) {
+		Remove-Item -LiteralPath $targetDirectory -Recurse -Force
 		Write-Host "Removed target directory" -ForegroundColor DarkYellow
 	}
 
 	Write-Host "Running Maven clean..." -ForegroundColor Cyan
-	.\mvnw.cmd clean
+	& $mavenWrapper clean
 	if ($LASTEXITCODE -ne 0) {
 		throw "Maven clean failed. Hard reboot aborted."
 	}
 }
 
 Write-Host "Starting Spring Boot project..." -ForegroundColor Cyan
-.\mvnw.cmd spring-boot:run
+$mavenArguments = @(
+	'-Dmaven.test.skip=true'
+	'spring-boot:run'
+)
+& $mavenWrapper @mavenArguments
+$mavenExitCode = $LASTEXITCODE
+
+if ($mavenExitCode -ne 0) {
+	throw "Spring Boot startup failed with exit code $mavenExitCode."
+}

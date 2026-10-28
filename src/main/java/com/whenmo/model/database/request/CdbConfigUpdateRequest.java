@@ -15,14 +15,7 @@ public class CdbConfigUpdateRequest {
 
     private String name;
     private String filePath;
-
-    public void setName(String name) {
-        this.name = (name != null && name.isBlank()) ? null : name;
-    }
-
-    public void setFilePath(String filePath) {
-        this.filePath = (filePath != null && filePath.isBlank()) ? null : filePath;
-    }
+    private String picCdn;
 
     public void updateModel(CdbConfig model) {
         if (model == null)
@@ -32,5 +25,7 @@ public class CdbConfigUpdateRequest {
             model.setName(this.name);
         if (this.filePath != null)
             model.setFilePath(this.filePath);
+        if (this.picCdn != null)
+            model.setPicCdn(this.picCdn);
     }
 }

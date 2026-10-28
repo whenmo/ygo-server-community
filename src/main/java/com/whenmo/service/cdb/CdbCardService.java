@@ -6,8 +6,6 @@ import com.whenmo.model.cdb.CdbCard;
 import com.whenmo.model.cdb.CdbCardResponse;
 import com.whenmo.model.database.response.CdbConfigResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;

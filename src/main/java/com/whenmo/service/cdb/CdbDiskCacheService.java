@@ -38,7 +38,17 @@ public class CdbDiskCacheService {
                     || sourceModified != entry.path("sourceModified").asLong(-1)) {
                 return null;
             }
-            return objectMapper.convertValue(entry.path("cards"), new TypeReference<List<CdbCardResponse>>() {});
+            List<CdbCardResponse> cards = objectMapper.convertValue(
+                    entry.path("cards"), new TypeReference<List<CdbCardResponse>>() {});
+
+            // 舊版快取可能沒有 picCdn（該欄位是在快取建立後才加入的）。
+            // 卡片詳情 API 會直接從 CDB 設定補上，但字段相關卡片會走這裡，
+            // 因此讀取快取時要同步補齊目前設定，避免前端無法產生圖片 URL。
+            for (CdbCardResponse card : cards) {
+                card.setCdbId(config.getId());
+                card.setPicCdn(config.getPicCdn());
+            }
+            return cards;
         } catch (Exception exception) {
             return null;
         }

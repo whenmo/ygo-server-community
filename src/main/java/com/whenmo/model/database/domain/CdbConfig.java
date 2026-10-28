@@ -24,4 +24,7 @@ public class CdbConfig {
 
     @Column(name = "file_path", nullable = false, unique = true)
     private String filePath;
+
+    @Column(name = "pic_cdn", nullable = true)
+    private String picCdn;
 }

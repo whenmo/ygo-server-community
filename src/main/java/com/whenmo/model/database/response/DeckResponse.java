@@ -6,10 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import java.util.stream.Collectors;
-
-import com.whenmo.model.database.domain.Diyer;
-import com.whenmo.model.database.domain.DiyerString;
 import com.whenmo.model.database.domain.User;
 import com.whenmo.model.database.domain.UserDeck;
 import com.whenmo.model.database.dto.DeckInfoDto;

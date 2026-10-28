@@ -20,7 +20,9 @@ public class CdbConfigCreateRequest {
     @NotBlank(message = "cdb 檔案路徑不能為空")
     private String filePath;
 
+    private String picCdn;
+
     public CdbConfig toModel() {
-        return CdbConfig.builder().name(this.name).filePath(this.filePath).build();
+        return CdbConfig.builder().name(this.name).filePath(this.filePath).picCdn(this.picCdn).build();
     }
 }

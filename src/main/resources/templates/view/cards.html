@@ -552,9 +552,9 @@
                     <div class="cards-grid">
                         <a v-for="card in pagedCards" :key="card.sourceFilePath + ':' + card.id" class="card-item"
                             :href="`/view/card/${card.cdbId || card.databaseId}/${card.id}`" target="_blank">
-                            <img v-if="getCardLimitStatus(card, currentIflistMap) < 3" class="card-limit-badge"
-                                :src="`/image/limit/limit_${getCardLimitStatus(card, currentIflistMap)}.png`">
-                            <img class="card-item-image" :src="getCardUrl(card)" :alt="card.name || '卡片圖片'"
+                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="card-limit-badge"
+                                :src="getCardLimitUrl(card, currentIflistMap)">
+                            <img v-if="getCardUrl(card)" class="card-item-image" :src="getCardUrl(card)" :alt="card.name || '卡片圖片'"
                                 @error="getCardUrlError">
                             <div class="card-item-body">
                                 <span class="card-item-name" :title="card.name || '未命名卡片'">
@@ -602,6 +602,7 @@
                     isType,
                     MatcheFilterCards,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     getCardUrl,
                     getCardUrlError,
                     getCardInfoRowTwo,
@@ -1212,6 +1213,7 @@
                     handleSearch,
                     resetFilter,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     getCardInfoRowTwo,
                     getCardInfoRowThree
                 };

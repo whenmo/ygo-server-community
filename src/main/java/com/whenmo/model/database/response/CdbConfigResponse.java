@@ -16,12 +16,14 @@ public class CdbConfigResponse {
     private Integer id;
     private String name;
     private String filePath;
+    private String picCdn;
 
     public static CdbConfigResponse fromModel(CdbConfig model) {
         return CdbConfigResponse.builder()
                 .id(model.getId())
                 .name(model.getName())
                 .filePath(model.getFilePath())
+                .picCdn(model.getPicCdn())
                 .build();
     }
 }

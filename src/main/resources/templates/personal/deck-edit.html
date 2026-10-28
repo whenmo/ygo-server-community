@@ -725,11 +725,11 @@
                             draggable="true" @dragstart="onDragStart($event, cardId, 'pack')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('pack', cardId)">
-                            <img v-if="findCard(cardId) && getCardLimitStatus(findCard(cardId), currentIflistMap) < 3"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(findCard(cardId), currentIflistMap)}.png`"
+                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
+                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
                                 :alt="findCard(cardId)?.name || cardId" @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
@@ -745,11 +745,11 @@
                             class="deck-card" draggable="true" @dragstart="onDragStart($event, cardId, 'main')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('main', cardId)">
-                            <img v-if="findCard(cardId) && getCardLimitStatus(findCard(cardId), currentIflistMap) < 3"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(findCard(cardId), currentIflistMap)}.png`"
+                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
+                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
                                 :alt="findCard(cardId)?.name || cardId" @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
@@ -764,11 +764,11 @@
                             class="deck-card" draggable="true" @dragstart="onDragStart($event, cardId, 'extra')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('extra', cardId)">
-                            <img v-if="findCard(cardId) && getCardLimitStatus(findCard(cardId), currentIflistMap) < 3"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(findCard(cardId), currentIflistMap)}.png`"
+                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
+                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
                                 :alt="findCard(cardId)?.name || cardId" @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
@@ -783,11 +783,11 @@
                             class="deck-card" draggable="true" @dragstart="onDragStart($event, cardId, 'side')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('side', cardId)">
-                            <img v-if="findCard(cardId) && getCardLimitStatus(findCard(cardId), currentIflistMap) < 3"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 class="deck-card-limit"
-                                :src="`/image/limit/limit_${getCardLimitStatus(findCard(cardId), currentIflistMap)}.png`"
+                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)"
                                 alt="Limit">
-                            <img style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
+                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;" :src="getCardUrl(findCard(cardId))"
                                 :alt="findCard(cardId)?.name || cardId" @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
@@ -800,7 +800,7 @@
         <aside class="deck-edit-card-col">
             <div v-if="hoveredCard"
                 style="display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0;">
-                <img class="hover-card-image" :src="getCardUrl(hoveredCard)" :alt="hoveredCard.name"
+                <img v-if="getCardUrl(hoveredCard)" class="hover-card-image" :src="getCardUrl(hoveredCard)" :alt="hoveredCard.name"
                     @error="getCardUrlError">
                 <h4 class="hover-card-name">{{ hoveredCard.name }}[{{ hoveredCard.id }}]</h4>
                 <div class="hover-card-stats">
@@ -835,12 +835,12 @@
                         @click="smartAddCard(cardItem.id)">
 
                         <!-- 禁限圖標 -->
-                        <img v-if="getCardLimitStatus(cardItem, currentIflistMap) < 3" class="small-card-result-limit"
-                            :src="`/image/limit/limit_${getCardLimitStatus(cardItem, currentIflistMap)}.png`"
+                        <img v-if="getCardLimitUrl(cardItem, currentIflistMap)" class="small-card-result-limit"
+                            :src="getCardLimitUrl(cardItem, currentIflistMap)"
                             alt="Limit Status">
 
                         <!-- 卡片圖片 -->
-                        <img class="small-card-result-image" :src="getCardUrl(cardItem)" @error="getCardUrlError">
+                        <img v-if="getCardUrl(cardItem)" class="small-card-result-image" :src="getCardUrl(cardItem)" @error="getCardUrlError">
 
                         <!-- 卡片詳細資訊 -->
                         <div class="small-card-result-card-info">
@@ -896,6 +896,7 @@
                     isType,
                     isSetCard,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     MatcheFilterCards,
                     getCardAtkDef,
                     getCardAttributeRace,
@@ -1324,7 +1325,8 @@
                                         ...card,
                                         cdbId: config.id,
                                         databaseName: config.name,
-                                        sourceFilePath: config.filePath
+                                        sourceFilePath: config.filePath,
+                                        picCdn: config.picCdn
                                     });
                                 });
                             }
@@ -1494,7 +1496,8 @@
                                 ...c,
                                 cdbId: config.id,
                                 databaseName: config.name,
-                                sourceFilePath: config.filePath
+                                sourceFilePath: config.filePath,
+                                picCdn: config.picCdn
                             });
                         });
                         return cards;
@@ -1911,6 +1914,7 @@
                     activeTab,
                     switchTab,
                     getCardLimitStatus,
+                    getCardLimitUrl,
                     getResultCardSecondInfo,
                     getResultCardThirdInfo,
                     getTypesView,

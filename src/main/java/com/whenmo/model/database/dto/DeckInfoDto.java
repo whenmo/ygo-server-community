@@ -2,7 +2,6 @@ package com.whenmo.model.database.dto;
 
 import java.time.LocalDateTime;
 
-import com.whenmo.model.database.domain.Diyer;
 import com.whenmo.model.database.domain.UserDeck;
 
 import lombok.AllArgsConstructor;
