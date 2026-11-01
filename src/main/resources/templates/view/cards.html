@@ -88,7 +88,7 @@
             flex-direction: column;
             justify-content: space-between;
             gap: 5px;
-            padding: 8px;
+            padding: 5px;
             min-width: 0;
         }
 
@@ -550,12 +550,12 @@
                 <p v-if="searching">資料載入中...</p>
                 <div v-else-if="resultCards.length" class="cards-container">
                     <div class="cards-grid">
-                        <a v-for="card in pagedCards" :key="card.sourceFilePath + ':' + card.id" class="card-item"
-                            :href="`/view/card/${card.cdbId || card.databaseId}/${card.id}`" target="_blank">
+                        <a v-for="card in pagedCards" :key="card.cdbId + ':' + card.id" class="card-item"
+                            :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank">
                             <img v-if="getCardLimitUrl(card, currentIflistMap)" class="card-limit-badge"
                                 :src="getCardLimitUrl(card, currentIflistMap)">
-                            <img v-if="getCardUrl(card)" class="card-item-image" :src="getCardUrl(card)" :alt="card.name || '卡片圖片'"
-                                @error="getCardUrlError">
+                            <img v-if="getCardUrl(card)" class="card-item-image" :src="getCardUrl(card)"
+                                :alt="card.name || '卡片圖片'" @error="getCardUrlError">
                             <div class="card-item-body">
                                 <span class="card-item-name" :title="card.name || '未命名卡片'">
                                     <span>{{ card.name || '未命名卡片' }}</span>
@@ -1094,19 +1094,8 @@
                 const handleSearch = async (resetPage = true) => {
                     searching.value = true;
 
-                    const activeConfig = cdbConfigs.value.find(c => String(c.id) === String(selectedCdbId.value)) || cdbConfigs.value[0];
-                    const activeConfigs = activeConfig ? [activeConfig] : [];
-
-                    const cardGroups = await Promise.all(activeConfigs.map(async config => {
-                        const cards = await cacheCdb(config);
-                        return cards.map(card => ({
-                            ...card,
-                            cdbId: config.id,
-                            databaseId: config.id,
-                            databaseName: config.name,
-                            sourceFilePath: config.filePath
-                        }));
-                    }));
+                    const activeConfig = cdbConfigs.value.find(item => String(item.id) === String(selectedCdbId.value)) || cdbConfigs.value[0];
+                    const cardGroups = await cacheCdb(activeConfig);
 
                     const selectedFilter = getSelectedFilter();
 

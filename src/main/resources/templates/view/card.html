@@ -21,9 +21,6 @@
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
 
-    <link id="favicon" rel="icon" type="image/png" th:href="@{/image/attribute/dark.png}"
-        href="/image/attribute/dark.png">
-
     <style>
         .card-detail-layout {
             height: calc(100vh - 60px);
@@ -500,31 +497,6 @@
                     return match ? match.name : '';
                 });
 
-                const updateFavicon = (cardObj) => {
-                    const faviconLink = document.getElementById('favicon');
-                    if (!faviconLink || !cardObj) return;
-
-                    let iconFilename = 'divine.png';
-
-                    if (isType.Spell(cardObj)) {
-                        iconFilename = 'spell.png';
-                    } else if (isType.Trap(cardObj)) {
-                        iconFilename = 'trap.png';
-                    } else {
-                        const attrNum = Number(cardObj.attribute || 0);
-
-                        if (attrNum === 0x1) iconFilename = 'earth.png';
-                        else if (attrNum === 0x2) iconFilename = 'water.png';
-                        else if (attrNum === 0x4) iconFilename = 'fire.png';
-                        else if (attrNum === 0x8) iconFilename = 'wind.png';
-                        else if (attrNum === 0x10) iconFilename = 'light.png';
-                        else if (attrNum === 0x20) iconFilename = 'dark.png';
-                        else if (attrNum === 0x40) iconFilename = 'divine.png';
-                    }
-
-                    faviconLink.href = `/image/attribute/${iconFilename}`;
-                };
-
                 async function loadConfigData() {
                     try {
                         const [stringRes, defaultSetsRes, configRes] = await Promise.all([
@@ -579,8 +551,6 @@
                         ]);
                         card.value = cardResult;
                         document.title = `${cardResult.name || '卡片詳情'}`;
-
-                        updateFavicon(cardResult);
 
                         await loadRelatedCards();
                     } catch (error) {

@@ -6,13 +6,14 @@
     <header th:fragment="navbar" class="site-navbar">
         <!-- Logo / Title 區塊 -->
         <a class="nav-home" th:href="@{/}" href="/">
-            <span class="home-text">翼龍服社區</span>
+            <span class="home-text">YGO社區</span>
         </a>
 
         <!-- 導覽連結與登入狀態判定 -->
         <ul class="nav-links">
             <!-- 1. 已登入狀態 -->
             <th:block th:if="${currentUser != null and !#strings.isEmpty(currentUser)}">
+                <li><a th:href="@{/view/cdbs}" href="/view/cdbs">數據庫狀態</a></li>
                 <li><a th:href="@{/view/cards}" href="/view/cards">卡片搜索</a></li>
                 <li><a th:href="@{/view/decks}" href="/view/decks">公開卡組</a></li>
                 <li><a th:href="@{/personal/profile}" href="/personal/profile">個人主頁</a></li>
@@ -23,6 +24,7 @@
 
             <!-- 2. 未登入狀態 -->
             <th:block th:unless="${currentUser != null and !#strings.isEmpty(currentUser)}">
+                <li><a th:href="@{/view/cdbs}" href="/view/cdbs">數據庫狀態</a></li>
                 <li><a th:href="@{/view/cards}" href="/view/cards">卡片搜索</a></li>
                 <li><a th:href="@{/view/decks}" href="/view/decks">公開卡組</a></li>
                 <li><a th:href="@{/auth/login}" href="/auth/login" class="nav-btn">登入</a></li>

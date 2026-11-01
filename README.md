@@ -7,8 +7,8 @@
 ## 技術棧 (Tech Stack)
 
 * **後端核心**：Spring Boot, Spring Data JPA, Hibernate
-* **資料庫**：SQLite（支援解析與查詢 `.cdb` 卡片資料庫及 `strings.conf` 配置檔）
-* **前端與視圖**：Thymeleaf, HTML5, CSS3, JavaScript (結合前端互動元件)
+* **資料庫**：SQLite（支援解析與查詢 `.cdb` 卡片資料庫及 `strings.conf` `iflist.conf` 配置檔）
+* **前端與視圖**：Thymeleaf, HTML5, CSS3, JavaScript
 * **版控與工具**：Maven, Git
 
 ---
@@ -21,17 +21,21 @@
 * **分享卡組功能**：
   * 讓玩家能夠在平台建立、編輯並儲存自己的遊戲王牌組。
   * 支援將牌組內容公開分享給社群其他成員檢視與交流。
-* **社群互動架構**：
-  * 採經典且高效的 MVC 設計模式，便於維護與擴充模組。
+* **數據庫配置檢視系統**：
+  * 支援查看數據庫相關的配置檔。
 
 ---
 
 ## 當前開發目標 (Current Goal)
 
 目前專案正在積極開發與完善的核心功能為：
+* **投稿系統**：
+  * 支援用戶投稿。
+* **公告系統**：
+  * 支援管理員撰寫公告。
 
 ---
 
 ### 環境需求
-* JDK 17 或以上
+* JDK 25
 * Maven

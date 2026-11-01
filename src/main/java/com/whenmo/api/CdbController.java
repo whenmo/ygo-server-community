@@ -1,8 +1,6 @@
 package com.whenmo.api;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.core.io.Resource;
-import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import com.whenmo.model.cardinfo.CardInfoItem;
@@ -24,7 +22,6 @@ import java.util.Set;
 public class CdbController {
 
     private final CdbCardService cdbCardService;
-    private final CdbPicService cdbPicService;
     private final CdbStringService cdbStringService;
     private final CdbIflistService cdbIflistService;
     private final CdbConfigRestService cdbConfigRestService;
@@ -50,19 +47,6 @@ public class CdbController {
         CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
         CdbCardResponse cardResponse = cdbCardService.getCardById(configResponse, cardId);
         return cardResponse == null ? ResponseEntity.notFound().build() : ResponseEntity.ok(cardResponse);
-    }
-
-    /**
-     * 根據 configId 與 卡片 ID 查詢單張卡片圖片
-     * GET /api/cdb/pic/{configId}/{cardId}
-     */
-    @GetMapping("/pic/{configId}/{cardId}")
-    public ResponseEntity<Resource> getCardPic(@PathVariable Integer configId, @PathVariable Integer cardId) {
-        CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
-        List<Resource> resources = cdbPicService.getPicResources(configResponse, cardId);
-        if (resources.isEmpty())
-            return ResponseEntity.notFound().build();
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(resources.get(0));
     }
 
     /**
@@ -100,19 +84,5 @@ public class CdbController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(banlist);
-    }
-
-    /**
-     * 查詢特定卡片在指定禁限卡版本中的張數限制狀態（0:禁止, 1:限制, 2:準限制, -1:無限制）
-     * GET /api/cdb/iflist/{configId}/version/{versionId}/card/{cardId}
-     */
-    @GetMapping("/iflist/{configId}/version/{versionId}/card/{cardId}")
-    public ResponseEntity<Integer> checkCardIflistStatus(
-            @PathVariable Integer configId,
-            @PathVariable String versionId,
-            @PathVariable Integer cardId) {
-        CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
-        int status = cdbIflistService.getCardStatus(configResponse, versionId, cardId);
-        return ResponseEntity.ok(status);
     }
 }

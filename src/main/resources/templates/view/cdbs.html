@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>數據庫狀態</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
+
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+
+    <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
+    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
+    <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
+    <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
+
+    <style>
+        .aside-item-name {
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--red-color);
+            color: var(--red-color);
+            font-size: 1rem;
+        }
+
+        .mode-btn {
+            width: 100%;
+            font-size: 1rem;
+        }
+
+        /* 右側欄位共同樣式 */
+        .main-side-col {
+            width: 280px;
+            flex-shrink: 0;
+            border-left: 2px solid var(--red-color);
+            padding-left: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .main-side-col-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            overflow-y: auto;
+            font-size: 1rem;
+            padding-right: 5px;
+        }
+    </style>
+
+    <style>
+        .strings-main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+            min-height: 0;
+            gap: 10px;
+        }
+
+        .strings-view-col {
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            overflow-y: auto;
+            gap: 10px;
+        }
+
+        /* 字段矩陣表格樣式 */
+        .strings-matrix-table {
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 1rem;
+            background: var(--white-color);
+        }
+
+        .strings-matrix-table th,
+        .strings-matrix-table td {
+            border: 1px solid var(--brown-color);
+            padding: 6px 10px;
+            white-space: nowrap;
+        }
+
+        .strings-matrix-table th {
+            background-color: var(--white-hover);
+            font-weight: bold;
+        }
+
+        .cell-used {
+            font-weight: bold;
+            color: var(--white-color);
+            background: var(--red-hover);
+            cursor: pointer;
+        }
+
+        .cell-used:hover {
+            background: var(--red-color);
+        }
+
+        .cell-unused {
+            font-weight: bold;
+            color: var(--red-hover);
+        }
+
+        .select-set-detail-title {
+            color: var(--red-color);
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        .select-set-detail-info {
+            color: var(--dark-color);
+            font-size: 1rem;
+            font-weight: bold;
+        }
+
+        /* 右側欄位 */
+        .side-col-title {
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--red-color);
+            border-bottom: 2px solid var(--red-color);
+            padding-bottom: 5px;
+        }
+
+        .side-col-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            background: var(--white-hover);
+            border-radius: 5px;
+            border: 1px solid var(--brown-color);
+            font-size: 1rem;
+            gap: 10px;
+        }
+
+        .side-col-item-code {
+            font-weight: bold;
+            color: var(--dark-color);
+            font-size: 1rem;
+        }
+
+        .side-col-item-name {
+            color: var(--red-color);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+
+    <style>
+        .iflist-main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
+            gap: 10px;
+        }
+
+        /* 中側欄位 */
+        .iflist-view-card-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 5px;
+            padding: 5px 0;
+        }
+
+        .card-item {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--brown-color);
+            border-radius: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .card-item:hover {
+            transform: translateY(-2px);
+            border-color: var(--red-color);
+        }
+
+        .card-item img.card-item-limit {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .card-item-name {
+            font-weight: bold;
+            color: var(--red-color);
+            white-space: nowrap;
+            display: block;
+            overflow: hidden;
+            padding: 5px;
+        }
+
+        .card-item-name>span {
+            display: inline-block;
+            width: max-content;
+        }
+
+        .card-item-name.is-overflowing>span {
+            animation: card-name-marquee 5s ease-in-out infinite alternate;
+        }
+
+        @keyframes card-name-marquee {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(calc(-1 * var(--card-name-overflow)));
+            }
+        }
+
+        /* 右側欄位 */
+        .unmatched-title {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--red-color);
+            border-bottom: 2px solid var(--red-color);
+            padding-bottom: 5px;
+        }
+
+        .unmatched-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            background: var(--white-hover);
+            border-radius: 5px;
+            border: 1px solid var(--brown-color);
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .unmatched-item:hover {
+            border-color: var(--red-color);
+            transform: translateX(2px);
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+
+    <div id="app" class="two-column-layout-container">
+        <!-- 數據庫狀態選項 -->
+        <aside class="aside-column">
+            <div class="aside-content">
+                <h2 class="aside-item-name">數據庫狀態</h2>
+
+                <!-- 數據庫 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">數據庫</p>
+                    <p v-if="loading.cdb" class="span-hint-msg">載入中...</p>
+                    <p v-else-if="cdbConfigs.length === 0" class="span-hint-msg">無數據庫</p>
+                    <select v-else v-model="selectedCdbId" @change="handleCdbChange" class="module-select">
+                        <option v-for="item in cdbConfigs" :key="item.id" :value="item.id">
+                            {{ item.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- strings 表 (mode = 1) -->
+                <button type="button" class="module-toggle mode-btn" :class="{ active: currentMode === 1 }"
+                    @click.prevent="switchMode(1)">
+                    <span class="module-toggle-status"></span>
+                    <strong>strings 表</strong>
+                </button>
+
+                <!-- iflist 表 (mode = 2) -->
+                <button type="button" class="module-toggle mode-btn" :class="{ active: currentMode === 2 }"
+                    @click.prevent="switchMode(2)">
+                    <span class="module-toggle-status"></span>
+                    <strong>iflist 表</strong>
+                </button>
+
+                <h2 class="aside-item-name">檢視設定</h2>
+
+                <!-- strings 檢視設定 (mode = 1) -->
+                <div v-if="currentMode === 1" style="display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" class="module-toggle mode-btn" :class="{ active: stringsViewType === 1 }"
+                        @click.prevent="stringsViewType = 1">
+                        <span class="module-toggle-status"></span>
+                        <strong>字段區間</strong>
+                    </button>
+
+                    <div class="aside-long-row" style="gap: 10px;">
+                        <button type="button" class="module-toggle mode-btn" :class="{ active: stringsViewType === 2 }"
+                            @click.prevent="stringsViewType = 2">
+                            <span class="module-toggle-status"></span>
+                            <strong>字段詳細</strong>
+                        </button>
+                        <select v-model="selectedRootHex" class="module-select" style="height: 100%;">
+                            <option v-for="hex in sortedUsedRootHexes" :key="hex" :value="hex">{{ hex }}</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- iflist 檢視設定 (mode = 2) -->
+                <div v-else-if="currentMode === 2" style="display: flex; flex-direction: column; gap: 10px;">
+                    <!-- 禁卡表選取 -->
+                    <div class="aside-long-row">
+                        <p class="aside-long-row-title">版本</p>
+                        <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
+                        <p v-else-if="iflistVers.length === 0" class="span-hint-msg">無禁卡表</p>
+                        <select v-else v-model="selectedIflistVersion" @change="handleIflistVersionChange"
+                            class="module-select">
+                            <option v-for="ver in iflistVers" :key="ver" :value="ver">{{ ver }}</option>
+                        </select>
+                    </div>
+
+                    <!-- 狀態 -->
+                    <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
+                        <legend>狀態</legend>
+                        <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
+                        <div v-else-if="iflistVers.length === 0" class="span-hint-msg">-</div>
+                        <select v-else v-model.number="selectedIflistIndex" @change="handleSearch"
+                            class="module-select">
+                            <option value="0">N/A</option>
+                            <option value="1">禁止</option>
+                            <option value="2">限制</option>
+                            <option value="3">準限制</option>
+                        </select>
+                    </fieldset>
+
+                    <!-- 卡名 / ID 搜尋 -->
+                    <fieldset class="module-fieldset">
+                        <legend>卡名 / ID</legend>
+                        <input v-model="filter.nameId" @keyup.enter="handleSearch" class="module-input-clean"
+                            style="padding: 5px;" placeholder="卡名或 ID">
+                    </fieldset>
+
+                    <!-- 搜尋 / 重置按鈕 -->
+                    <div style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button type="button" @click="handleSearch" class="module-btn" style="flex: 1;">搜尋</button>
+                        <button type="button" @click="resetFilter" class="module-btn"
+                            style="background: var(--gray-hover); border-color: var(--gray-hover);">重置</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 右側主要內容區 -->
+        <main class="main-column" style="display: flex; flex-direction: column; overflow: hidden;">
+            <div class="main-top-bar">
+                <div class="main-top-bar-row">
+                    <h2 v-if="currentMode === 1" class="main-top-bar-title">字段表檢視</h2>
+                    <h2 v-else class="main-top-bar-title">禁卡表檢視 ({{ resultCards.length }})</h2>
+                    <div v-if="currentMode === 2" style="display: flex; gap: 10px; align-items: center;">
+                        <select v-model.number="pageSize" class="module-select" style="padding: 5px;">
+                            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
+                        </select>
+                        <span style="font-size: 1rem; color: var(--red-color);">張/頁</span>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="searching" style="flex: 1;">資料載入中...</div>
+            <!-- 下層：字段表檢視區 (mode = 1) -->
+            <div v-else-if="currentMode === 1" class="strings-main-container">
+                <!-- 模式 1-1：字段區間 -->
+                <div v-if="stringsViewType === 1" class="strings-view-col">
+                    <div style="display: flex; flex-direction: column; gap: 10px; overflow: auto;">
+                        <div class="side-col-title">字段區間</div>
+
+                        <div class="module-table-container" style="overflow: auto; border: 0;">
+                            <table class="strings-matrix-table">
+                                <thead>
+                                    <tr>
+                                        <th>XX</th>
+                                        <th v-for="col in hexChars" :key="'col-'+col">_{{ col }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="row in hexChars" :key="'row-'+row">
+                                        <th>{{ row }}_</th>
+                                        <td v-for="col in hexChars" :key="'cell-'+row+col"
+                                            :class="isRootSetUsed(row + col) ? 'cell-used' : 'cell-unused'"
+                                            @click="selectRootHexAndDetail(row + col)">
+                                            {{ row + col }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 右側欄位：指示物列表 (counter) -->
+                    <div v-if="counterList.length" class="main-side-col">
+                        <div class="side-col-title">指示物 ({{ counterList.length }})</div>
+                        <div class="main-side-col-list">
+                            <div v-for="item in counterList" :key="item.code" class="side-col-item">
+                                <span class="side-col-item-code">{{ item.code }}</span>
+                                <span class="side-col-item-name">{{ item.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側欄位：特殊勝利列表 (victory) -->
+                    <div v-if="victoryList.length" class="main-side-col">
+                        <div class="side-col-title">特殊勝利 ({{ victoryList.length }})</div>
+                        <div class="main-side-col-list">
+                            <div v-for="item in victoryList" :key="item.code" class="side-col-item">
+                                <span class="side-col-item-code">{{ item.code }}</span>
+                                <span class="side-col-item-name">{{ item.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 模式 1-2：字段詳細 -->
+                <div v-else-if="stringsViewType === 2" class="strings-view-col">
+                    <!-- 字段詳細 table -->
+                    <div style="display: flex; flex-direction: column; gap: 10px; overflow: auto;">
+                        <div class="side-col-title">字段詳細表</div>
+
+                        <div class="module-table-container" style="overflow: auto; border: 0;">
+                            <table class="strings-matrix-table">
+                                <thead>
+                                    <tr>
+                                        <th>X{{ selectedRootHex }}X</th>
+                                        <th v-for="col in hexChars" :key="'detail-col-'+col">_{{ selectedRootHex }}{{
+                                            col }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="row in hexChars" :key="'detail-row-'+row">
+                                        <th>{{ row }}{{ selectedRootHex }}_</th>
+                                        <td v-for="col in hexChars" :key="'detail-cell-'+row+col"
+                                            :class="isDetailCellUsed(selectedRootHex, row, col) ? 'cell-used' : 'cell-unused'"
+                                            style="cursor: pointer;"
+                                            @click="handleDetailCellClick(row + selectedRootHex + col)">
+                                            {{ row }}{{ selectedRootHex }}{{ col }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- 點擊項目後的分析資訊文字區塊 -->
+                        <div v-if="selectedCellAnalysis" class="module-table-container"
+                            style="overflow: auto; border: 0;">
+                            <table v-if="selectedCellAnalysis" class="strings-matrix-table">
+                                <tbody>
+                                    <tr>
+                                        <th class="select-set-detail-title">選定字段</th>
+                                        <td class="select-set-detail-info" style="cursor: pointer;"
+                                            @click="handleDetailCellClick(selectedCellAnalysis.fullCode)">{{
+                                            selectedCellAnalysis.fullCode }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th class="select-set-detail-title">父字段</th>
+                                        <td v-for="parentCode in selectedCellAnalysis.parents"
+                                            class="select-set-detail-info" style="cursor: pointer;"
+                                            @click="handleDetailCellClick(parentCode)">
+                                            {{ parentCode }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th class="select-set-detail-title">子字段</th>
+                                        <td v-for="childrenCode in selectedCellAnalysis.children"
+                                            class="select-set-detail-info" style="cursor: pointer;"
+                                            @click="handleDetailCellClick(childrenCode)">
+                                            {{ childrenCode }}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th class="select-set-detail-title">全無關字段</th>
+                                        <td v-for="indCode in selectedCellAnalysis.independent"
+                                            class="select-set-detail-info" style="cursor: pointer;"
+                                            @click="handleDetailCellClick(indCode)">
+                                            {{ indCode }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- 右側：已使用一覽表 -->
+                    <div class="main-side-col">
+                        <div class="side-col-title">字段</div>
+                        <div class="main-side-col-list">
+                            <div v-for="item in currentRootSetItems" :key="item.abcd" class="side-col-item"
+                                style="cursor: pointer;" @click="handleDetailCellClick(item.abcd)">
+                                <span class="side-col-item-code">0x{{ item.abcd }}</span>
+                                <span class="side-col-item-name">{{ item.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 下層：禁限表檢視區 (mode = 2) -->
+            <div v-else-if="currentMode === 2" class="iflist-main-container" style="flex: 1; padding: 10px;">
+                <!-- 中間：可在當前 CDB 找到 ID 的對應禁限卡 -->
+                <div class="iflist-view-card-col">
+                    <div style="flex: 1; overflow-y: auto;">
+                        <div class="cards-grid">
+                            <a v-for="card in pagedCards" :key="card.sourceFilePath + ':' + card.id" class="card-item"
+                                :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank"
+                                @mouseenter="hoverCard(card)">
+                                <img v-if="getCardLimitUrl(card, currentIflistMap)" class="card-item-limit"
+                                    :src="getCardLimitUrl(card, currentIflistMap)">
+                                <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)"
+                                    :alt="card.name || '卡片圖片'" @error="getCardUrlError">
+                                <span class="card-item-name">
+                                    <span>{{ card.name || '未命名卡片' }}</span>
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- 分頁選擇器 -->
+                    <div v-if="totalPages > 1" class="result-page-row" style="flex-shrink: 0;">
+                        <button @click="previousPage" :disabled="currentPage === 1">上一頁</button>
+                        <span><input class="module-input-clean" :value="currentPage" @input="onPageInput"
+                                @blur="validatePage" /> / {{ totalPages }} </span>
+                        <button @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
+                    </div>
+                </div>
+
+                <!-- 右側：未匹配 ID 列表 -->
+                <div v-if="unmatchedIflistItems.length > 0" class="main-side-col">
+                    <!-- 無法在當前 CDB 找到對應 ID 的禁限卡列表 -->
+                    <div class="unmatched-title">
+                        <span>未匹配 ID ({{ unmatchedIflistItems.length }})</span>
+                        <span style="color: var(--gray-hover);">點擊複製 ID</span>
+                    </div>
+                    <div class="main-side-col-list">
+                        <div v-for="item in unmatchedIflistItems" :key="item.id" class="unmatched-item"
+                            @click="copyId(item.id)">
+                            <span>{{ item.id }}</span>
+                            <span style="font-weight: bold; color: var(--red-color);">{{ item.status }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, watch } = Vue;
+
+        createApp({
+            setup() {
+                const {
+                    MatcheFilterCards,
+                    getCardLimitStatus,
+                    getCardLimitUrl,
+                    getCardUrl,
+                    getCardUrlError
+                } = window.APP_CONSTANTS;
+
+                const cdbConfigs = ref([]);
+                const selectedCdbId = ref(null);
+                const currentMode = ref(1);
+                const stringsViewType = ref(1);
+                const selectedRootHex = ref('');
+                const selectedCellAnalysis = ref(null);
+
+                const iflistVers = ref([]);
+                const selectedIflistVersion = ref('');
+                const selectedIflistIndex = ref(0);
+                const currentIflistMap = ref({});
+
+                const resultCards = ref([]);
+                const currentCdbCards = ref([]);
+                const searching = ref(false);
+
+                const rawSetnames = ref([]);
+                const counterList = ref([]);
+                const victoryList = ref([]);
+                const setnamesByCdb = ref(new Map());
+                const defaultSetnames = ref([]);
+
+                const filter = ref({
+                    nameId: ''
+                });
+
+                const loading = reactive({
+                    cdb: false,
+                    data: false,
+                    iflist: false
+                });
+
+                // 分頁 Helper
+                const {
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                } = window.usePageHelper(resultCards, 30);
+
+                // 計算無法在當前 CDB 中找到卡片資料的禁限卡 ID
+                const unmatchedIflistItems = computed(() => {
+                    if (!currentIflistMap.value || Object.keys(currentIflistMap.value).length === 0) {
+                        return [];
+                    }
+
+                    const existingIds = new Set(currentCdbCards.value.map(c => Number(c.id)));
+                    const unmatched = [];
+
+                    for (const [statusCode, items] of Object.entries(currentIflistMap.value)) {
+                        if (!Array.isArray(items)) continue;
+                        for (const item of items) {
+                            const numId = Number(item?.id);
+                            if (!Number.isFinite(numId) || existingIds.has(numId)) continue;
+                            unmatched.push({
+                                id: numId,
+                                status: Number(statusCode)
+                            });
+                        }
+                    }
+
+                    return unmatched.sort((a, b) => {
+                        let n = a.status - b.status;
+                        return n !== 0 ? n : a.id - b.id;
+                    });
+                });
+
+                const copyId = async (id) => {
+                    await navigator.clipboard.writeText(String(id));
+                };
+
+                const updateCardNameOverflow = () => {
+                    document.querySelectorAll('.card-item-name').forEach(nameElement => {
+                        const textElement = nameElement.firstElementChild;
+                        if (!textElement) return;
+
+                        const overflow = textElement.scrollWidth - nameElement.clientWidth;
+                        nameElement.classList.toggle('is-overflowing', overflow > 1);
+                        if (overflow > 1) {
+                            textElement.style.setProperty('--card-name-overflow', `${overflow}px`);
+                        } else {
+                            textElement.style.removeProperty('--card-name-overflow');
+                        }
+                    });
+                };
+
+                watch(pagedCards, updateCardNameOverflow, { flush: 'post' });
+
+                onBeforeUnmount(() => window.removeEventListener('resize', updateCardNameOverflow));
+
+                // 網址 URL 參數同步
+                const updateUrlParams = () => {
+                    const params = new URLSearchParams();
+                    if (selectedCdbId.value !== null && selectedCdbId.value !== undefined) {
+                        params.set('cdb', selectedCdbId.value);
+                    }
+                    params.set('mode', currentMode.value);
+
+                    if (currentMode.value === 1) {
+                        if (stringsViewType.value) params.set('stringsView', stringsViewType.value);
+                        if (selectedRootHex.value) params.set('rootHex', selectedRootHex.value);
+                        if (selectedCellAnalysis.value && selectedCellAnalysis.value.fullCode) {
+                            params.set('selectedCode', selectedCellAnalysis.value.fullCode);
+                        }
+                    } else if (currentMode.value === 2) {
+                        if (selectedIflistVersion.value) params.set('iflistVer', selectedIflistVersion.value);
+                        if (selectedIflistIndex.value) params.set('iflistStatus', selectedIflistIndex.value);
+                        if (pageSize.value) params.set('pageSize', pageSize.value);
+                        if (currentPage.value) params.set('page', currentPage.value);
+                    }
+
+                    const newUrl = `${window.location.pathname}?${params.toString()}`;
+                    window.history.pushState({ path: newUrl }, '', newUrl);
+                };
+
+                const loadFromUrl = () => {
+                    const params = new URLSearchParams(window.location.search);
+                    const urlCdb = params.get('cdb');
+                    const urlMode = params.get('mode');
+
+                    if (urlCdb !== null) selectedCdbId.value = isNaN(urlCdb) ? urlCdb : Number(urlCdb);
+                    if (urlMode === '1' || urlMode === '2') currentMode.value = Number(urlMode);
+
+                    if (currentMode.value === 1) {
+                        const urlStringsView = params.get('stringsView');
+                        if (urlStringsView) stringsViewType.value = Number(urlStringsView);
+
+                        const urlRootHex = params.get('rootHex');
+                        if (urlRootHex) selectedRootHex.value = urlRootHex;
+                    } else if (currentMode.value === 2) {
+                        const urlIfVer = params.get('iflistVer');
+                        if (urlIfVer) selectedIflistVersion.value = urlIfVer;
+
+                        const urlIfStatus = params.get('iflistStatus');
+                        if (urlIfStatus) selectedIflistIndex.value = Number(urlIfStatus);
+                    }
+                };
+
+                // 取得禁卡表版本清單
+                const fetchIflistVersions = async (configId) => {
+                    if (!configId) {
+                        iflistVers.value = [];
+                        return;
+                    }
+                    loading.iflist = true;
+                    try {
+                        const response = await axios.get(`/api/cdb/iflist/${configId}/versions`);
+                        const verList = Array.isArray(response.data) ? response.data : Array.from(response.data);
+                        iflistVers.value = verList;
+                        if (verList.length > 0) {
+                            if (!selectedIflistVersion.value || !verList.includes(selectedIflistVersion.value)) {
+                                selectedIflistVersion.value = verList[0];
+                            }
+                            await fetchBanlistByVersion(configId, selectedIflistVersion.value);
+                        } else {
+                            selectedIflistVersion.value = '';
+                            currentIflistMap.value = {};
+                        }
+                    } catch (error) {
+                        iflistVers.value = [];
+                        currentIflistMap.value = {};
+                    } finally {
+                        loading.iflist = false;
+                    }
+                };
+
+                // 取得特定禁卡表對應卡片 Map
+                const fetchBanlistByVersion = async (configId, versionId) => {
+                    if (!configId || !versionId) {
+                        currentIflistMap.value = {};
+                        return;
+                    }
+                    try {
+                        const response = await axios.get(`/api/cdb/iflist/${configId}/version/${encodeURIComponent(versionId)}`);
+                        currentIflistMap.value = response.data || {};
+                    } catch (error) {
+                        currentIflistMap.value = {};
+                    }
+                };
+
+                const cacheCdb = async (configId) => {
+                    try {
+                        const response = await axios.get(`/api/cdb/card/${configId}`);
+                        return response.data;
+                    } catch (error) {
+                        return [];
+                    }
+                };
+
+                const fetchCardExtraInfo = async (configId) => {
+                    try {
+                        const defaultSetsRes = await axios.get('/api/card_info/default-setnames');
+                        defaultSetnames.value = Array.isArray(defaultSetsRes.data) ? defaultSetsRes.data : [];
+                    } catch (e) { }
+                };
+
+                // 解析字段並對應根字段邏輯與 counter / victory 數據獲取
+                const currentRootSetCodes = ref(new Set());
+                const parsedSetItems = ref([]);
+                const fullSetCodesSet = ref(new Set());
+
+                const fetchSetnamesByCdb = async (configId) => {
+                    if (!configId) {
+                        currentRootSetCodes.value = new Set();
+                        rawSetnames.value = [];
+                        parsedSetItems.value = [];
+                        counterList.value = [];
+                        victoryList.value = [];
+                        fullSetCodesSet.value = new Set();
+                        selectedCellAnalysis.value = null;
+                        return;
+                    }
+                    try {
+                        const response = await axios.get(`/api/cdb/string/${configId}`);
+                        const data = response.data.setname || [];
+
+                        // 讀取 counter 與 victory 資料
+                        const rawCounter = response.data.counter || [];
+                        counterList.value = (Array.isArray(rawCounter) ? rawCounter : Object.entries(rawCounter).map(([code, name]) => ({ code: Number(code).toString(16).toUpperCase(), name })))
+                            .map(item => ({ ...item, code: '0x' + Number(item.code).toString(16).toUpperCase() }));
+
+                        const rawVictory = response.data.victory || [];
+                        victoryList.value = (Array.isArray(rawVictory) ? rawVictory : Object.entries(rawVictory).map(([code, name]) => ({ code: Number(code).toString(16).toUpperCase(), name })))
+                            .map(item => ({ ...item, code: '0x' + Number(item.code).toString(16).toUpperCase() }));
+
+                        const rootSet = new Set();
+                        const parsedList = [];
+                        const rawList = [];
+                        const fullSet = new Set();
+
+                        data.forEach(item => {
+                            const codeNum = Number(item.code);
+                            if (!isNaN(codeNum)) {
+                                let hexStr = codeNum.toString(16).toUpperCase().padStart(4, '0');
+                                rawList.push({
+                                    code: item.code,
+                                    codeHex: '0x' + hexStr,
+                                    name: item.name
+                                });
+                                const rootHex = hexStr.substring(1, 3);
+                                rootSet.add(rootHex);
+                                fullSet.add(hexStr);
+
+                                parsedList.push({ abcd: hexStr, bc: rootHex, name: item.name });
+                            }
+                        });
+
+                        currentRootSetCodes.value = rootSet;
+                        parsedSetItems.value = parsedList;
+                        rawSetnames.value = rawList;
+                        fullSetCodesSet.value = fullSet;
+
+                        // 預設選取排序最小的根字段
+                        const sortedHexes = Array.from(rootSet).sort();
+                        if (sortedHexes.length > 0 && !selectedRootHex.value || !sortedHexes.includes(selectedRootHex.value)) {
+                            selectedRootHex.value = sortedHexes[0];
+                        }
+
+                        // 如果網址有指定 selectedCode 且當前為詳細模式，自動進行該格的分析
+                        const params = new URLSearchParams(window.location.search);
+                        const urlSelectedCode = params.get('selectedCode');
+                        if (urlSelectedCode && stringsViewType.value === 2) {
+                            handleDetailCellClick(urlSelectedCode);
+                        } else {
+                            selectedCellAnalysis.value = null;
+                        }
+                    } catch (error) {
+                        console.error('讀取字段清單失敗：', error);
+                        currentRootSetCodes.value = new Set();
+                        rawSetnames.value = [];
+                        parsedSetItems.value = [];
+                        counterList.value = [];
+                        victoryList.value = [];
+                        fullSetCodesSet.value = new Set();
+                        selectedCellAnalysis.value = null;
+                    }
+                };
+
+                const isRootSetUsed = (rootHex) => currentRootSetCodes.value.has(rootHex.toUpperCase());
+
+                // 檢查詳細表格中的各個儲存格 (row + rootHex + col) 是否已使用
+                const isDetailCellUsed = (rootHex, row, col) => fullSetCodesSet.value.has((row + rootHex + col).toUpperCase());
+
+                // 點擊已使用的儲存格時自動切換至字段詳細並選取對應根字段
+                const selectRootHexAndDetail = (rootHex) => {
+                    if (isRootSetUsed(rootHex)) {
+                        selectedRootHex.value = rootHex.toUpperCase();
+                        stringsViewType.value = 2;
+                        selectedCellAnalysis.value = null;
+                        updateUrlParams();
+                    }
+                };
+
+                // 點擊詳細表格格子時進行父子與無關字段分析
+                const handleDetailCellClick = (fullCode) => {
+                    if (fullCode === '或') return;
+                    const subCode = fullCode.substring(0, 1).toUpperCase();
+                    const rootCode = fullCode.substring(1, 4).toUpperCase();
+                    const subVal = parseInt(subCode, 16);
+
+                    const parents = [];
+                    const children = [];
+                    const independent = [];
+
+                    hexChars.forEach(a => {
+                        if (a === subCode) return;
+                        const aVal = parseInt(a, 16);
+                        const andVal = parseInt(a, 16) & subVal;
+
+                        if (andVal === aVal) {
+                            parents.push(a + rootCode);
+                        } else if (andVal === subVal) {
+                            children.push(a + rootCode);
+                        }
+                    });
+
+                    let independentA = [];
+                    switch (subCode) {
+                        case '1':
+                            independentA = ['2', '4', '8', '或', '6', 'A', 'C'];
+                            break;
+                        case '2':
+                            independentA = ['1', '4', '8', '或', '5', '9', 'C'];
+                            break;
+                        case '3':
+                            independentA = ['5', '6', '9', 'A', 'C'];
+                            break;
+                        case '4':
+                            independentA = ['1', '2', '8', '或', '3', '9', 'A'];
+                            break;
+                        case '5':
+                            independentA = ['3', '6', '9', 'A', 'C'];
+                            break;
+                        case '6':
+                            independentA = ['3', '5', '9', 'A', 'C'];
+                            break;
+                        case '7':
+                            independentA = ['9', 'A', 'C', '或', 'B', 'D', 'E'];
+                            break;
+                        case '8':
+                            independentA = ['1', '2', '4', '或', '3', '5', '6'];
+                            break;
+                        case '9':
+                            independentA = ['3', '5', '6', 'A', 'C'];
+                            break;
+                        case 'A':
+                            independentA = ['3', '5', '6', '9', 'C'];
+                            break;
+                        case 'B':
+                            independentA = ['5', '6', 'C', '或', '7', 'D', 'E'];
+                            break;
+                        case 'C':
+                            independentA = ['3', '5', '6', '9', 'A'];
+                            break;
+                        case 'D':
+                            independentA = ['3', '6', 'A', '或', '7', 'B', 'E'];
+                            break;
+                        case 'E':
+                            independentA = ['3', '5', '9', '或', '7', 'B', 'D'];
+                            break;
+                        default:
+                            independentA = [];
+                            break;
+                    }
+
+                    independentA.forEach(a => {
+                        if (a === '或')
+                            independent.push(a);
+                        else {
+                            independent.push(a + rootCode);
+                        }
+                    });
+
+                    selectedCellAnalysis.value = {
+                        fullCode: fullCode,
+                        parents,
+                        children,
+                        independent
+                    };
+                    updateUrlParams();
+                };
+
+                // 已使用根字段排序從小到大
+                const sortedUsedRootHexes = computed(() => Array.from(currentRootSetCodes.value).sort());
+
+                // 當前選定根字段下的所有已使用字段清單
+                const currentRootSetItems = computed(() => {
+                    if (!selectedRootHex.value) return [];
+                    return parsedSetItems.value.filter(item => item.bc.toUpperCase() === selectedRootHex.value.toUpperCase());
+                });
+
+                // 執行搜尋與過濾
+                const handleSearch = async (resetPage = true) => {
+                    if (!selectedCdbId.value) return;
+                    updateUrlParams();
+
+                    if (currentMode.value === 2) {
+                        searching.value = true;
+                        const activeConfig = cdbConfigs.value.find(c => String(c.id) === String(selectedCdbId.value));
+                        if (activeConfig) {
+                            const rawCards = await cacheCdb(activeConfig.id);
+                            currentCdbCards.value = rawCards;
+
+                            const cardGroups = [rawCards.map(card => ({
+                                ...card,
+                                sourceFilePath: activeConfig.filePath
+                            }))];
+
+                            const selectedFilter = {
+                                cdbId: selectedCdbId.value,
+                                iflistVersion: selectedIflistVersion.value,
+                                iflistStatus: selectedIflistIndex.value,
+                                nameId: filter.value.nameId.trim().toLowerCase()
+                            };
+
+                            let filtered = MatcheFilterCards(cardGroups, selectedFilter, currentIflistMap.value);
+
+                            filtered = filtered.filter(card => {
+                                const limitStatus = getCardLimitStatus(card, currentIflistMap.value);
+                                if (![0, 1, 2].includes(limitStatus)) return false;
+                                if (selectedIflistIndex.value > 0) {
+                                    return limitStatus === Number(selectedIflistIndex.value) - 1;
+                                }
+                                return true;
+                            });
+
+                            filtered.sort((a, b) => {
+                                const statusA = getCardLimitStatus(a, currentIflistMap.value);
+                                const statusB = getCardLimitStatus(b, currentIflistMap.value);
+
+                                if (statusA !== statusB) {
+                                    return statusA - statusB;
+                                }
+                                return 0;
+                            });
+
+                            resultCards.value = filtered;
+                        }
+                        if (resetPage) currentPage.value = 1;
+                        searching.value = false;
+                    }
+                };
+
+                const handleIflistVersionChange = async () => {
+                    if (selectedCdbId.value && selectedIflistVersion.value) {
+                        await fetchBanlistByVersion(selectedCdbId.value, selectedIflistVersion.value);
+                        handleSearch();
+                    }
+                };
+
+                const fetchCdbConfigs = async () => {
+                    loading.cdb = true;
+                    try {
+                        const response = await axios.get('/api/cdb_config');
+                        cdbConfigs.value = response.data;
+
+                        if (!selectedCdbId.value && cdbConfigs.value.length > 0) {
+                            selectedCdbId.value = cdbConfigs.value[0].id;
+                        }
+                    } catch (error) {
+                        console.error('取得數據庫清單失敗：', error);
+                    } finally {
+                        loading.cdb = false;
+                    }
+                };
+
+                const handleCdbChange = async () => {
+                    await fetchCardExtraInfo(selectedCdbId.value);
+                    await fetchSetnamesByCdb(selectedCdbId.value);
+                    await fetchIflistVersions(selectedCdbId.value);
+                    await handleSearch();
+                };
+
+                const switchMode = async (mode) => {
+                    if (currentMode.value === mode) return;
+                    currentMode.value = mode;
+                    if (mode === 1) {
+                        await fetchSetnamesByCdb(selectedCdbId.value);
+                    } else if (mode === 2) {
+                        await fetchCardExtraInfo(selectedCdbId.value);
+                        await fetchIflistVersions(selectedCdbId.value);
+                        await handleSearch();
+                    }
+                    updateUrlParams();
+                };
+
+                const resetFilter = () => {
+                    filter.value.nameId = '';
+                    selectedIflistIndex.value = 0;
+                    if (iflistVers.value.length > 0) {
+                        selectedIflistVersion.value = iflistVers.value[0];
+                    }
+                    handleSearch(true);
+                };
+
+                const hexChars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
+
+                watch(pageSize, () => {
+                    currentPage.value = 1;
+                    updateUrlParams();
+                });
+
+                watch(currentPage, () => updateUrlParams());
+
+                watch(stringsViewType, () => {
+                    updateUrlParams();
+                });
+
+                onMounted(async () => {
+                    window.addEventListener('resize', updateCardNameOverflow);
+                    loadFromUrl();
+                    await fetchCdbConfigs();
+                    if (selectedCdbId.value) {
+                        await fetchCardExtraInfo(selectedCdbId.value);
+                        await fetchSetnamesByCdb(selectedCdbId.value);
+                        await fetchIflistVersions(selectedCdbId.value);
+                        if (currentMode.value === 2) {
+                            await handleSearch(false);
+                        }
+                    }
+                });
+
+                return {
+                    cdbConfigs,
+                    selectedCdbId,
+                    currentMode,
+                    stringsViewType,
+                    selectedRootHex,
+                    selectedCellAnalysis,
+                    loading,
+                    iflistVers,
+                    selectedIflistVersion,
+                    selectedIflistIndex,
+                    currentIflistMap,
+                    filter,
+                    resultCards,
+                    pagedCards,
+                    searching,
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    unmatchedIflistItems,
+                    copyId,
+                    getCardUrl,
+                    getCardUrlError,
+                    getCardLimitUrl,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage,
+                    handleCdbChange,
+                    switchMode,
+                    handleIflistVersionChange,
+                    handleSearch,
+                    resetFilter,
+                    hexChars,
+                    isRootSetUsed,
+                    isDetailCellUsed,
+                    selectRootHexAndDetail,
+                    handleDetailCellClick,
+                    sortedUsedRootHexes,
+                    currentRootSetItems,
+                    rawSetnames,
+                    counterList,
+                    victoryList,
+                    updateUrlParams,
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

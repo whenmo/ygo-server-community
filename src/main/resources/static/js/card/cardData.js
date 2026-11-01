@@ -85,8 +85,8 @@
         let ruleCode = Number(selectedFilter.ruleCode || 0);
         if (ruleIndex === 1) ruleCode = -1;
         const normalizedFilter = {
-            nameId: (selectedFilter.nameId || '').trim().toLowerCase(),
-            effect: (selectedFilter.effect || '').trim().toLowerCase(),
+            nameId: formatString(selectedFilter.nameId),
+            effect: formatString(selectedFilter.effect),
             linkMarker: Number(selectedFilter.linkMarker || 0),
             linkMode: Number(selectedFilter.linkMode || 0),
             category: BigInt(selectedFilter.category || 0n),
@@ -102,10 +102,10 @@
             scale: Number(selectedFilter.scale || 0),
             sets: Array.isArray(selectedFilter.sets) ? selectedFilter.sets : [],
             setMode: Number(selectedFilter.setMode || 0),
-            atkMin: selectedFilter.atkMin === '?' ? -2 : (selectedFilter.atkMin === '' ? null : Number(selectedFilter.atkMin)),
-            atkMax: selectedFilter.atkMax === '?' ? -2 : (selectedFilter.atkMax === '' ? null : Number(selectedFilter.atkMax)),
-            defMin: selectedFilter.defMin === '?' ? -2 : (selectedFilter.defMin === '' ? null : Number(selectedFilter.defMin)),
-            defMax: selectedFilter.defMax === '?' ? -2 : (selectedFilter.defMax === '' ? null : Number(selectedFilter.defMax))
+            atkMin: formatAtkDefValue(selectedFilter.atkMin),
+            atkMax: formatAtkDefValue(selectedFilter.atkMax),
+            defMin: formatAtkDefValue(selectedFilter.defMin),
+            defMax: formatAtkDefValue(selectedFilter.defMax)
         };
 
         // 2. 確保 iflistMap 一定是物件，避免後續重複判斷
@@ -114,6 +114,17 @@
         // 3. 執行扁平化、過濾與排序
         return cards.flat().filter(card => cardMatchesFilter(card, normalizedFilter, normalizedIflist)).sort(sortCards);
     };
+
+    const formatString = (value) => typeof value === 'string' ? value.trim().toLowerCase() : '';
+
+    const formatAtkDefValue = (value) => {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+            if (value === '') return null;
+            return value === '?' ? -2 : Number(value);
+        }
+        return null;
+    }
 
     const cardMatchesFilter = (card, selectedFilter, iflistMap) => {
         const cardType = Number(card.type || 0);

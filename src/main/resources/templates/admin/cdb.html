@@ -18,13 +18,20 @@
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
 
     <style>
-        .table-col-first {
-            width: 120px;
+        .table-col-name,
+        .table-col-file-path {
+            border-top: 1px solid var(--brown-hover);
+            width: 1%;
         }
 
         .table-item-name {
             color: var(--red-color);
             font-weight: bold;
+        }
+
+        .table-col-pic-path {
+            border-top: 1px solid var(--brown-hover);
+            max-width: 100px;
         }
     </style>
 </head>
@@ -52,7 +59,7 @@
                 <table class="module-table">
                     <thead>
                         <tr>
-                            <th class="table-col-first">名稱</th>
+                            <th>名稱</th>
                             <th>cdb 路徑</th>
                             <th>圖片 cdn</th>
                             <th class="table-col-oper">操作</th>
@@ -66,11 +73,9 @@
                             <td colspan="4" class="table-item-empty-row">目前尚無數據庫資料</td>
                         </tr>
                         <tr v-else v-for="item in configs" :key="item.id">
-                            <td class="table-col-first" style="border-top: 1px solid var(--brown-hover);">
-                                <strong class="table-item-name">{{ item.name }}</strong>
-                            </td>
-                            <td style="border-top: 1px solid var(--brown-hover);"><code>{{ item.filePath }}</code></td>
-                            <td style="border-top: 1px solid var(--brown-hover);"><code>{{ item.picCdn }}</code></td>
+                            <td class="table-col-name"><span class="table-item-name">{{ item.name }}</span></td>
+                            <td class="table-col-file-path"><code>{{ item.filePath }}</code></td>
+                            <td class="table-col-pic-path"><code>{{ item.picCdn }}</code></td>
                             <td class="table-col-oper" style="border-top: 1px solid var(--brown-hover);">
                                 <div class="table-col-oper-container">
                                     <button class="module-btn" @click="refreshCache(item)">刷新快取</button>
