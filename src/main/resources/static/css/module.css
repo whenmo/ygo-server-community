@@ -51,6 +51,10 @@
     cursor: pointer;
 }
 
+.module-select:disabled {
+    cursor: default;
+}
+
 .module-select:focus {
     outline: none;
 }

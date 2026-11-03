@@ -107,7 +107,7 @@ public class CdbConfigRestService {
     @Transactional
     public void deleteConfig(Integer id) {
         cdbConfigRepository.delete(getById(id));
-        cdbDiskCache.remove(id);
+        cdbDiskCache.removeCdbCardCache(id);
     }
 
     /**
@@ -119,7 +119,7 @@ public class CdbConfigRestService {
             return;
 
         List<CdbConfig> configs = cdbConfigRepository.findAllById(ids);
-        configs.forEach(config -> cdbDiskCache.remove(config.getId()));
+        configs.forEach(config -> cdbDiskCache.removeCdbCardCache(config.getId()));
         cdbConfigRepository.deleteAll(configs);
     }
 

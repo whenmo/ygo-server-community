@@ -2,8 +2,8 @@ package com.whenmo.service.cdb;
 
 import org.springframework.stereotype.Service;
 
-import com.whenmo.model.cdb.CdbCard;
-import com.whenmo.model.cdb.CdbCardResponse;
+import com.whenmo.model.cdb.domain.CdbCard;
+import com.whenmo.model.cdb.response.CdbCardResponse;
 import com.whenmo.model.database.response.CdbConfigResponse;
 import lombok.RequiredArgsConstructor;
 import java.sql.Connection;
@@ -12,6 +12,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Service
@@ -50,16 +51,49 @@ public class CdbCardService {
     }
 
     /**
-     * 獲取 CDB 檔中的所有卡片
+     * 獲取所有 CDB 的組合檔案
+     * 當 CdbCardResponse.id 相同時，後讀取的會覆蓋先前讀取的
      */
-    public List<CdbCardResponse> readCdb(CdbConfigResponse configResponse) {
-        return readCdb(configResponse, false);
+    public List<CdbCardResponse> getAllCardsCombined(List<CdbConfigResponse> configResponses) {
+        if (configResponses == null || configResponses.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<CdbCardResponse> cachedCards = diskCache.getAllCdbCardCache(configResponses);
+        if (cachedCards != null) {
+            return cachedCards;
+        }
+
+        List<CdbCardResponse> allCards = new ArrayList<>();
+        for (CdbConfigResponse config : configResponses) {
+            allCards.addAll(readCdb(config, false));
+        }
+        List<CdbCardResponse> combined = combineCards(allCards);
+        diskCache.putAllCdbCardCache(configResponses, combined);
+        return combined;
     }
 
+    private List<CdbCardResponse> combineCards(List<CdbCardResponse> cards) {
+        Map<Integer, CdbCardResponse> cardMap = new java.util.LinkedHashMap<>();
+        for (CdbCardResponse card : cards) {
+            cardMap.put(card.getId(), card);
+        }
+
+        List<CdbCardResponse> combined = new ArrayList<>(cardMap.values());
+        return combined;
+    }
+
+    /**
+     * 獲取 CDB 檔中的所有卡片
+     */
     public List<CdbCardResponse> readCdb(CdbConfigResponse configResponse, boolean forceRefresh) {
+        if (forceRefresh) {
+            diskCache.removeCdbCardCache(configResponse.getId());
+        }
         if (!forceRefresh) {
-            List<CdbCardResponse> cachedCards = diskCache.get(configResponse);
-            if (cachedCards != null) return cachedCards;
+            List<CdbCardResponse> cachedCards = diskCache.getCdbCardCache(configResponse);
+            if (cachedCards != null)
+                return cachedCards;
         }
 
         try (Connection connection = DriverManager.getConnection(getUrl(configResponse));
@@ -70,7 +104,7 @@ public class CdbCardService {
                 CdbCard card = mapRowCard(resultSet);
                 cards.add(CdbCardResponse.fromModel(card, configResponse));
             }
-            diskCache.put(configResponse, cards);
+            diskCache.putCdbCardCache(configResponse, cards);
             return cards;
         } catch (Exception e) {
             throw new RuntimeException("讀取 configId " + configResponse.getId() + " 的 CDB 檔案失敗: " + e.getMessage(), e);

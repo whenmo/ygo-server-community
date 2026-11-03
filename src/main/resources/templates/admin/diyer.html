@@ -19,6 +19,7 @@
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
 
     <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
+    <script th:src="@{/js/helper/stringsHelper.js}" src="/js/helper/stringsHelper.js"></script>
 
     <style>
         .table-col-first {
@@ -266,6 +267,7 @@
                 const selectedCdbId = ref(null);
                 const configuredSetnameCodes = ref([]);
                 const loading = ref(false);
+                const { loadDefaultSetnames } = window.useStringsHelper();
 
                 const expandDiyerIds = ref(new Set());
 
@@ -350,8 +352,8 @@
                  */
                 const fetchConfiguredSetnameCodes = async () => {
                     try {
-                        const response = await axios.get('/api/card_info/default-setnames');
-                        configuredSetnameCodes.value = response.data;
+                        const setnames = await loadDefaultSetnames();
+                        configuredSetnameCodes.value = setnames.map(item => item.code);
                     } catch (error) {
                         throwErrorSwal('載入失敗', '無法讀取 strings.conf 字段代碼', error);
                     }
@@ -857,8 +859,7 @@
                             );
 
                             const duplicateSetnames = currentForm.rows.filter(row => row.type === 'setname' &&
-                                /^0x[0-9a-f]+$/i.test(row.code) &&
-                                configuredSetnameCodes.value.includes(Number.parseInt(row.code, 16)));
+                                configuredSetnameCodes.value.includes(Number.parseInt(row.code.replace(/^0x/i, ''), 16)));
 
                             if (hasDuplicateName || duplicateCodes.length > 0 || duplicateSets.length > 0 || duplicateStringEntries.length > 0 || duplicateSetnames.length > 0) {
                                 let warningHtml = '<div style="text-align: left; max-height: 220px; overflow-y: auto; font-size: 0.9rem; line-height: 1.6;">';
@@ -870,7 +871,7 @@
                                 if (duplicateCodes.length > 0) {
                                     warningHtml += '<p style="color: var(--red-color); font-weight: bold; margin-bottom: 4px;">以下卡號區間與其他作者重複：</p>';
                                     duplicateCodes.forEach(d => {
-                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${d.author}</b>：${d.values.join(', ')} <br>`;
+                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${escapeHtml(d.author)}</b>：${d.values.join(', ')} <br>`;
                                     });
                                 }
 
@@ -878,7 +879,7 @@
                                     warningHtml += '<p style="color: var(--red-color); font-weight: bold; margin-top: 8px; margin-bottom: 4px;">以下字段區間與其他作者重複：</p>';
                                     duplicateSets.forEach(d => {
                                         const hexValues = d.values.map(v => Number(v).toString(16).toUpperCase().padStart(2, '0'));
-                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${d.author}</b>：${hexValues.join(', ')} <br>`;
+                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${escapeHtml(d.author)}</b>：${hexValues.join(', ')} <br>`;
                                     });
                                 }
 
@@ -886,7 +887,7 @@
                                     warningHtml += '<p style="color: var(--red-color); font-weight: bold; margin-top: 8px; margin-bottom: 4px;">以下項目與其他作者在當前 CDB 擁 有相同的類型與 Code：</p>';
                                     duplicateStringEntries.forEach(d => {
                                         const itemsDesc = d.items.map(i => `[${i.type}] ${i.code}`).join(', ');
-                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${d.author}</b>：${itemsDesc} <br>`;
+                                        warningHtml += `&nbsp;&nbsp;• 作者 <b>${escapeHtml(d.author)}</b>：${itemsDesc} <br>`;
                                     });
                                 }
 

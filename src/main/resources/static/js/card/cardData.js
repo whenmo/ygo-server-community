@@ -66,15 +66,20 @@
     };
 
     // 禁限狀態碼獲取
-    const getCardLimitStatus = (card, iflistMap) => {
-        if (!iflistMap || Object.keys(iflistMap).length === 0) return 3;
+    const getCardLimitStatus = (card, Lflist) => {
+        if (!Lflist) return 3;
         const id = Number(card?.id || 0);
-        for (const [statusCode, items] of Object.entries(iflistMap)) {
-            if (Array.isArray(items) && items.some(item => Number(item.id) === id)) {
-                const code = Number(statusCode);
-                if (code >= 0 && code <= 2) return code;
-            }
-        }
+        const containsCardId = (items) => {
+            if (!items) return false;
+            const values = items instanceof Set ? [...items] : Array.isArray(items) ? items : [];
+            return values.some(item => Number(item?.id ?? item) === id);
+        };
+        const forbiddenIds = Lflist.forbiddenIds ?? Lflist[0] ?? Lflist['0'];
+        const limitIds = Lflist.limitIds ?? Lflist[1] ?? Lflist['1'];
+        const semiLimitIds = Lflist.semiLimitIds ?? Lflist[2] ?? Lflist['2'];
+        if (containsCardId(forbiddenIds)) return 0;
+        if (containsCardId(limitIds)) return 1;
+        if (containsCardId(semiLimitIds)) return 2;
         return 3;
     };
 

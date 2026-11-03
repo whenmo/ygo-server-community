@@ -1,49 +1,180 @@
 package com.whenmo.service.cdb;
 
+import com.whenmo.config.ApplicationConfig;
 import org.springframework.stereotype.Service;
 
-import com.whenmo.model.cardinfo.CardInfoItem;
+import com.whenmo.model.cdb.domain.CdbStringsItem;
+import com.whenmo.model.cdb.response.CdbStringsResponse;
 import com.whenmo.model.database.response.CdbConfigResponse;
+
+import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 public class CdbStringService {
 
-    public Map<String, List<CardInfoItem>> parseStrings(CdbConfigResponse config) {
-        Objects.requireNonNull(config, "CdbConfigResponse 不可為 null");
-        if (config.getFilePath() == null || config.getFilePath().isBlank()) {
+    private final CdbDiskCacheService diskCache;
+    private final ApplicationConfig applicationConfig;
+
+    private final Path defaultStringsPath = Path.of("cache", "default-strings", "-1.conf").toAbsolutePath().normalize();
+
+    /** 讀取設定檔指定的預設 strings.conf，並使用 cdbid=0 的磁碟快取。 */
+    public synchronized CdbStringsResponse getDefaultStrings() {
+        CdbConfigResponse defaultConfig = defaultConfig();
+
+        CdbStringsResponse cached = diskCache.getCdbStringsCache(defaultConfig);
+        if (cached != null) {
+            return cached;
+        }
+
+        try {
+            downloadDefaultStrings();
+            CdbStringsResponse response = readStrings(-1, defaultStringsPath);
+            diskCache.putCdbStringsCache(defaultConfig, response);
+            return response;
+        } catch (Exception exception) {
+            if (Files.isRegularFile(defaultStringsPath)) {
+                CdbStringsResponse response = readStrings(-1, defaultStringsPath);
+                diskCache.putCdbStringsCache(defaultConfig, response);
+                return response;
+            }
+            throw new IllegalStateException("無法讀取預設 strings.conf: " + exception.getMessage(), exception);
+        }
+    }
+
+    public synchronized void refreshDefaultStrings() {
+        diskCache.removeCdbStringsCache(-1);
+    }
+
+    /**
+     * 合併預設 strings 與所有 CDB strings。後讀取的相同 code 會覆蓋先前資料。
+     */
+    public CdbStringsResponse getAllStringsCombined(List<CdbConfigResponse> configs) {
+        Map<Integer, CdbStringsItem> setnames = new LinkedHashMap<>();
+        Map<Integer, CdbStringsItem> counters = new LinkedHashMap<>();
+        Map<Integer, CdbStringsItem> victorys = new LinkedHashMap<>();
+
+        CdbStringsResponse cached = diskCache.getAllCdbStringsCache(defaultConfig(), configs);
+        if (cached != null) {
+            return cached;
+        }
+
+        merge(getDefaultStrings(), setnames, counters, victorys);
+        for (CdbConfigResponse config : configs) {
+            merge(getStrings(config), setnames, counters, victorys);
+        }
+
+        CdbStringsResponse combined = CdbStringsResponse.builder()
+                .cdbId(0)
+                .setnames(new ArrayList<>(setnames.values()))
+                .counters(new ArrayList<>(counters.values()))
+                .victorys(new ArrayList<>(victorys.values()))
+                .build();
+        diskCache.putAllCdbStringsCache(defaultConfig(), configs, combined);
+        return combined;
+    }
+
+    private CdbConfigResponse defaultConfig() {
+        return CdbConfigResponse.builder().id(-1).name("default")
+                .filePath(defaultStringsPath.toString()).build();
+    }
+
+    private void merge(CdbStringsResponse source,
+            Map<Integer, CdbStringsItem> setnames,
+            Map<Integer, CdbStringsItem> counters,
+            Map<Integer, CdbStringsItem> victorys) {
+        source.getSetnames().forEach(item -> setnames.put(item.getCode(), item));
+        source.getCounters().forEach(item -> counters.put(item.getCode(), item));
+        source.getVictorys().forEach(item -> victorys.put(item.getCode(), item));
+    }
+
+    private void downloadDefaultStrings() throws IOException, InterruptedException {
+        java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(5)).build();
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create(applicationConfig.getDefaultStringsApi()))
+                .timeout(java.time.Duration.ofSeconds(15)).GET().build();
+        java.net.http.HttpResponse<byte[]> response = client.send(request,
+                java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IOException("HTTP " + response.statusCode());
+        }
+
+        Files.createDirectories(defaultStringsPath.getParent());
+        Path temporary = Files.createTempFile(defaultStringsPath.getParent(), "strings-", ".tmp");
+        try {
+            Files.write(temporary, response.body());
+            Files.move(temporary, defaultStringsPath, StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    /**
+     * 獲取字段表
+     */
+    public CdbStringsResponse getStrings(CdbConfigResponse configResponse) {
+        Objects.requireNonNull(configResponse, "CdbConfigResponse 不可為 null");
+
+        CdbStringsResponse cachedStrings = diskCache.getCdbStringsCache(configResponse);
+        if (cachedStrings != null)
+            return cachedStrings;
+
+        String filePAth = configResponse.getFilePath();
+        if (filePAth == null || filePAth.isBlank()) {
             throw new IllegalArgumentException("CDB 檔案路徑不可為空");
         }
 
-        Path parentDir = Path.of(config.getFilePath()).toAbsolutePath().normalize().getParent();
+        Path parentDir = Path.of(filePAth).toAbsolutePath().normalize().getParent();
         if (parentDir == null) {
             throw new IllegalStateException("無法取得 CDB 檔案的父目錄");
         }
 
-        Path stringsPath = parentDir.resolve("strings.conf");
+        int cdbId = configResponse.getId().intValue();
+        try {
+            Path stringsPath = parentDir.resolve("strings.conf");
+            CdbStringsResponse stringsResponse = readStrings(cdbId, stringsPath);
+            diskCache.putCdbStringsCache(configResponse, stringsResponse);
+            return stringsResponse;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "讀取 configId " + cdbId + " 的 strings.conf 檔案失敗: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 讀取字段表
+     */
+    private CdbStringsResponse readStrings(int cdbId, Path stringsPath) {
         if (!Files.isRegularFile(stringsPath)) {
-            throw new IllegalStateException("在 CDB 同級目錄下找不到 strings.conf: " + stringsPath);
+            throw new IllegalStateException("strings.conf 檔案路徑不合法: " + stringsPath);
         }
 
-        List<CardInfoItem> setnames = new ArrayList<>();
-        List<CardInfoItem> counters = new ArrayList<>();
-        List<CardInfoItem> victorys = new ArrayList<>();
+        CdbStringsResponse response = CdbStringsResponse.builder()
+                .cdbId(cdbId)
+                .setnames(new ArrayList<>())
+                .counters(new ArrayList<>())
+                .victorys(new ArrayList<>())
+                .build();
 
         try {
             List<String> lines = Files.readAllLines(stringsPath, StandardCharsets.UTF_8);
 
             for (String rawLine : lines) {
                 String line = rawLine.trim();
-                if (line.isEmpty() || !line.startsWith("!"))
+                if (line.isEmpty() || !line.startsWith("!") || line.startsWith("!sy")) // !system
                     continue;
 
                 String[] parts = line.split("\\s+", 3);
@@ -61,25 +192,20 @@ public class CdbStringService {
                     String name = parts[2].split("[\t\\s]+")[0];
 
                     if (type.equals("!setname")) {
-                        setnames.add(new CardInfoItem("setname", code, name));
+                        response.getSetnames().add(new CdbStringsItem(code, name));
                     } else if (type.equals("!counter")) {
-                        counters.add(new CardInfoItem("counter", code, name));
+                        response.getCounters().add(new CdbStringsItem(code, name));
                     } else if (type.equals("!victory")) {
-                        victorys.add(new CardInfoItem("victory", code, name));
+                        response.getVictorys().add(new CdbStringsItem(code, name));
                     }
                 } catch (NumberFormatException ignored) {
                 }
             }
 
-            Map<String, List<CardInfoItem>> result = new HashMap<>();
-            result.put("setname", setnames.stream().distinct().toList());
-            result.put("counter", counters.stream().distinct().toList());
-            result.put("victory", victorys.stream().distinct().toList());
-
-            return result;
+            return response;
 
         } catch (IOException e) {
-            throw new IllegalStateException("無法讀取 strings.conf 檔案: " + stringsPath, e);
+            throw new IllegalStateException("strings.conf 檔案讀取失敗: " + stringsPath, e);
         }
     }
 }

@@ -3,9 +3,9 @@ package com.whenmo.api;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.whenmo.model.cardinfo.CardInfoItem;
-import com.whenmo.model.cardinfo.IflistItem;
-import com.whenmo.model.cdb.CdbCardResponse;
+import com.whenmo.model.cdb.response.CdbCardResponse;
+import com.whenmo.model.cdb.response.CdbLflistResponse;
+import com.whenmo.model.cdb.response.CdbStringsResponse;
 import com.whenmo.model.database.response.CdbConfigResponse;
 import com.whenmo.service.cdb.*;
 import com.whenmo.service.database.CdbConfigRestService;
@@ -13,8 +13,6 @@ import com.whenmo.service.database.CdbConfigRestService;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/cdb")
@@ -23,16 +21,26 @@ public class CdbController {
 
     private final CdbCardService cdbCardService;
     private final CdbStringService cdbStringService;
-    private final CdbIflistService cdbIflistService;
+    private final CdbLflistService cdbLflistService;
     private final CdbConfigRestService cdbConfigRestService;
 
     /**
-     * 根據 configId 獲取 CDB 中的所有卡片
-     * GET /api/cdb/card/{configId}
+     * 獲取所有 CDB 的組合檔案，當卡片 id 相同時後讀取的會覆蓋先前讀取的
+     * GET /api/cdb/card/all
      */
-    @GetMapping("/card/{configId}")
-    public ResponseEntity<List<CdbCardResponse>> getCardsByConfigId(
-            @PathVariable Integer configId,
+    @GetMapping("/card/all")
+    public ResponseEntity<List<CdbCardResponse>> getAllCardsCombined() {
+        List<CdbConfigResponse> allConfigs = cdbConfigRestService.getAllConfigs();
+        List<CdbCardResponse> combinedCards = cdbCardService.getAllCardsCombined(allConfigs);
+        return ResponseEntity.ok(combinedCards);
+    }
+
+    /**
+     * 根據 configId 獲取 CDB 中的所有卡片
+     * GET /api/cdb/card/config/{configId}
+     */
+    @GetMapping("/card/config/{configId}")
+    public ResponseEntity<List<CdbCardResponse>> getCardsByConfigId(@PathVariable Integer configId,
             @RequestParam(defaultValue = "false") boolean refresh) {
         CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
         return ResponseEntity.ok(cdbCardService.readCdb(configResponse, refresh));
@@ -40,9 +48,9 @@ public class CdbController {
 
     /**
      * 根據 configId 與 卡片 ID 查詢單張卡片
-     * GET /api/cdb/card/{configId}/{cardId}
+     * GET /api/cdb/card/config/{configId}/{cardId}
      */
-    @GetMapping("/card/{configId}/{cardId}")
+    @GetMapping("/card/config/{configId}/{cardId}")
     public ResponseEntity<CdbCardResponse> getCardById(@PathVariable Integer configId, @PathVariable Integer cardId) {
         CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
         CdbCardResponse cardResponse = cdbCardService.getCardById(configResponse, cardId);
@@ -50,39 +58,51 @@ public class CdbController {
     }
 
     /**
-     * 根據 configId 取得同級目錄 strings.conf 中的 setname、counter 與 victory 清單
-     * GET /api/cdb/string/{configId}
+     * 獲取所有 strings 的組合檔案，當卡片 id 相同時後讀取的會覆蓋先前讀取的
+     * GET /api/cdb/strings/config/{configId}
      */
-    @GetMapping("/string/{configId}")
-    public ResponseEntity<Map<String, List<CardInfoItem>>> getStringByConfigId(@PathVariable Integer configId) {
+    @GetMapping("/strings/all")
+    public ResponseEntity<CdbStringsResponse> getAllStringsCombined() {
+        List<CdbConfigResponse> allConfigs = cdbConfigRestService.getAllConfigs();
+        return ResponseEntity.ok(cdbStringService.getAllStringsCombined(allConfigs));
+    }
+
+    /**
+     * 根據 configId 取得同級目錄 strings.conf 中的 setname、counter 與 victory 清單
+     * GET /api/cdb/strings/config/{configId}
+     */
+    @GetMapping("/strings/config/{configId}")
+    public ResponseEntity<CdbStringsResponse> getStringsByConfigId(@PathVariable Integer configId) {
         CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
-        return ResponseEntity.ok(cdbStringService.parseStrings(configResponse));
+        return ResponseEntity.ok(cdbStringService.getStrings(configResponse));
+    }
+
+    /**
+     * 獲取預設的 strings.conf 中的 setname、counter 與 victory 清單
+     * GET /api/cdb/strings/default
+     */
+    @GetMapping("/strings/default")
+    public ResponseEntity<CdbStringsResponse> getDefaultStrings() {
+        return ResponseEntity.ok(cdbStringService.getDefaultStrings());
     }
 
     /**
      * 取得 lflist.conf 支援的所有禁限卡版本列表
-     * GET /api/cdb/iflist/{configId}/versions
+     * GET /api/cdb/lflist/config/{configId}
      */
-    @GetMapping("/iflist/{configId}/versions")
-    public ResponseEntity<Set<String>> getIflistVersions(@PathVariable Integer configId) {
-        CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
-        Set<String> versions = cdbIflistService.getAllVersions(configResponse);
-        return ResponseEntity.ok(versions);
+    @GetMapping("/lflist/all")
+    public ResponseEntity<List<CdbLflistResponse>> getAllLflistsCombined() {
+        List<CdbConfigResponse> allConfigs = cdbConfigRestService.getAllConfigs();
+        return ResponseEntity.ok(cdbLflistService.getAllLflistsCombined(allConfigs));
     }
 
     /**
-     * 取得指定版本（例如 2026.7）的完整禁限卡分類清單
-     * GET /api/cdb/iflist/{configId}/version/{versionId}
+     * 取得 lflist.conf 支援的所有禁限卡版本列表
+     * GET /api/cdb/lflist/config/{configId}
      */
-    @GetMapping("/iflist/{configId}/version/{versionId}")
-    public ResponseEntity<Map<Integer, List<IflistItem>>> getIflistByVersion(
-            @PathVariable Integer configId,
-            @PathVariable String versionId) {
+    @GetMapping("/lflist/config/{configId}")
+    public ResponseEntity<List<CdbLflistResponse>> getLflistsByConfigId(@PathVariable Integer configId) {
         CdbConfigResponse configResponse = cdbConfigRestService.getConfigById(configId);
-        Map<Integer, List<IflistItem>> banlist = cdbIflistService.getBanlistByVersion(configResponse, versionId);
-        if (banlist.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(banlist);
+        return ResponseEntity.ok(cdbLflistService.getLflists(configResponse));
     }
 }

@@ -9,9 +9,16 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 public class CurrentUserAdvice {
 
     private final SecurityFilterProperties props;
+    private final ApplicationConfig applicationConfig;
 
-    public CurrentUserAdvice(SecurityFilterProperties props) {
+    public CurrentUserAdvice(SecurityFilterProperties props, ApplicationConfig applicationConfig) {
         this.props = props;
+        this.applicationConfig = applicationConfig;
+    }
+
+    @ModelAttribute("serverCommunityName")
+    public String serverCommunityName() {
+        return applicationConfig.getServerCommunityName();
     }
 
     @ModelAttribute("currentUser")

@@ -73,7 +73,30 @@
     };
 
     // 產生卡片圖片網址
-    const FALLBACK_UNKNOWN_CARD = 'https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/unknown_card.jpg';
+    const cardViewConfig = {
+        fallbackUnknownCard: 'https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/unknown_card.jpg',
+        cardForbiddenUrl: 'https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_0.png',
+        cardLimitUrl: 'https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_1.png',
+        cardSemiLimitUrl: 'https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_2.png'
+    };
+
+    fetch('/api/config')
+        .then(response => response.ok ? response.json() : {})
+        .then(config => {
+            if (typeof config.fallback_unknown_card === 'string' && config.fallback_unknown_card.trim()) {
+                cardViewConfig.fallbackUnknownCard = config.fallback_unknown_card.trim();
+            }
+            if (typeof config.card_forbidden_url === 'string' && config.card_forbidden_url.trim()) {
+                cardViewConfig.cardForbiddenUrl = config.card_forbidden_url.trim();
+            }
+            if (typeof config.card_limit_url === 'string' && config.card_limit_url.trim()) {
+                cardViewConfig.cardLimitUrl = config.card_limit_url.trim();
+            }
+            if (typeof config.card_semi_limit_url === 'string' && config.card_semi_limit_url.trim()) {
+                cardViewConfig.cardSemiLimitUrl = config.card_semi_limit_url.trim();
+            }
+        })
+        .catch(() => { });
 
     const getCardUrl = (card) => {
         const picCdn = typeof card?.picCdn === 'string' ? card.picCdn.trim() : '';
@@ -84,8 +107,16 @@
 
     const getCardLimitUrl = (card, iflistMap) => {
         const status = window.APP_CONSTANTS?.getCardLimitStatus?.(card, iflistMap);
-        if (![0, 1, 2].includes(status)) return null;
-        return `https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_${status}.png`;
+        switch (status) {
+            case 0:
+                return cardViewConfig.cardForbiddenUrl;
+            case 1:
+                return cardViewConfig.cardLimitUrl;
+            case 2:
+                return cardViewConfig.cardSemiLimitUrl;
+            default:
+                return null;
+        }
     };
 
     // 圖片載入失敗時的預設圖處置
@@ -95,7 +126,7 @@
 
         if (!image.dataset.triedFallback) {
             image.dataset.triedFallback = 'true';
-            image.src = FALLBACK_UNKNOWN_CARD;
+            image.src = cardViewConfig.fallbackUnknownCard;
         } else {
             image.onerror = null;
             image.removeAttribute('src');

@@ -1,4 +1,4 @@
-package com.whenmo.model.cdb;
+package com.whenmo.model.cdb.domain;
 
 import lombok.Data;
 

@@ -123,7 +123,7 @@
 
                 const refreshCache = async (item) => {
                     try {
-                        await axios.get(`/api/cdb/card/${item.id}?refresh=true`);
+                        await axios.get(`/api/cdb/card/config/${item.id}?refresh=true`);
                         classicalSwal.fire({ icon: 'success', title: '快取已刷新', timer: 1200, showConfirmButton: false });
                     } catch (error) {
                         classicalSwal.fire({ icon: 'error', title: '刷新失敗', text: error.response?.data || '無法讀取 CDB 檔案' });

@@ -1,15 +1,13 @@
-package com.whenmo.model.cdb;
+package com.whenmo.model.cdb.response;
 
 import java.util.HashSet;
 import java.util.Set;
 
 import com.whenmo.model.cardinfo.CardType;
+import com.whenmo.model.cdb.domain.CdbCard;
 import com.whenmo.model.database.response.CdbConfigResponse;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Data
 @Builder
@@ -36,17 +34,6 @@ public class CdbCardResponse {
     private String desc;
 
     public static CdbCardResponse fromModel(CdbCard model, CdbConfigResponse configResponse) {
-        CdbCardResponse response = fromModel(model);
-
-        if (configResponse != null) {
-            response.setCdbId(configResponse.getId().intValue());
-            response.setPicCdn(configResponse.getPicCdn());
-        }
-
-        return response;
-    }
-
-    private static CdbCardResponse fromModel(CdbCard model) {
         if (model == null) {
             return null;
         }
@@ -75,7 +62,7 @@ public class CdbCardResponse {
             category = rawCategory;
         }
 
-        return CdbCardResponse.builder()
+        CdbCardResponse response = CdbCardResponse.builder()
                 .id(parseInteger(model.getId()))
                 .rule(parseInteger(model.getOt()))
                 .alias(parseInteger(model.getAlias()))
@@ -92,6 +79,13 @@ public class CdbCardResponse {
                 .name(model.getName())
                 .desc(model.getDesc())
                 .build();
+
+        if (configResponse != null) {
+            response.setCdbId(configResponse.getId().intValue());
+            response.setPicCdn(configResponse.getPicCdn());
+        }
+
+	    return response;
     }
 
     private static int parseInteger(Integer integer) {

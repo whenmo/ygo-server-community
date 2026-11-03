@@ -1,0 +1,8 @@
+{
+    "server_community_name": "翼龍服社區",
+    "default_strings_api": "https://raw.githubusercontent.com/Fluorohydride/ygopro/master/strings.conf",
+    "fallback_unknown_card": "https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/unknown_card.jpg",
+    "card_forbidden_url": "https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_0.png",
+    "card_limit_url": "https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_1.png",
+    "card_semi_limit_url": "https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_2.png"
+}

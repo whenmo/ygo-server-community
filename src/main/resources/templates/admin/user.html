@@ -43,9 +43,6 @@
             <div class="main-top-bar">
                 <div class="main-top-bar-row">
                     <h2 class="main-top-bar-title">用戶清單</h2>
-                    <div style="display: flex; gap: 10px;">
-                        <button @click="openCreateModal" class="main-top-bar-btn">新增用戶</button>
-                    </div>
                 </div>
             </div>
 
@@ -144,57 +141,6 @@
                     });
                 };
 
-                // 新增用戶彈窗 (對應 UserRestController: POST /api/users)
-                const openCreateModal = () => {
-                    classicalSwal.fire({
-                        title: '新增用戶',
-                        html: `
-                            <div class="swal-row-container">
-                                <fieldset class="module-fieldset">
-                                    <legend>名稱</legend>
-                                    <input id="swal-username" autocomplete="username" class="module-input-clean">
-                                </fieldset>
-                                <fieldset class="module-fieldset">
-                                    <legend>密碼</legend>
-                                    <input type="password" id="swal-password" autocomplete="new-password" class="module-input-clean">
-                                </fieldset>
-                                <button type="button" class="module-toggle">
-                                    <span class="module-toggle-status"></span>
-                                    <span>管理員</span>
-                                    <input type="checkbox" id="swal-isAdmin">
-                                </button>
-                            </div>
-                        `,
-                        showCancelButton: true,
-                        confirmButtonText: '新增',
-                        cancelButtonText: '取消',
-                        didOpen: () => {
-                            initSwalToggle('swal-isAdmin', false);
-                        },
-                        preConfirm: () => {
-                            const username = document.getElementById('swal-username').value.trim();
-                            const password = document.getElementById('swal-password').value.trim();
-                            const isAdmin = document.getElementById('swal-isAdmin').checked;
-
-                            if (!username || !password) {
-                                Swal.showValidationMessage('帳號與密碼不可為空');
-                                return false;
-                            }
-                            return { username, password, isAdmin };
-                        }
-                    }).then(async (result) => {
-                        if (result.isConfirmed) {
-                            try {
-                                await axios.post('/api/users', result.value);
-                                classicalSwal.fire({ icon: 'success', title: '新增成功', timer: 1200, showConfirmButton: false });
-                                fetchUsers();
-                            } catch (error) {
-                                classicalSwal.fire({ icon: 'error', title: '新增失敗', text: error.response?.data?.message || '操作失敗' });
-                            }
-                        }
-                    });
-                };
-
                 // 編輯用戶彈窗 (對應 UserRestController: PUT /api/users/id/{id})
                 const openEditModal = (item) => {
                     classicalSwal.fire({
@@ -276,7 +222,7 @@
                     fetchUsers();
                 });
 
-                return { users, loading, openCreateModal, openEditModal };
+                return { users, loading, openEditModal };
             }
         }).mount('#app');
     </script>

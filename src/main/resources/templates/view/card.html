@@ -17,7 +17,10 @@
 
     <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
     <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
-    <script th:src="@{/js/helper/iflistHelper.js}" src="/js/helper/iflistHelper.js"></script>
+    <script th:src="@{/js/helper/lflistHelper.js}" src="/js/helper/lflistHelper.js"></script>
+    <script th:src="@{/js/helper/stringsHelper.js}" src="/js/helper/stringsHelper.js"></script>
+    <script th:src="@{/js/helper/cdbcardHelper.js}" src="/js/helper/cdbcardHelper.js"></script>
+    <script th:src="@{/js/helper/configHelper.js}" src="/js/helper/configHelper.js"></script>
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
 
@@ -183,12 +186,15 @@
                 </div>
                 <div class="card-detail-row">
                     <span class="row-title">禁限</span>
-                    <div class="row-container" v-if="iflistVersions.length > 0">
-                        <select v-model="selectedVersion" @change="handleVersionChange" class="module-select"
-                            style="background: var(--red-color); color: var(--white-color);">
-                            <option v-for="ver in iflistVersions" :key="ver" :value="ver">{{ ver }}</option>
+                    <div class="row-container" v-if="currentConfigLflists.length > 0">
+                        <select v-model="selectLflistVer" @change="loadCurrentLflist(selectLflistVer)"
+                            class="module-select" style="background: var(--red-color); color: var(--white-color);">
+                            <option :value="LFLIST_VER_NA">N/A</option>
+                            <option v-for="(item, index) in currentConfigLflists" :key="`${item.cdbId}-${item.version}-${index}`" :value="index">{{
+                                item.version }}
+                            </option>
                         </select>
-                        <span class="row-label">{{ iflistStatusText }}</span>
+                        <span class="row-label">{{ lflistStatusText }}</span>
                     </div>
                     <span v-else class="empty-row">無可用禁卡表</span>
                 </div>
@@ -331,12 +337,12 @@
                         :href="`/view/card/${cardItem.cdbId}/${cardItem.id}`" target="_blank">
 
                         <!-- 禁限圖標 -->
-                        <img v-if="getCardLimitUrl(cardItem, currentIflistMap)" class="small-card-result-limit"
-                            :src="getCardLimitUrl(cardItem, currentIflistMap)"
-                            alt="Limit Status">
+                        <img v-if="getCardLimitUrl(cardItem, currentLflist)" class="small-card-result-limit"
+                            :src="getCardLimitUrl(cardItem, currentLflist)" alt="Limit Status">
 
                         <!-- 卡片圖片 -->
-                        <img v-if="getCardUrl(cardItem)" class="small-card-result-image" :src="getCardUrl(cardItem)" @error="getCardUrlError">
+                        <img v-if="getCardUrl(cardItem)" class="small-card-result-image" :src="getCardUrl(cardItem)"
+                            @error="getCardUrlError">
 
                         <!-- 卡片詳細資訊 -->
                         <div class="small-card-result-card-info">
@@ -399,10 +405,40 @@
 
                 const cardResultList = ref([]);
                 const loadingRelated = ref(false);
-                const currentIflistMap = ref({});
-                const iflistVersions = ref([]);
 
-                const { getIflistVersions, getIflistByVersion } = window.useIflistHelper(iflistVersions, currentIflistMap);
+                const lflistsMap = ref({});
+                const allLflists = ref([]);
+                const selectLflistVer = ref('');
+                const currentLflist = ref({});
+
+                const { LFLIST_VER_NA, loadAllLflists } = window.useLflistHelper(lflistsMap, selectLflistVer, currentLflist);
+                const { loadAllStrings } = window.useStringsHelper();
+                const { loadAllCards, findCard } = window.useCdbCardHelper();
+                const { loadAllConfigs } = window.useConfigHelper();
+
+                const currentConfigLflists = computed(() => allLflists.value);
+
+                const loadCurrentLflist = async (versionId) => {
+                    const lflists = await loadAllLflists();
+                    allLflists.value = lflists;
+
+                    if (lflists.length === 0 || versionId === LFLIST_VER_NA) {
+                        selectLflistVer.value = LFLIST_VER_NA;
+                        currentLflist.value = {};
+                        return null;
+                    }
+
+                    const selectedIndex = versionId !== undefined && versionId !== null && versionId !== ''
+                        ? Number(versionId)
+                        : NaN;
+                    const selected = Number.isInteger(selectedIndex) && selectedIndex >= 0
+                        ? lflists[selectedIndex]
+                        : null;
+                    const current = selected || lflists[0];
+                    selectLflistVer.value = lflists.indexOf(current);
+                    currentLflist.value = current;
+                    return current;
+                };
 
                 const {
                     pageSizeOptions,
@@ -428,7 +464,7 @@
 
                 const setnameMap = computed(() => {
                     const map = new Map();
-                    [...defaultSetnames.value, ...setnames.value].forEach(item => {
+                    setnames.value.forEach(item => {
                         map.set(Number(item.code), item.name);
                     });
                     return map;
@@ -469,15 +505,10 @@
                     });
                 });
 
-                const selectedVersion = ref('');
-
-                const currentCardLimitStatus = computed(() => {
-                    if (!card.value) return 3;
-                    return getCardLimitStatus(card.value, currentIflistMap.value);
-                });
-
-                const iflistStatusText = computed(() => {
-                    switch (currentCardLimitStatus.value) {
+                const lflistStatusText = computed(() => {
+                    let status = 3;
+                    if (card.value) status = getCardLimitStatus(card.value, currentLflist.value);
+                    switch (status) {
                         case 0: return '禁止';
                         case 1: return '限制';
                         case 2: return '準限制';
@@ -487,11 +518,6 @@
 
                 const formattedDesc = computed(() => getFormattedDesc(card.value, configId));
 
-                async function getData(url) {
-                    const response = await axios.get(url);
-                    return response.data;
-                }
-
                 const databaseName = computed(() => {
                     const match = cdbConfigs.value.find(item => Number(item.id) === Number(configId));
                     return match ? match.name : '';
@@ -499,22 +525,16 @@
 
                 async function loadConfigData() {
                     try {
-                        const [stringRes, defaultSetsRes, configRes] = await Promise.all([
-                            getData(`/api/cdb/string/${configId}`),
-                            getData('/api/card_info/default-setnames'),
-                            getData('/api/cdb_config')
+                        const [stringRes, configRes] = await Promise.all([
+                            loadAllStrings(),
+                            loadAllConfigs()
                         ]);
-                        setnames.value = stringRes.setname || [];
-                        defaultSetnames.value = Array.isArray(defaultSetsRes) ? defaultSetsRes : [];
+                        setnames.value = Array.isArray(stringRes?.setnames) ? stringRes.setnames : [];
+                        defaultSetnames.value = [];
                         cdbConfigs.value = configRes;
                     } catch (e) {
                         console.error('載入 cdb 字串、預設字段或組態失敗：', e);
                     }
-                }
-
-                async function handleVersionChange() {
-                    if (!selectedVersion.value) return;
-                    await getIflistByVersion(configId, selectedVersion.value);
                 }
 
                 async function loadRelatedCards() {
@@ -526,7 +546,7 @@
 
                     loadingRelated.value = true;
                     try {
-                        const allCards = await getData(`/api/cdb/card/${configId}`);
+                        const allCards = await loadAllCards();
                         const matched = allCards.filter(c => targetSetCodes.some(targetCode => isSetCard(c, targetCode)));
                         cardResultList.value = matched.sort(sortCards);
                     } catch (e) {
@@ -540,14 +560,9 @@
                 onMounted(async () => {
                     try {
                         const [cardResult] = await Promise.all([
-                            getData(`/api/cdb/card/${configId}/${cardId}`),
+                            findCard(configId, cardId),
                             loadConfigData(),
-                            getIflistVersions(configId).then(async () => {
-                                if (iflistVersions.value.length > 0) {
-                                    selectedVersion.value = iflistVersions.value[0];
-                                    await getIflistByVersion(configId, selectedVersion.value);
-                                }
-                            })
+                            loadCurrentLflist('')
                         ]);
                         card.value = cardResult;
                         document.title = `${cardResult.name || '卡片詳情'}`;
@@ -585,16 +600,19 @@
                     setCodes,
                     linkMarkerNames,
                     databaseName,
-                    iflistVersions,
-                    selectedVersion,
-                    iflistStatusText,
+                    lflistsMap,
+                    allLflists,
+                    currentConfigLflists,
+                    selectLflistVer,
+                    LFLIST_VER_NA,
+                    loadCurrentLflist,
+                    lflistStatusText,
                     formattedDesc,
                     cardResultList,
                     loadingRelated,
-                    handleVersionChange,
                     isType,
                     formatAtkDefValue,
-                    currentIflistMap,
+                    currentLflist,
                     getCardLimitStatus,
                     getCardLimitUrl,
                     getCardInfoRowTwo,

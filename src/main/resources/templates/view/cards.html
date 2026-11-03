@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>翼龍服社區</title>
+    <title>卡片搜索</title>
 
     <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
@@ -13,12 +13,15 @@
 
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
-    <!-- <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script> -->
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <!-- <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script> -->
 
-    <!-- 模組化 JS 引入 -->
-    <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
     <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
+    <script th:src="@{/js/helper/configHelper.js}" src="/js/helper/configHelper.js"></script>
+    <script th:src="@{/js/helper/cdbcardHelper.js}" src="/js/helper/cdbcardHelper.js"></script>
+    <script th:src="@{/js/helper/stringsHelper.js}" src="/js/helper/stringsHelper.js"></script>
+    <script th:src="@{/js/helper/lflistHelper.js}" src="/js/helper/lflistHelper.js"></script>
+    <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
 
@@ -149,6 +152,7 @@
                     <p v-if="loading.cdb" class="span-hint-msg">載入中...</p>
                     <p v-else-if="cdbConfigs.length === 0" class="span-hint-msg">無數據庫</p>
                     <select v-else v-model="selectedCdbId" @change="handleCdbChange" class="module-select">
+                        <option :value="ALL_CDB_ID">N/A</option>
                         <option v-for="item in cdbConfigs" :key="item.id" :value="item.id">{{ item.name }}
                         </option>
                     </select>
@@ -158,10 +162,10 @@
                 <div class="aside-long-row">
                     <p class="aside-long-row-title">禁限</p>
                     <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                    <p v-else-if="iflistVers.length === 0" class="span-hint-msg">無禁卡表</p>
                     <select v-else v-model="selectedIflistVersion" @change="handleIflistVersionChange"
                         class="module-select">
-                        <option v-for="ver in iflistVers" :key="ver" :value="ver">{{ ver }}</option>
+                        <option value="">N/A</option>
+                        <option v-for="item in iflistVers" :key="item.key" :value="item.key">{{ item.version }}</option>
                     </select>
                 </div>
 
@@ -182,8 +186,8 @@
                     <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
                         <legend>狀態</legend>
                         <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                        <div v-else-if="iflistVers.length === 0" class="span-hint-msg">-</div>
-                        <select v-else v-model.number="selectedIflistIndex" class="module-select">
+                        <select v-else v-model.number="selectedIflistIndex" class="module-select"
+                            :disabled="!selectedIflistVersion">
                             <option value="0">N/A</option>
                             <option value="4">無限制</option>
                             <option value="3">準限制</option>
@@ -232,7 +236,7 @@
                         </div>
                         <div class="collapsible-grid-2">
                             <p v-if="loading.setname" class="span-hint-msg">載入中...</p>
-                            <button type="button" v-else v-for="item in filteredSetnames" :key="item.code"
+                            <button v-else type="button" v-for="item in filteredSetnames" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item, 'setname')">
                                 <span>{{ item.name }}</span>
@@ -242,7 +246,8 @@
                 </div>
 
                 <!-- 預設字段過濾器區塊 -->
-                <div class="module-collapsible-frame" :class="{ collapsed: frameStates.defaultSetname }">
+                <div v-show="!isAllCdb" class="module-collapsible-frame"
+                    :class="{ collapsed: frameStates.defaultSetname }">
                     <div class="frame-header" @click="toggleFrame('defaultSetname')">
                         <div>
                             <span class="dot" :class="{ green: options.defaultSetname.some(item => item.active) }"
@@ -267,7 +272,7 @@
                         </div>
                         <div class="collapsible-grid-2">
                             <p v-if="loading.defaultSetname" class="span-hint-msg">載入中...</p>
-                            <button type="button" v-else v-for="item in filteredDefaultSetnames" :key="item.code"
+                            <button v-else type="button" v-for="item in filteredDefaultSetnames" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item, 'defaultSetname')">
                                 <span>{{ item.name }}</span>
@@ -287,7 +292,7 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-3">
-                            <button type="button" v-else v-for="item in options.typeMain" :key="item.code"
+                            <button type="button" v-for="item in options.typeMain" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
                                 <span>{{ item.name }}</span>
@@ -319,7 +324,7 @@
                             </button>
                         </div>
                         <div class="collapsible-grid-3">
-                            <button type="button" v-else v-for="item in options.typeMonster" :key="item.code"
+                            <button type="button" v-for="item in options.typeMonster" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
                                 <span>{{ item.name }}</span>
@@ -340,7 +345,7 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-3">
-                            <button type="button" v-else v-for="item in options.typeSpellTrap" :key="item.code"
+                            <button type="button" v-for="item in options.typeSpellTrap" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
                                 <span>{{ item.name }}</span>
@@ -361,7 +366,7 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-3">
-                            <button type="button" v-else v-for="item in options.attribute" :key="item.code"
+                            <button type="button" v-for="item in options.attribute" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
                                 <span>{{ item.name }}</span>
@@ -382,9 +387,8 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-2">
-                            <button type="button" v-else v-for="item in options.race" :key="item.code"
-                                class="module-toggle" :class="{ active: item.active }"
-                                @click.prevent="toggleItem(item)">
+                            <button type="button" v-for="item in options.race" :key="item.code" class="module-toggle"
+                                :class="{ active: item.active }" @click.prevent="toggleItem(item)">
                                 <span>{{ item.name }}</span>
                             </button>
                         </div>
@@ -510,7 +514,7 @@
                     </div>
                     <div class="frame-content">
                         <div class="collapsible-grid-2">
-                            <button type="button" v-else v-for="item in options.category" :key="item.code"
+                            <button type="button" v-for="item in options.category" :key="item.code"
                                 class="module-toggle" :class="{ active: item.active }"
                                 @click.prevent="toggleItem(item)">
                                 <span>{{ item.name }}</span>
@@ -570,7 +574,7 @@
                 </div>
 
                 <!-- 分頁選擇器 -->
-                <div v-if="totalPages > 1" class="result-page-row">
+                <div v-show="totalPages > 1" class="result-page-row">
                     <button @click="previousPage" :disabled="currentPage === 1">上一頁</button>
                     <span><input class="module-input-clean" :value="currentPage" @input="onPageInput"
                             @blur="validatePage" /> / {{ totalPages }} </span>
@@ -639,8 +643,9 @@
                 ]);
 
                 // 各類選單資料選項
+                const ALL_CDB_ID = '__ALL__';
                 const cdbConfigs = ref([]);
-                const selectedCdbId = ref(null);
+                const selectedCdbId = ref(ALL_CDB_ID);
                 const resultCards = ref([]);
                 const hasSearched = ref(false);
                 const searching = ref(false);
@@ -657,6 +662,13 @@
                 const selectedIflistVersion = ref('');
                 const selectedIflistIndex = ref(0);
                 const currentIflistMap = ref({});
+                const defaultSetnameCatalog = ref([]);
+
+                const { loadAllConfigs } = window.useConfigHelper();
+                const { loadAllCards } = window.useCdbCardHelper();
+                const { loadAllStrings, loadStringsByConfig, loadDefaultSetnames } = window.useStringsHelper();
+                const { loadAllLflists } = window.useLflistHelper(ref({}), ref(''), ref({}));
+                const isAllCdb = computed(() => String(selectedCdbId.value) === ALL_CDB_ID);
 
                 // 使用 usePageHelper 簡化分頁邏輯 (預設每頁 30 張)
                 const {
@@ -753,8 +765,11 @@
                 const fetchCardInfo = async (key, endpoint) => {
                     loading[key] = true;
                     try {
-                        const response = await axios.get(`/api/card_info/${endpoint}`);
+                        const response = { data: [] };
                         options[key] = response.data;
+                        if (key === 'defaultSetname') {
+                            defaultSetnameCatalog.value = response.data.map(item => ({ ...item, active: false }));
+                        }
                     } catch (error) {
                         console.error(`讀取 [${key}] 失敗：`, error);
                     } finally {
@@ -763,40 +778,44 @@
                 };
 
                 const fetchSetnamesByCdb = async (configId) => {
-                    if (!configId) return;
                     loading.setname = true;
                     try {
-                        const response = await axios.get(`/api/cdb/string/${configId}`);
-                        const data = response.data.setname || [];
+                        const response = isAllCdb.value
+                            ? await loadAllStrings()
+                            : await loadStringsByConfig(configId);
+                        const data = response.setnames || [];
                         options.setname = data.map(item => ({
                             ...item,
                             active: false
                         }));
+                        options.defaultSetname = isAllCdb.value
+                            ? []
+                            : defaultSetnameCatalog.value.map(item => ({ ...item, active: false }));
                     } catch (error) {
                         console.error('讀取字段清單失敗：', error);
                         options.setname = [];
+                        options.defaultSetname = isAllCdb.value ? [] : defaultSetnameCatalog.value.map(item => ({ ...item, active: false }));
                     } finally {
                         loading.setname = false;
                     }
                 };
 
-                const fetchIflistVersions = async (configId) => {
-                    if (!configId) {
-                        iflistVers.value = [];
-                        return;
-                    }
+                const fetchIflistVersions = async () => {
                     loading.iflist = true;
                     try {
-                        const response = await axios.get(`/api/cdb/iflist/${configId}/versions`);
-                        const verList = Array.isArray(response.data) ? response.data : Array.from(response.data);
-                        iflistVers.value = verList;
-                        if (verList.length > 0) {
-                            if (!selectedIflistVersion.value || !verList.includes(selectedIflistVersion.value)) {
-                                selectedIflistVersion.value = verList[0];
+                        const lflists = await loadAllLflists();
+                        iflistVers.value = (Array.isArray(lflists) ? lflists : []).map((item, index) => ({
+                            ...item,
+                            key: `${item.cdbId}:${item.version}:${index}`
+                        }));
+                        if (iflistVers.value.length > 0) {
+                            if (!iflistVers.value.some(item => item.key === selectedIflistVersion.value)) {
+                                selectedIflistVersion.value = iflistVers.value[0].key;
                             }
-                            await fetchBanlistByVersion(configId, selectedIflistVersion.value);
+                            await fetchBanlistByVersion(selectedIflistVersion.value);
                         } else {
                             selectedIflistVersion.value = '';
+                            selectedIflistIndex.value = 0;
                             currentIflistMap.value = {};
                         }
                     } catch (error) {
@@ -807,45 +826,48 @@
                     }
                 };
 
-                const fetchBanlistByVersion = async (configId, versionId) => {
-                    if (!configId || !versionId) {
+                const fetchBanlistByVersion = async (index) => {
+                    if (!index) {
+                        selectedIflistIndex.value = 0;
                         currentIflistMap.value = {};
                         return;
                     }
-                    try {
-                        const response = await axios.get(`/api/cdb/iflist/${configId}/version/${encodeURIComponent(versionId)}`);
-                        currentIflistMap.value = response.data || {};
-                    } catch (error) {
+                    const lflist = iflistVers.value.find(item => item.key === index);
+                    if (!lflist) {
                         currentIflistMap.value = {};
+                        return;
                     }
+                    currentIflistMap.value = {
+                        0: (lflist.forbiddenIds || []).map(id => ({ id })),
+                        1: (lflist.limitIds || []).map(id => ({ id })),
+                        2: (lflist.semiLimitIds || []).map(id => ({ id }))
+                    };
                 };
 
                 const handleIflistVersionChange = async () => {
-                    if (selectedCdbId.value && selectedIflistVersion.value) {
-                        await fetchBanlistByVersion(selectedCdbId.value, selectedIflistVersion.value);
-                        handleSearch();
-                    }
+                    await fetchBanlistByVersion(selectedIflistVersion.value);
+                    handleSearch();
                 };
 
                 const fetchCdbConfigs = async () => {
                     loading.cdb = true;
                     try {
-                        const response = await axios.get('/api/cdb_config');
-                        cdbConfigs.value = response.data;
+                        cdbConfigs.value = await loadAllConfigs();
 
                         const params = new URLSearchParams(window.location.search);
                         const urlCdb = params.get('cdb');
-                        if (urlCdb && cdbConfigs.value.some(item => String(item.id) === String(urlCdb))) {
+                        if (urlCdb === ALL_CDB_ID) {
+                            selectedCdbId.value = ALL_CDB_ID;
+                        } else if (urlCdb && cdbConfigs.value.some(item => String(item.id) === String(urlCdb))) {
                             selectedCdbId.value = isNaN(urlCdb) ? urlCdb : Number(urlCdb);
                         } else if (cdbConfigs.value.length > 0) {
-                            selectedCdbId.value = cdbConfigs.value[0].id;
+                            selectedCdbId.value = ALL_CDB_ID;
                         }
 
                         if (selectedCdbId.value) {
                             await fetchSetnamesByCdb(selectedCdbId.value);
                         }
 
-                        await cacheSelectedCdbs();
                     } catch (error) {
                         console.error('取得數據庫清單失敗：', error);
                     } finally {
@@ -853,25 +875,20 @@
                     }
                 };
 
-                const cacheCdb = async (config) => {
+                const cacheCdb = async () => {
                     try {
-                        const response = await axios.get(`/api/cdb/card/${config.id}`);
-                        return response.data;
+                        const response = await loadAllCards();
+                        return isAllCdb.value
+                            ? response
+                            : response.filter(card => String(card.cdbId) === String(selectedCdbId.value));
                     } catch (error) {
-                        console.error(`讀取 CDB [${config.name}] 失敗：`, error);
+                        console.error('載入全部卡片失敗：', error);
                         return [];
                     }
                 };
 
-                const cacheSelectedCdbs = async () => {
-                    const activeConfig = cdbConfigs.value.find(item => String(item.id) === String(selectedCdbId.value)) || cdbConfigs.value[0];
-                    if (activeConfig) await cacheCdb(activeConfig);
-                };
-
                 const handleCdbChange = async () => {
                     await fetchSetnamesByCdb(selectedCdbId.value);
-                    await fetchIflistVersions(selectedCdbId.value);
-                    await cacheSelectedCdbs();
                     await handleSearch();
                 };
 
@@ -1009,7 +1026,9 @@
                     const params = new URLSearchParams(window.location.search);
 
                     const urlCdb = params.get('cdb');
-                    if (urlCdb !== null && cdbConfigs.value.some(c => String(c.id) === String(urlCdb))) {
+                    if (urlCdb === ALL_CDB_ID) {
+                        selectedCdbId.value = ALL_CDB_ID;
+                    } else if (urlCdb !== null && cdbConfigs.value.some(c => String(c.id) === String(urlCdb))) {
                         selectedCdbId.value = Number(urlCdb);
                     }
 
@@ -1094,8 +1113,7 @@
                 const handleSearch = async (resetPage = true) => {
                     searching.value = true;
 
-                    const activeConfig = cdbConfigs.value.find(item => String(item.id) === String(selectedCdbId.value)) || cdbConfigs.value[0];
-                    const cardGroups = await cacheCdb(activeConfig);
+                    const cardGroups = await cacheCdb();
 
                     const selectedFilter = getSelectedFilter();
 
@@ -1137,9 +1155,6 @@
                         }
                     });
                     selectedIflistIndex.value = 0;
-                    if (iflistVers.value.length > 0) {
-                        selectedIflistVersion.value = iflistVers.value[0];
-                    }
                     handleSearch(true);
                 };
 
@@ -1154,15 +1169,20 @@
                     window.addEventListener('resize', updateCardNameOverflow);
                     await Promise.all([
                         fetchCdbConfigs(),
-                        fetchCardInfo('defaultSetname', 'default-setnames')
+                        loadDefaultSetnames().then(data => {
+                            defaultSetnameCatalog.value = data.map(item => ({ ...item, active: false }));
+                        })
                     ]);
 
                     loadFiltersFromUrl();
-                    await fetchIflistVersions(selectedCdbId.value);
+                    await fetchSetnamesByCdb(selectedCdbId.value);
+                    await fetchIflistVersions();
                     await handleSearch(false);
                 });
 
                 return {
+                    ALL_CDB_ID,
+                    isAllCdb,
                     currentIflistMap,
                     isType,
                     frameStates,

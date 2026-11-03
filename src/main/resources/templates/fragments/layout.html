@@ -6,7 +6,7 @@
     <header th:fragment="navbar" class="site-navbar">
         <!-- Logo / Title 區塊 -->
         <a class="nav-home" th:href="@{/}" href="/">
-            <span class="home-text">YGO社區</span>
+            <span class="home-text" th:text="${serverCommunityName}">YGO社區</span>
         </a>
 
         <!-- 導覽連結與登入狀態判定 -->

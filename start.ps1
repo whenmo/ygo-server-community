@@ -13,8 +13,8 @@ if (-not (Test-Path -LiteralPath $mavenWrapper -PathType Leaf)) {
 	throw "Maven Wrapper not found: $mavenWrapper"
 }
 
-$javaVersion = (& java --version | Out-String)
-if ($javaVersion -notmatch '(?:version "|java\s+)25(?:\.|\s)') {
+$javaVersion = (& java --version 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0 -or $javaVersion -notmatch '(?:openjdk|java|version)\s+"?25(?:\.|\s)') {
 	throw "Java 25 is required. Detected Java version output:`n$javaVersion"
 }
 
@@ -75,6 +75,7 @@ if ($HardReboot) {
 Write-Host "Starting Spring Boot project..." -ForegroundColor Cyan
 $mavenArguments = @(
 	'-Dmaven.test.skip=true'
+	"-Dspring-boot.run.arguments=--server.port=$Port"
 	'spring-boot:run'
 )
 & $mavenWrapper @mavenArguments
