@@ -27,11 +27,10 @@ public class CdbStringService {
     private final CdbDiskCacheService diskCache;
     private final ApplicationConfig applicationConfig;
 
-    private final Path defaultStringsPath = Path.of("cache", "default-strings", "-1.conf").toAbsolutePath().normalize();
-
     /** 讀取設定檔指定的預設 strings.conf，並使用 cdbid=0 的磁碟快取。 */
     public synchronized CdbStringsResponse getDefaultStrings() {
         CdbConfigResponse defaultConfig = defaultConfig();
+        Path defaultStringsPath = diskCache.getDefaultStringsPath();
 
         CdbStringsResponse cached = diskCache.getCdbStringsCache(defaultConfig);
         if (cached != null) {
@@ -39,7 +38,7 @@ public class CdbStringService {
         }
 
         try {
-            downloadDefaultStrings();
+            downloadDefaultStrings(defaultStringsPath);
             CdbStringsResponse response = readStrings(-1, defaultStringsPath);
             diskCache.putCdbStringsCache(defaultConfig, response);
             return response;
@@ -86,8 +85,11 @@ public class CdbStringService {
     }
 
     private CdbConfigResponse defaultConfig() {
-        return CdbConfigResponse.builder().id(-1).name("default")
-                .filePath(defaultStringsPath.toString()).build();
+        return CdbConfigResponse.builder()
+                .id(-1)
+                .name("default")
+                .filePath(diskCache.getDefaultStringsPath().toString())
+                .build();
     }
 
     private void merge(CdbStringsResponse source,
@@ -99,7 +101,7 @@ public class CdbStringService {
         source.getVictorys().forEach(item -> victorys.put(item.getCode(), item));
     }
 
-    private void downloadDefaultStrings() throws IOException, InterruptedException {
+    private void downloadDefaultStrings(Path targetPath) throws IOException, InterruptedException {
         java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(5)).build();
         java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
@@ -111,11 +113,11 @@ public class CdbStringService {
             throw new IOException("HTTP " + response.statusCode());
         }
 
-        Files.createDirectories(defaultStringsPath.getParent());
-        Path temporary = Files.createTempFile(defaultStringsPath.getParent(), "strings-", ".tmp");
+        Files.createDirectories(targetPath.getParent());
+        Path temporary = Files.createTempFile(targetPath.getParent(), "strings-", ".tmp");
         try {
             Files.write(temporary, response.body());
-            Files.move(temporary, defaultStringsPath, StandardCopyOption.REPLACE_EXISTING,
+            Files.move(temporary, targetPath, StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.ATOMIC_MOVE);
         } finally {
             Files.deleteIfExists(temporary);

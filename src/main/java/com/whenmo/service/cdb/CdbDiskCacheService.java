@@ -124,8 +124,7 @@ public class CdbDiskCacheService {
         removeCache(configId, "strings", "無法刪除 strings 快取");
     }
 
-    public CdbStringsResponse getAllCdbStringsCache(
-            CdbConfigResponse defaultConfig, List<CdbConfigResponse> configs) {
+    public CdbStringsResponse getAllCdbStringsCache(CdbConfigResponse defaultConfig, List<CdbConfigResponse> configs) {
         List<CdbConfigResponse> allConfigs = new ArrayList<>(configs.size() + 1);
         allConfigs.add(defaultConfig);
         allConfigs.addAll(configs);
@@ -139,6 +138,17 @@ public class CdbDiskCacheService {
         allConfigs.add(defaultConfig);
         allConfigs.addAll(configs);
         putCombinedCache(allConfigs, "strings", strings, "無法寫入所有 strings 快取");
+    }
+
+    /**
+     * 取得 defaultStrings 實體檔案儲存路徑
+     */
+    public Path getDefaultStringsPath() {
+        return Path.of(cacheDirectory)
+                .toAbsolutePath()
+                .normalize()
+                .resolve("default-strings")
+                .resolve("-1.conf");
     }
 
     // ============================================================
@@ -322,7 +332,6 @@ public class CdbDiskCacheService {
      * 從 cacheDirectory 取得快取檔案路徑
      */
     private Path cacheFile(Integer configId, String fileDir) {
-        return Path.of(cacheDirectory).toAbsolutePath().normalize()
-                .resolve(fileDir).resolve(configId + ".json");
+        return Path.of(cacheDirectory).toAbsolutePath().normalize().resolve(fileDir).resolve(configId + ".json");
     }
 }
