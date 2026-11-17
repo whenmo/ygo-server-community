@@ -273,9 +273,11 @@
     border-bottom: none;
 }
 
-.table-col-oper {
+.table-item-center {
     width: 1%;
     text-align: center;
+    border-top: 1px solid var(--brown-hover);
+    white-space: nowrap;
 }
 
 .table-col-oper-container {

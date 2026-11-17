@@ -4,16 +4,20 @@ import java.io.File;
 
 public class RestServiceHelper {
 
-    public static void validateString(String param, String paramName) {
-        if (param == null || param.isBlank())
-            throw new IllegalArgumentException(paramName + " 不可為空");
+    public static String getValidTrimString(String str, String errorMessage) {
+        if (str == null)
+            throw new IllegalArgumentException(errorMessage);
+        String trimStr = str.trim();
+        if (trimStr.isEmpty())
+            throw new IllegalArgumentException(errorMessage);
+        return trimStr;
     }
 
     public static void validateFilePath(String filePath) {
-        validateString(filePath, "檔案路徑");
+        String trimFilePath = getValidTrimString(filePath, "檔案路徑不可為空");
 
-        File file = new File(filePath);
+        File file = new File(trimFilePath);
         if (!file.exists() || !file.isFile())
-            throw new IllegalArgumentException("檔案不存在或路徑無效: " + filePath);
+            throw new IllegalArgumentException("檔案不存在或路徑無效: " + trimFilePath);
     }
 }

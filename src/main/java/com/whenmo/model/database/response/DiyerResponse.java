@@ -1,12 +1,12 @@
 package com.whenmo.model.database.response;
 
+import java.util.List;
 import com.whenmo.model.database.domain.*;
+import com.whenmo.model.database.dto.CdbInfoDto;
+import com.whenmo.model.database.dto.DiyerStringDto;
 import com.whenmo.model.database.dto.UserDto;
 
 import lombok.*;
-
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @Data
 @Builder
@@ -17,24 +17,21 @@ public class DiyerResponse {
     private Integer id;
     private String name;
     private UserDto user;
-    private Set<Integer> codeRanges;
-    private Set<Integer> setRanges;
-    private Set<DiyerStringResponse> strings;
+    private CdbInfoDto cdb;
+    private List<Integer> codeRanges;
+    private List<Integer> setRanges;
+    private List<DiyerStringDto> strings;
 
-    public static DiyerResponse fromModel(Diyer model) {
-        if (model == null)
+    public static DiyerResponse fromDiyer(Diyer diyer) {
+        if (diyer == null)
             return null;
 
-        Set<DiyerString> strings = model.getStrings() == null ? Set.of() : model.getStrings();
-
         return DiyerResponse.builder()
-                .id(model.getId())
-                .name(model.getName())
-                .user(UserDto.fromModel(model.getUser()))
-                .codeRanges(model.getCodeRanges())
-                .setRanges(model.getSetRanges())
-                .strings(strings.stream().map(DiyerStringResponse::fromModel).collect(Collectors.toSet()))
+                .id(diyer.getId()).name(diyer.getName())
+                .user(UserDto.fromDiyer(diyer))
+                .cdb(CdbInfoDto.fromDiyer(diyer))
+                .codeRanges(diyer.getCodeRanges()).setRanges(diyer.getSetRanges())
+                .strings(diyer.getStrings().stream().map(DiyerStringDto::fromDiyerString).toList())
                 .build();
-
     }
 }

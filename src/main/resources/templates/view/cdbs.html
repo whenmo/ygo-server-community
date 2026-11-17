@@ -11,16 +11,17 @@
     <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
     <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
 
-    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
-    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
-    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/api/appHelper.js}" src="/js/api/appHelper.js"></script>
+    <script th:src="@{/js/api/cdbConfigHelper.js}" src="/js/api/cdbConfigHelper.js"></script>
+    <script th:src="@{/js/api/cdbHelper.js}" src="/js/api/cdbHelper.js"></script>
+
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
 
     <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
-    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
-    <script th:src="@{/js/helper/configHelper.js}" src="/js/helper/configHelper.js"></script>
-    <script th:src="@{/js/helper/cdbcardHelper.js}" src="/js/helper/cdbcardHelper.js"></script>
-    <script th:src="@{/js/helper/stringsHelper.js}" src="/js/helper/stringsHelper.js"></script>
-    <script th:src="@{/js/helper/lflistHelper.js}" src="/js/helper/lflistHelper.js"></script>
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
 
@@ -214,7 +215,7 @@
     </style>
 
     <style>
-        .iflist-main-container {
+        .lflist-main-container {
             display: flex;
             flex: 1;
             overflow: hidden;
@@ -223,7 +224,7 @@
         }
 
         /* 中側欄位 */
-        .iflist-view-card-col {
+        .lflist-view-card-col {
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -235,7 +236,7 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 5px;
-            padding: 5px 0;
+            padding-left: 5px;
         }
 
         .card-item {
@@ -323,7 +324,7 @@
 </head>
 
 <body>
-    <div th:replace="~{fragments/layout :: navbar}"></div>
+    <div th:replace="~{fragments/layout :: navbar('cdb')}"></div>
 
     <div id="app" class="two-column-layout-container">
         <!-- 數據庫狀態選項 -->
@@ -334,75 +335,52 @@
                 <!-- 數據庫 -->
                 <div class="aside-long-row">
                     <p class="aside-long-row-title">數據庫</p>
-                    <p v-if="loading.cdb" class="span-hint-msg">載入中...</p>
-                    <p v-else-if="cdbConfigs.length === 0" class="span-hint-msg">無數據庫</p>
-                    <select v-else v-model="selectedCdbId" @change="handleCdbChange" class="module-select">
-                        <option :value="ALL_CDB_ID">N/A</option>
-                        <option v-for="item in cdbConfigs" :key="item.id" :value="item.id">
+                    <p v-if="!loaded.cdb" class="span-hint-msg">載入中...</p>
+                    <p v-else-if="cache.cdbs.length === 0" class="span-hint-msg">無數據庫</p>
+                    <select v-else v-model="selectedCdb" class="module-select" @change="handleCdbChange">
+                        <option :value="CDB_VER_NA">N/A</option>
+                        <option v-for="item in cache.cdbs" :key="item.id" :value="item.id">
                             {{ item.name }}
                         </option>
                     </select>
                 </div>
 
-                <!-- strings 表 (mode = 1) -->
-                <button type="button" class="module-toggle mode-btn" :class="{ active: currentMode === 1 }"
-                    @click.prevent="switchMode(1)">
+                <!-- strings 表 (currentMode !== viewMode.LFLIST) -->
+                <button type="button" class="module-toggle mode-btn"
+                    :class="{ active: currentMode !== viewMode.LFLIST }"
+                    @click.prevent="switchCurrentMode(viewMode.STRINGS_FULL)">
                     <span class="module-toggle-status"></span>
-                    <strong>strings 表</strong>
+                    <strong>strings.conf</strong>
                 </button>
 
-                <!-- iflist 表 (mode = 2) -->
-                <button type="button" class="module-toggle mode-btn" :class="{ active: currentMode === 2 }"
-                    @click.prevent="switchMode(2)">
+                <!-- lflist 表 (currentMode === viewMode.LFLIST) -->
+                <button type="button" class="module-toggle mode-btn"
+                    :class="{ active: currentMode === viewMode.LFLIST }"
+                    @click.prevent="switchCurrentMode(viewMode.LFLIST)">
                     <span class="module-toggle-status"></span>
-                    <strong>iflist 表</strong>
+                    <strong>lflist.conf</strong>
                 </button>
 
                 <h2 class="aside-item-name">檢視設定</h2>
 
-                <!-- strings 檢視設定 (mode = 1) -->
-                <div v-if="currentMode === 1" style="display: flex; flex-direction: column; gap: 10px;">
-                    <button type="button" class="module-toggle mode-btn" :class="{ active: stringsViewType === 1 }"
-                        @click.prevent="stringsViewType = 1">
-                        <span class="module-toggle-status"></span>
-                        <strong>字段區間</strong>
-                    </button>
-
-                    <div class="aside-long-row" style="gap: 10px;">
-                        <button type="button" class="module-toggle mode-btn" :class="{ active: stringsViewType === 2 }"
-                            @click.prevent="stringsViewType = 2">
-                            <span class="module-toggle-status"></span>
-                            <strong>字段詳細</strong>
-                        </button>
-                        <select v-model="selectedRootHex" class="module-select" style="height: 100%;">
-                            <option v-for="hex in sortedUsedRootHexes" :key="hex" :value="hex">{{ hex }}</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- iflist 檢視設定 (mode = 2) -->
-                <div v-else-if="currentMode === 2" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- lflist 表 -->
+                <div v-if="currentMode === viewMode.LFLIST" style="display: flex; flex-direction: column; gap: 10px;">
                     <!-- 禁卡表選取 -->
                     <div class="aside-long-row">
                         <p class="aside-long-row-title">版本</p>
-                        <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                        <p v-else-if="iflistVers.length === 0" class="span-hint-msg">無禁卡表</p>
-                        <select v-else v-model.number="selectedIflistVersion" @change="handleIflistVersionChange"
-                            class="module-select">
-                            <option v-for="(item, index) in iflistVers" :key="`${item.cdbId}-${item.version}-${index}`"
-                                :value="index">
-                                {{ item.version }}
+                        <p v-if="!loaded.lflist" class="span-hint-msg">載入中...</p>
+                        <p v-else-if="current.lflist.length === 0" class="span-hint-msg">無禁卡表</p>
+                        <select v-else v-model="selectedLflist" class="module-select">
+                            <option v-for="lflist in current.lflist" :key="lflist.key" :value="lflist.key">{{ lflist.ver
+                                }}
                             </option>
                         </select>
                     </div>
 
                     <!-- 狀態 -->
-                    <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
+                    <fieldset v-show="current.lflist.length > 0" class="module-fieldset aside-fieldset">
                         <legend>狀態</legend>
-                        <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                        <div v-else-if="iflistVers.length === 0" class="span-hint-msg">-</div>
-                        <select v-else v-model.number="selectedIflistIndex" @change="handleSearch"
-                            class="module-select">
+                        <select v-model.number="selectedLflistStatus" class="module-select" @change="handleSearch">
                             <option value="0">N/A</option>
                             <option value="1">禁止</option>
                             <option value="2">限制</option>
@@ -411,17 +389,39 @@
                     </fieldset>
 
                     <!-- 卡名 / ID 搜尋 -->
-                    <fieldset class="module-fieldset">
+                    <fieldset v-show="current.lflist.length > 0" class="module-fieldset">
                         <legend>卡名 / ID</legend>
-                        <input v-model="filter.nameId" @keyup.enter="handleSearch" class="module-input-clean"
-                            style="padding: 5px;" placeholder="卡名或 ID">
+                        <input v-model="filter.nameId" class="module-input-clean" style="padding: 5px;"
+                            placeholder="卡名或 ID">
                     </fieldset>
 
                     <!-- 搜尋 / 重置按鈕 -->
-                    <div style="display: flex; gap: 8px; margin-top: 10px;">
-                        <button type="button" @click="handleSearch" class="module-btn" style="flex: 1;">搜尋</button>
+                    <div v-show="current.lflist.length > 0" style="display: flex; gap: 8px; margin-top: 10px;">
+                        <button type="button" class="module-btn" style="flex: 1;" @click="handleSearch">搜尋</button>
                         <button type="button" @click="resetFilter" class="module-btn"
                             style="background: var(--gray-hover); border-color: var(--gray-hover);">重置</button>
+                    </div>
+                </div>
+                <!-- strings 表 -->
+                <div v-else style="display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" class="module-toggle mode-btn"
+                        :class="{ active: currentMode === viewMode.STRINGS_FULL }"
+                        @click.prevent="switchCurrentMode(viewMode.STRINGS_FULL)">
+                        <span class="module-toggle-status"></span>
+                        <strong>字段區間</strong>
+                    </button>
+
+                    <div class="aside-long-row" style="gap: 10px;">
+                        <button type="button" class="module-toggle mode-btn"
+                            :class="{ active: currentMode === viewMode.STRINGS_DETAIL }"
+                            @click.prevent="switchCurrentMode(viewMode.STRINGS_DETAIL)">
+                            <span class="module-toggle-status"></span>
+                            <strong>字段詳細</strong>
+                        </button>
+                        <select v-model="selectedRootHex" class="module-select" style="height: 100%;"
+                            @change="switchCurrentMode(viewMode.STRINGS_DETAIL)">
+                            <option v-for="hex in current.roots" :key="hex" :value="hex">{{ hex }}</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -431,9 +431,10 @@
         <main class="main-column" style="display: flex; flex-direction: column; overflow: hidden;">
             <div class="main-top-bar">
                 <div class="main-top-bar-row">
-                    <h2 v-if="currentMode === 1" class="main-top-bar-title">字段表檢視</h2>
-                    <h2 v-else class="main-top-bar-title">禁卡表檢視 ({{ resultCards.length }})</h2>
-                    <div v-if="currentMode === 2" style="display: flex; gap: 10px; align-items: center;">
+                    <h2 v-if="currentMode === viewMode.LFLIST" class="main-top-bar-title">lflist.conf ({{
+                        current.filterCards.length }})</h2>
+                    <h2 v-else class="main-top-bar-title">strings.conf</h2>
+                    <div v-if="currentMode === viewMode.LFLIST" style="display: flex; gap: 10px; align-items: center;">
                         <select v-model.number="pageSize" class="module-select" style="padding: 5px;">
                             <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}</option>
                         </select>
@@ -442,11 +443,55 @@
                 </div>
             </div>
 
-            <div v-if="searching" style="flex: 1;">資料載入中...</div>
-            <!-- 下層：字段表檢視區 (mode = 1) -->
-            <div v-else-if="currentMode === 1" class="strings-main-container">
-                <!-- 模式 1-1：字段區間 -->
-                <div v-if="stringsViewType === 1" class="strings-view-col">
+            <!-- lflist.conf -->
+            <div v-if="currentMode === viewMode.LFLIST" class="lflist-main-container" style="flex: 1;">
+                <div v-if="!loaded.card" style="flex: 1;">載入中...</div>
+                <!-- 中間：可在當前 CDB 找到 ID 的對應禁限卡 -->
+                <div v-else class="lflist-view-card-col">
+                    <div style="flex: 1; overflow-y: auto;">
+                        <div class="cards-grid">
+                            <a v-for="card in pagedCards" :key="card.id" class="card-item"
+                                :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank">
+                                <img v-if="getLimitImg(card)" class="card-item-limit" :src="getLimitImg(card)">
+                                <img v-if="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
+                                    @error="getCardUrlError">
+                                <span class="card-item-name">
+                                    <span>{{ card.name || '未命名卡片' }}</span>
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- 分頁選擇器 -->
+                    <div v-if="totalPages > 1" class="result-page-row" style="flex-shrink: 0;">
+                        <button @click="previousPage" :disabled="currentPage === 1">上一頁</button>
+                        <span><input class="module-input-clean" :value="currentPage" @input="onPageInput"
+                                @blur="validatePage" /> / {{ totalPages }} </span>
+                        <button @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
+                    </div>
+                </div>
+
+                <!-- 右側：未匹配 ID 列表 -->
+                <div v-if="current.unmatchCards.length > 0" class="main-side-col">
+                    <!-- 無法在當前 CDB 找到對應 ID 的禁限卡列表 -->
+                    <div class="unmatched-title">
+                        <span>未匹配 ID ({{ current.unmatchCards.length }})</span>
+                        <span style="color: var(--gray-hover);">點擊複製 ID</span>
+                    </div>
+                    <div class="main-side-col-list">
+                        <div v-for="item in current.unmatchCards" :key="item.id" class="unmatched-item"
+                            @click="copyId(item.id)">
+                            <span>{{ item.id }}</span>
+                            <span style="font-weight: bold; color: var(--red-color);">{{ item.status }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- strings.conf -->
+            <div v-else class="strings-main-container" style="flex: 1;">
+                <div v-if="!loaded.strings" style="flex: 1;">載入中...</div>
+                <!-- 字段區間 && 指示物 && 特殊勝利 -->
+                <div v-if="currentMode === viewMode.STRINGS_FULL" class="strings-view-col">
                     <div style="display: flex; flex-direction: column; gap: 10px; overflow: auto;">
                         <div class="side-col-title">字段區間</div>
 
@@ -461,9 +506,8 @@
                                 <tbody>
                                     <tr v-for="row in hexChars" :key="'row-'+row">
                                         <th>{{ row }}_</th>
-                                        <td v-for="col in hexChars" :key="'cell-'+row+col"
-                                            :class="getRootSetCellClass(row + col)"
-                                            @click="selectRootHexAndDetail(row + col)">
+                                        <td v-for="col in hexChars" :key="'root-cell-'+row+col"
+                                            :class="getRootCellClass(row + col)" @click="clickRootHex(row + col)">
                                             {{ row + col }}
                                         </td>
                                     </tr>
@@ -473,10 +517,10 @@
                     </div>
 
                     <!-- 右側欄位：指示物列表 (counter) -->
-                    <div v-if="counterList.length" class="main-side-col">
-                        <div class="side-col-title">指示物 ({{ counterList.length }})</div>
+                    <div v-if="current.counters.length" class="main-side-col">
+                        <div class="side-col-title">指示物 ({{ current.counters.length }})</div>
                         <div class="main-side-col-list">
-                            <div v-for="item in counterList" :key="item.code" class="side-col-item"
+                            <div v-for="item in current.counters" :key="item.code" class="side-col-item"
                                 :class="getStringItemClass(item)">
                                 <span class="side-col-item-code">{{ item.code }}</span>
                                 <span class="side-col-item-name" :title="item.name"><span>{{ item.name }}</span></span>
@@ -485,10 +529,10 @@
                     </div>
 
                     <!-- 右側欄位：特殊勝利列表 (victory) -->
-                    <div v-if="victoryList.length" class="main-side-col">
-                        <div class="side-col-title">特殊勝利 ({{ victoryList.length }})</div>
+                    <div v-if="current.victorys.length" class="main-side-col">
+                        <div class="side-col-title">特殊勝利 ({{ current.victorys.length }})</div>
                         <div class="main-side-col-list">
-                            <div v-for="item in victoryList" :key="item.code" class="side-col-item"
+                            <div v-for="item in current.victorys" :key="item.code" class="side-col-item"
                                 :class="getStringItemClass(item)">
                                 <span class="side-col-item-code">{{ item.code }}</span>
                                 <span class="side-col-item-name" :title="item.name"><span>{{ item.name }}</span></span>
@@ -496,9 +540,8 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- 模式 1-2：字段詳細 -->
-                <div v-else-if="stringsViewType === 2" class="strings-view-col">
+                <!-- 字段詳細 -->
+                <div v-else-if="currentMode === viewMode.STRINGS_DETAIL" class="strings-view-col">
                     <!-- 字段詳細 table -->
                     <div style="display: flex; flex-direction: column; gap: 10px; overflow: auto;">
                         <div class="side-col-title">字段詳細表</div>
@@ -517,9 +560,9 @@
                                     <tr v-for="row in hexChars" :key="'detail-row-'+row">
                                         <th>{{ row }}{{ selectedRootHex }}_</th>
                                         <td v-for="col in hexChars" :key="'detail-cell-'+row+col"
-                                            :class="getDetailCellClass(selectedRootHex, row, col)"
+                                            :class="getDetailCellClass(row + selectedRootHex + col)"
                                             style="cursor: pointer;"
-                                            @click="handleDetailCellClick(row + selectedRootHex + col)">
+                                            @click="ShowSetnameAnalysis(row + selectedRootHex + col)">
                                             {{ row }}{{ selectedRootHex }}{{ col }}
                                         </td>
                                     </tr>
@@ -527,38 +570,34 @@
                             </table>
                         </div>
 
-                        <!-- 點擊項目後的分析資訊文字區塊 -->
-                        <div v-if="selectedCellAnalysis" class="module-table-container"
-                            style="overflow: auto; border: 0;">
-                            <table v-if="selectedCellAnalysis" class="strings-matrix-table">
+                        <!-- 字段分析區塊 -->
+                        <div v-if="selectedCell" class="module-table-container" style="overflow: auto; border: 0;">
+                            <table v-if="selectedCell" class="strings-matrix-table">
                                 <tbody>
                                     <tr>
                                         <th class="select-set-detail-title">選定字段</th>
                                         <td class="select-set-detail-info" style="cursor: pointer;"
-                                            @click="handleDetailCellClick(selectedCellAnalysis.fullCode)">{{
-                                            selectedCellAnalysis.fullCode }}</td>
+                                            @click="ShowSetnameAnalysis(selectedCell.fullCode)">{{
+                                            selectedCell.fullCode }}</td>
                                     </tr>
                                     <tr>
                                         <th class="select-set-detail-title">父字段</th>
-                                        <td v-for="parentCode in selectedCellAnalysis.parents"
-                                            class="select-set-detail-info" style="cursor: pointer;"
-                                            @click="handleDetailCellClick(parentCode)">
+                                        <td v-for="parentCode in selectedCell.parents" class="select-set-detail-info"
+                                            style="cursor: pointer;" @click="ShowSetnameAnalysis(parentCode)">
                                             {{ parentCode }}
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="select-set-detail-title">子字段</th>
-                                        <td v-for="childrenCode in selectedCellAnalysis.children"
-                                            class="select-set-detail-info" style="cursor: pointer;"
-                                            @click="handleDetailCellClick(childrenCode)">
+                                        <td v-for="childrenCode in selectedCell.children" class="select-set-detail-info"
+                                            style="cursor: pointer;" @click="ShowSetnameAnalysis(childrenCode)">
                                             {{ childrenCode }}
                                         </td>
                                     </tr>
                                     <tr>
                                         <th class="select-set-detail-title">全無關字段</th>
-                                        <td v-for="indCode in selectedCellAnalysis.independent"
-                                            class="select-set-detail-info" style="cursor: pointer;"
-                                            @click="handleDetailCellClick(indCode)">
+                                        <td v-for="indCode in selectedCell.independent" class="select-set-detail-info"
+                                            style="cursor: pointer;" @click="ShowSetnameAnalysis(indCode)">
                                             {{ indCode }}
                                         </td>
                                     </tr>
@@ -571,10 +610,10 @@
                     <div class="main-side-col">
                         <div class="side-col-title">字段</div>
                         <div class="main-side-col-list">
-                            <div v-for="item in currentRootSetItems" :key="item.abcd" class="side-col-item"
+                            <div v-for="item in currentRootSetnames" :key="item.abcd" class="side-col-item"
                                 :class="getStringItemClass(item)" style="cursor: pointer;"
-                                @click="handleDetailCellClick(item.abcd)">
-                                <span class="side-col-item-code">0x{{ item.abcd }}</span>
+                                @click="ShowSetnameAnalysis(item.abcd)">
+                                <span class="side-col-item-code">{{ item.code }}</span>
                                 <span class="side-col-item-name">{{ item.name }}</span>
                             </div>
                         </div>
@@ -582,51 +621,6 @@
                 </div>
             </div>
 
-            <!-- 下層：禁限表檢視區 (mode = 2) -->
-            <div v-else-if="currentMode === 2" class="iflist-main-container" style="flex: 1; padding: 10px;">
-                <!-- 中間：可在當前 CDB 找到 ID 的對應禁限卡 -->
-                <div class="iflist-view-card-col">
-                    <div style="flex: 1; overflow-y: auto;">
-                        <div class="cards-grid">
-                            <a v-for="card in pagedCards" :key="card.sourceFilePath + ':' + card.id" class="card-item"
-                                :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank"
-                                @mouseenter="hoverCard(card)">
-                                <img v-if="getCardLimitUrl(card, currentIflistMap)" class="card-item-limit"
-                                    :src="getCardLimitUrl(card, currentIflistMap)">
-                                <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)"
-                                    :alt="card.name || '卡片圖片'" @error="getCardUrlError">
-                                <span class="card-item-name">
-                                    <span>{{ card.name || '未命名卡片' }}</span>
-                                </span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- 分頁選擇器 -->
-                    <div v-if="totalPages > 1" class="result-page-row" style="flex-shrink: 0;">
-                        <button @click="previousPage" :disabled="currentPage === 1">上一頁</button>
-                        <span><input class="module-input-clean" :value="currentPage" @input="onPageInput"
-                                @blur="validatePage" /> / {{ totalPages }} </span>
-                        <button @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
-                    </div>
-                </div>
-
-                <!-- 右側：未匹配 ID 列表 -->
-                <div v-if="unmatchedIflistItems.length > 0" class="main-side-col">
-                    <!-- 無法在當前 CDB 找到對應 ID 的禁限卡列表 -->
-                    <div class="unmatched-title">
-                        <span>未匹配 ID ({{ unmatchedIflistItems.length }})</span>
-                        <span style="color: var(--gray-hover);">點擊複製 ID</span>
-                    </div>
-                    <div class="main-side-col-list">
-                        <div v-for="item in unmatchedIflistItems" :key="item.id" class="unmatched-item"
-                            @click="copyId(item.id)">
-                            <span>{{ item.id }}</span>
-                            <span style="font-weight: bold; color: var(--red-color);">{{ item.status }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -636,83 +630,62 @@
         createApp({
             setup() {
                 const {
+                    sortCards,
                     MatcheFilterCards,
                     getCardLimitStatus,
                     getCardLimitUrl,
-                    getCardUrl,
                     getCardUrlError
                 } = window.APP_CONSTANTS;
 
-                const ALL_CDB_ID = '__ALL__';
-                const cdbConfigs = ref([]);
-                const selectedCdbId = ref(ALL_CDB_ID);
-                const currentMode = ref(1);
-                const stringsViewType = ref(1);
-                const selectedRootHex = ref('');
-                const selectedCellAnalysis = ref(null);
+                const { CDB_VER_NA, loadAllConfigs } = useCdbConfigHelper();
+                const { loadAllCards, loadCardsByCdb, loadAllStrings, loadStringsByConfig, loadDefaultStrings, loadAllLflists, loadLflistsByCdb } = useCdbHelper();
 
-                const iflistVers = ref([]);
-                const selectedIflistVersion = ref('');
-                const selectedIflistIndex = ref(0);
-                const currentIflistMap = ref({});
+                const hexChars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
 
-                const resultCards = ref([]);
-                const currentCdbCards = ref([]);
-                const searching = ref(false);
-
-                const rawSetnames = ref([]);
-                const counterList = ref([]);
-                const victoryList = ref([]);
-                const setnamesByCdb = ref(new Map());
-                const defaultSetnames = ref([]);
-                const fieldSourceMap = ref(new Map());
-
-                const { loadAllConfigs } = window.useConfigHelper();
-                const { loadAllCards } = window.useCdbCardHelper();
-                const { loadAllStrings, loadStringsByConfig, loadDefaultStrings } = window.useStringsHelper();
-                const { loadAllLflists } = window.useLflistHelper(ref({}), ref(''), ref({}));
-                const isAllCdb = computed(() => String(selectedCdbId.value) === ALL_CDB_ID);
-
-                const mergeStringItems = (defaultItems = [], currentItems = [], all = false) => {
-                    const itemsByCode = new Map();
-                    const addItems = (items, source) => {
-                        items.forEach(item => {
-                            const code = Number(item.code);
-                            if (!Number.isFinite(code)) return;
-                            itemsByCode.set(code, { ...item, code, source });
-                        });
-                    };
-
-                    if (all) {
-                        addItems(currentItems, 'all');
-                    } else {
-                        addItems(defaultItems, 'default');
-                        addItems(currentItems, 'current');
-                    }
-
-                    return [...itemsByCode.values()].sort((a, b) => {
-                        const sourceOrder = { current: 0, all: 0, default: 1 };
-                        const sourceResult = (sourceOrder[a.source] ?? 2) - (sourceOrder[b.source] ?? 2);
-                        return sourceResult !== 0 ? sourceResult : a.code - b.code;
-                    });
-                };
-
-                const getStringItemClass = (item) => {
-                    if (isAllCdb.value || item?.source === 'all') return 'side-col-item-all';
-                    return item?.source === 'current' ? 'side-col-item-current' : 'side-col-item-default';
-                };
-
-                const filter = ref({
-                    nameId: ''
-                });
-
-                const loading = reactive({
+                const loaded = reactive({
                     cdb: false,
-                    data: false,
-                    iflist: false
+                    strings: false,
+                    lflist: false,
+                    card: false,
                 });
 
-                // 分頁 Helper
+                const cache = reactive({
+                    cdbs: [],
+                    fullStrings: {},
+                    defaultStrings: {},
+                    fullLflist: [],
+                    fullCards: [],
+                });
+
+                const current = reactive({
+                    strings: {},
+                    roots: [],
+                    setnames: [],
+                    counters: [],
+                    victorys: [],
+                    lflist: [],
+                    allCards: [],
+                    lflistCards: [],
+                    unmatchCards: [],
+                    filterCards: []
+                });
+
+                const viewMode = {
+                    STRINGS_FULL: 1,
+                    STRINGS_DETAIL: 2,
+                    LFLIST: 3
+                };
+                const currentMode = ref(viewMode.STRINGS_FULL);
+                const selectedCdb = ref(CDB_VER_NA);
+
+                const isAllCdb = computed(() => String(selectedCdb.value) === CDB_VER_NA);
+
+                // lflist
+                const selectedLflist = ref('');
+                const currentLflistMap = ref({});
+                const selectedLflistStatus = ref(0);
+                const filter = ref({ nameId: '' });
+
                 const {
                     pageSizeOptions,
                     pageSize,
@@ -723,39 +696,48 @@
                     nextPage,
                     onPageInput,
                     validatePage
-                } = window.usePageHelper(resultCards, 30);
+                } = window.usePageHelper(current.filterCards, 30);
 
-                // 計算無法在當前 CDB 中找到卡片資料的禁限卡 ID
-                const unmatchedIflistItems = computed(() => {
-                    if (!currentIflistMap.value || Object.keys(currentIflistMap.value).length === 0) {
-                        return [];
-                    }
-
-                    const existingIds = new Set(currentCdbCards.value.map(c => Number(c.id)));
-                    const unmatched = [];
-
-                    for (const [statusCode, items] of Object.entries(currentIflistMap.value)) {
-                        if (!Array.isArray(items)) continue;
-                        for (const item of items) {
-                            const numId = Number(item?.id);
-                            if (!Number.isFinite(numId) || existingIds.has(numId)) continue;
-                            unmatched.push({
-                                id: numId,
-                                status: Number(statusCode)
-                            });
-                        }
-                    }
-
-                    return unmatched.sort((a, b) => {
-                        let n = a.status - b.status;
-                        return n !== 0 ? n : a.id - b.id;
-                    });
-                });
-
-                const copyId = async (id) => {
-                    await navigator.clipboard.writeText(String(id));
+                // string
+                const stringsItemSource = {
+                    FULL: 1,
+                    DEFAULT: 2,
+                    CURRENT: 3,
+                    BOTH: 4
                 };
 
+                const currentRootsMap = ref(new Map());
+                const selectedRootHex = ref('');
+                const selectedCell = ref(null);
+
+                // 切換數據庫 select
+                const handleCdbChange = async () => {
+                    loaded.strings = false;
+                    loaded.lflist = false;
+                    loaded.card = false;
+                    const mode = currentMode.value;
+                    if (mode === viewMode.LFLIST) {
+                        await getCurrentAllCards();
+                        await getCurrentLflist();
+                        refreahLflistView();
+                    } else {
+                        await getCurrentStrings();
+                    }
+                };
+
+                // 切換顯示頁面
+                const switchCurrentMode = async (mode) => {
+                    if (currentMode.value === mode) return;
+                    currentMode.value = mode;
+                    if (mode === viewMode.LFLIST) {
+                        await getCurrentAllCards();
+                        await getCurrentLflist();
+                    } else {
+                        await getCurrentStrings();
+                    }
+                };
+
+                // 滾動名稱
                 const updateNameOverflow = () => {
                     document.querySelectorAll('.card-item-name, .side-col-item-name').forEach(nameElement => {
                         const textElement = nameElement.firstElementChild;
@@ -775,277 +757,115 @@
                     });
                 };
 
-                watch([pagedCards, counterList, victoryList], updateNameOverflow, { flush: 'post' });
+                // ============================================================
+                // strings
+                // ============================================================
 
-                onBeforeUnmount(() => window.removeEventListener('resize', updateNameOverflow));
-
-                // 網址 URL 參數同步
-                const updateUrlParams = () => {
-                    const params = new URLSearchParams();
-                    if (selectedCdbId.value !== null && selectedCdbId.value !== undefined) {
-                        params.set('cdb', selectedCdbId.value);
-                    }
-                    params.set('mode', currentMode.value);
-
-                    if (currentMode.value === 1) {
-                        if (stringsViewType.value) params.set('stringsView', stringsViewType.value);
-                        if (selectedRootHex.value) params.set('rootHex', selectedRootHex.value);
-                        if (selectedCellAnalysis.value && selectedCellAnalysis.value.fullCode) {
-                            params.set('selectedCode', selectedCellAnalysis.value.fullCode);
-                        }
-                    } else if (currentMode.value === 2) {
-                        if (selectedIflistVersion.value) params.set('iflistVer', selectedIflistVersion.value);
-                        if (selectedIflistIndex.value) params.set('iflistStatus', selectedIflistIndex.value);
-                        if (pageSize.value) params.set('pageSize', pageSize.value);
-                        if (currentPage.value) params.set('page', currentPage.value);
-                    }
-
-                    const newUrl = `${window.location.pathname}?${params.toString()}`;
-                    window.history.pushState({ path: newUrl }, '', newUrl);
-                };
-
-                const loadFromUrl = () => {
-                    const params = new URLSearchParams(window.location.search);
-                    const urlCdb = params.get('cdb');
-                    const urlMode = params.get('mode');
-
-                    if (urlCdb === ALL_CDB_ID) selectedCdbId.value = ALL_CDB_ID;
-                    else if (urlCdb !== null) selectedCdbId.value = isNaN(urlCdb) ? urlCdb : Number(urlCdb);
-                    if (urlMode === '1' || urlMode === '2') currentMode.value = Number(urlMode);
-
-                    if (currentMode.value === 1) {
-                        const urlStringsView = params.get('stringsView');
-                        if (urlStringsView) stringsViewType.value = Number(urlStringsView);
-
-                        const urlRootHex = params.get('rootHex');
-                        if (urlRootHex) selectedRootHex.value = urlRootHex;
-                    } else if (currentMode.value === 2) {
-                        const urlIfVer = params.get('iflistVer');
-                        if (urlIfVer) selectedIflistVersion.value = urlIfVer;
-
-                        const urlIfStatus = params.get('iflistStatus');
-                        if (urlIfStatus) selectedIflistIndex.value = Number(urlIfStatus);
-                    }
-                };
-
-                // 取得禁卡表版本清單
-                const fetchIflistVersions = async () => {
-                    loading.iflist = true;
+                // 初始化 strings
+                const getCurrentStrings = async () => {
+                    if (loaded.strings) return;
                     try {
-                        const allLflists = await loadAllLflists();
-                        const verList = isAllCdb.value
-                            ? allLflists
-                            : allLflists.filter(item => String(item.cdbId) === String(selectedCdbId.value));
-                        iflistVers.value = verList;
-                        if (verList.length > 0) {
-                            const selectedIndex = Number(selectedIflistVersion.value);
-                            selectedIflistVersion.value = Number.isInteger(selectedIndex)
-                                && selectedIndex >= 0 && selectedIndex < verList.length
-                                ? selectedIndex
-                                : 0;
-                            await fetchBanlistByVersion(selectedIflistVersion.value);
+                        if (isAllCdb.value) {
+                            current.strings = { ...cache.fullStrings };
+                            current.setnames = mergeAndSort(current.strings.setnames);
+                            current.counters = mergeAndSort(current.strings.counters);
+                            current.victorys = mergeAndSort(current.strings.victorys);
                         } else {
-                            selectedIflistVersion.value = 0;
-                            currentIflistMap.value = {};
+                            const cdbStrings = await loadStringsByConfig(selectedCdb.value);
+                            current.strings = normalizeStrings(cdbStrings, stringsItemSource.CURRENT);
+                            current.setnames = mergeAndSort(cache.defaultStrings?.setnames, current.strings?.setnames);
+                            current.counters = mergeAndSort(cache.defaultStrings?.counters, current.strings?.counters);
+                            current.victorys = mergeAndSort(cache.defaultStrings?.victorys, current.strings?.victorys);
                         }
+                        getCurrentRoots();
                     } catch (error) {
-                        iflistVers.value = [];
-                        currentIflistMap.value = {};
+                        current.strings = {};
+                        currentRootsMap.value = new Map();
+                        current.roots = [];
+                        current.setnames = [];
+                        current.counters = [];
+                        current.victorys = [];
                     } finally {
-                        loading.iflist = false;
+                        loaded.strings = true;
                     }
                 };
 
-                // 取得特定禁卡表對應卡片 Map
-                const fetchBanlistByVersion = async (index) => {
-                    const lflist = iflistVers.value[Number(index)];
-                    if (!lflist) {
-                        currentIflistMap.value = {};
-                        return;
-                    }
-                    currentIflistMap.value = {
-                        0: (lflist.forbiddenIds || []).map(id => ({ id })),
-                        1: (lflist.limitIds || []).map(id => ({ id })),
-                        2: (lflist.semiLimitIds || []).map(id => ({ id }))
+                // 合併 current.setnames, counters, victorys
+                const mergeAndSort = (defaultList = [], currentList = []) => {
+                    const map = new Map();
+                    defaultList.forEach(item => map.set(Number(item.code), { ...item }));
+                    currentList.forEach(item => map.set(Number(item.code), { ...item }));
+
+                    return Array.from(map.values()).sort((a, b) => {
+                        const sourceDiff = b.source - a.source;
+                        return sourceDiff !== 0 ? sourceDiff : Number(a.code) - Number(b.code);
+                    });
+                };
+
+                // 格式化 strings
+                const normalizeStrings = (strings, source) => {
+                    const formatItems = (arr) => (arr || []).map(item => ({
+                        ...item,
+                        code: '0x' + Number(item.code).toString(16).toUpperCase().padStart(4, '0'),
+                        source: source
+                    }));
+
+                    return {
+                        ...strings,
+                        setnames: formatItems(strings.setnames),
+                        counters: formatItems(strings.counters),
+                        victorys: formatItems(strings.victorys)
                     };
                 };
 
-                const cacheCdb = async () => {
-                    try {
-                        const cards = await loadAllCards();
-                        return isAllCdb.value
-                            ? cards
-                            : cards.filter(card => String(card.cdbId) === String(selectedCdbId.value));
-                    } catch (error) {
-                        return [];
-                    }
+                // 獲取 roots
+                const getCurrentRoots = () => {
+                    const rootsMap = new Map();
+                    (current.setnames || []).forEach(item => {
+                        const root = item.code.substring(3, 5);
+
+                        if (rootsMap.has(root)) {
+                            const existing = rootsMap.get(root);
+                            if (existing.source !== item.source) {
+                                existing.source = stringsItemSource.BOTH;
+                            }
+                        } else {
+                            rootsMap.set(root, {
+                                code: root,
+                                source: item.source
+                            });
+                        }
+                    });
+                    currentRootsMap.value = rootsMap;
+                    current.roots = Array.from(currentRootsMap.value.keys()).sort();
+                    selectedRootHex.value = current.roots[0];
                 };
 
-                // 解析字段並對應根字段邏輯與 counter / victory 數據獲取
-                const currentRootSetCodes = ref(new Set());
-                const parsedSetItems = ref([]);
-                const fullSetCodesSet = ref(new Set());
-
-                const fetchSetnamesByCdb = async (configId) => {
-                    try {
-                        const currentStrings = isAllCdb.value
-                            ? await loadAllStrings()
-                            : await loadStringsByConfig(configId);
-                        const defaultStrings = isAllCdb.value
-                            ? null
-                            : await loadDefaultStrings();
-                        const defaultData = defaultStrings?.setnames || [];
-                        const currentData = currentStrings.setnames || [];
-                        const data = mergeStringItems(defaultData, currentData, isAllCdb.value);
-
-                        const sourceMap = new Map();
-                        const mergeSource = (key, source) => {
-                            const previous = sourceMap.get(key);
-                            if (source === 'all' || previous === source) {
-                                sourceMap.set(key, source);
-                            } else if (!previous) {
-                                sourceMap.set(key, source);
-                            } else {
-                                sourceMap.set(key, 'both');
-                            }
+                // 當前選定根字段下的所有已使用字段清單
+                const currentRootSetnames = computed(() => {
+                    if (!selectedRootHex.value) return [];
+                    const targetHex = selectedRootHex.value.toUpperCase();
+                    return (current.setnames || []).map(item => {
+                        return {
+                            ...item,
+                            abcd: item.code.substring(2, 6),
+                            bc: item.code.substring(3, 5)
                         };
-                        const addSources = (items, source) => items.forEach(item => {
-                            const code = Number(item.code);
-                            if (!Number.isFinite(code)) return;
-                            const hex = code.toString(16).toUpperCase().padStart(4, '0');
-                            mergeSource(code, source);
-                            mergeSource(hex.substring(1, 3), source);
-                        });
-                        if (isAllCdb.value) {
-                            addSources(currentData, 'all');
-                        } else {
-                            addSources(defaultData, 'default');
-                            addSources(currentData, 'current');
-                        }
-                        fieldSourceMap.value = sourceMap;
+                    }).filter(item => item.bc === targetHex);
+                });
 
-                        // 讀取 counter 與 victory 資料
-                        const normalizeStringItems = (items) => Array.isArray(items)
-                            ? items
-                            : Object.entries(items || {}).map(([code, name]) => ({ code, name }));
-                        const counterItems = mergeStringItems(
-                            normalizeStringItems(defaultStrings?.counters),
-                            normalizeStringItems(currentStrings.counters),
-                            isAllCdb.value
-                        );
-                        const victoryItems = mergeStringItems(
-                            normalizeStringItems(defaultStrings?.victorys),
-                            normalizeStringItems(currentStrings.victorys),
-                            isAllCdb.value
-                        );
-                        counterList.value = counterItems.map(item => ({
-                            ...item,
-                            code: '0x' + Number(item.code).toString(16).toUpperCase()
-                        }));
-                        victoryList.value = victoryItems.map(item => ({
-                            ...item,
-                            code: '0x' + Number(item.code).toString(16).toUpperCase()
-                        }));
-
-                        const rootSet = new Set();
-                        const parsedList = [];
-                        const rawList = [];
-                        const fullSet = new Set();
-
-                        data.forEach(item => {
-                            const codeNum = Number(item.code);
-                            if (!isNaN(codeNum)) {
-                                let hexStr = codeNum.toString(16).toUpperCase().padStart(4, '0');
-                                rawList.push({
-                                    code: item.code,
-                                    codeHex: '0x' + hexStr,
-                                    name: item.name,
-                                    source: item.source
-                                });
-                                const rootHex = hexStr.substring(1, 3);
-                                rootSet.add(rootHex);
-                                fullSet.add(hexStr);
-
-                                parsedList.push({ abcd: hexStr, bc: rootHex, name: item.name, source: item.source });
-                            }
-                        });
-
-                        currentRootSetCodes.value = rootSet;
-                        parsedSetItems.value = parsedList;
-                        rawSetnames.value = rawList;
-                        fullSetCodesSet.value = fullSet;
-
-                        // 預設選取排序最小的根字段
-                        const sortedHexes = Array.from(rootSet).sort();
-                        if (sortedHexes.length > 0 && !selectedRootHex.value || !sortedHexes.includes(selectedRootHex.value)) {
-                            selectedRootHex.value = sortedHexes[0];
-                        }
-
-                        // 如果網址有指定 selectedCode 且當前為詳細模式，自動進行該格的分析
-                        const params = new URLSearchParams(window.location.search);
-                        const urlSelectedCode = params.get('selectedCode');
-                        if (urlSelectedCode && stringsViewType.value === 2) {
-                            handleDetailCellClick(urlSelectedCode);
-                        } else {
-                            selectedCellAnalysis.value = null;
-                        }
-                    } catch (error) {
-                        console.error('讀取字段清單失敗：', error);
-                        currentRootSetCodes.value = new Set();
-                        rawSetnames.value = [];
-                        parsedSetItems.value = [];
-                        counterList.value = [];
-                        victoryList.value = [];
-                        fullSetCodesSet.value = new Set();
-                        selectedCellAnalysis.value = null;
-                    }
-                };
-
-                const isRootSetUsed = (rootHex) => currentRootSetCodes.value.has(rootHex.toUpperCase());
-
-                const getFieldSource = (code) => {
-                    const normalizedCode = String(code).toUpperCase();
-                    const key = normalizedCode.length <= 2
-                        ? normalizedCode
-                        : parseInt(normalizedCode, 16);
-                    return fieldSourceMap.value.get(key) || null;
-                };
-
-                const getRootSetCellClass = (code) => {
-                    const source = getFieldSource(code);
-                    if (source === 'all' || source === 'current') return 'cell-used';
-                    if (source === 'default') return 'cell-default';
-                    if (source === 'both') return 'cell-both';
-                    return 'cell-unused';
-                };
-
-                const getDetailCellClass = (rootHex, row, col) => {
-                    const code = row + rootHex + col;
-                    const source = getFieldSource(code);
-                    if (source === 'all' || source === 'current') return 'cell-used';
-                    if (source === 'default') return 'cell-default';
-                    if (source === 'both') return 'cell-both';
-                    return 'cell-unused';
-                };
-
-                // 檢查詳細表格中的各個儲存格 (row + rootHex + col) 是否已使用
-                const isDetailCellUsed = (rootHex, row, col) => fullSetCodesSet.value.has((row + rootHex + col).toUpperCase());
-
-                // 點擊已使用的儲存格時自動切換至字段詳細並選取對應根字段
-                const selectRootHexAndDetail = (rootHex) => {
-                    if (isRootSetUsed(rootHex)) {
+                // 點擊 字段區間 cell
+                const clickRootHex = async (rootHex) => {
+                    const targetRoot = rootHex.toUpperCase();
+                    if (currentRootsMap.value.has(targetRoot)) {
                         selectedRootHex.value = rootHex.toUpperCase();
-                        stringsViewType.value = 2;
-                        selectedCellAnalysis.value = null;
-                        updateUrlParams();
+                        await switchCurrentMode(viewMode.STRINGS_DETAIL);
                     }
                 };
-
-                // 點擊詳細表格格子時進行父子與無關字段分析
-                const handleDetailCellClick = (fullCode) => {
+                // 顯示 字段分析區塊 
+                const ShowSetnameAnalysis = (fullCode) => {
                     if (fullCode === '或') return;
                     const subCode = fullCode.substring(0, 1).toUpperCase();
-                    const rootCode = fullCode.substring(1, 4).toUpperCase();
                     const subVal = parseInt(subCode, 16);
 
                     const parents = [];
@@ -1058,261 +878,341 @@
                         const andVal = parseInt(a, 16) & subVal;
 
                         if (andVal === aVal) {
-                            parents.push(a + rootCode);
+                            parents.push(a + "___");
                         } else if (andVal === subVal) {
-                            children.push(a + rootCode);
+                            children.push(a + "___");
                         }
                     });
 
                     let independentA = [];
                     switch (subCode) {
-                        case '1':
-                            independentA = ['2', '4', '8', '或', '6', 'A', 'C'];
-                            break;
-                        case '2':
-                            independentA = ['1', '4', '8', '或', '5', '9', 'C'];
-                            break;
-                        case '3':
-                            independentA = ['5', '6', '9', 'A', 'C'];
-                            break;
-                        case '4':
-                            independentA = ['1', '2', '8', '或', '3', '9', 'A'];
-                            break;
-                        case '5':
-                            independentA = ['3', '6', '9', 'A', 'C'];
-                            break;
-                        case '6':
-                            independentA = ['3', '5', '9', 'A', 'C'];
-                            break;
-                        case '7':
-                            independentA = ['9', 'A', 'C', '或', 'B', 'D', 'E'];
-                            break;
-                        case '8':
-                            independentA = ['1', '2', '4', '或', '3', '5', '6'];
-                            break;
-                        case '9':
-                            independentA = ['3', '5', '6', 'A', 'C'];
-                            break;
-                        case 'A':
-                            independentA = ['3', '5', '6', '9', 'C'];
-                            break;
-                        case 'B':
-                            independentA = ['5', '6', 'C', '或', '7', 'D', 'E'];
-                            break;
-                        case 'C':
-                            independentA = ['3', '5', '6', '9', 'A'];
-                            break;
-                        case 'D':
-                            independentA = ['3', '6', 'A', '或', '7', 'B', 'E'];
-                            break;
-                        case 'E':
-                            independentA = ['3', '5', '9', '或', '7', 'B', 'D'];
-                            break;
-                        default:
-                            independentA = [];
-                            break;
+                        case '1': independentA = ['2', '4', '8', '或', '6', 'A', 'C']; break;
+                        case '2': independentA = ['1', '4', '8', '或', '5', '9', 'C']; break;
+                        case '3': independentA = ['5', '6', '9', 'A', 'C']; break;
+                        case '4': independentA = ['1', '2', '8', '或', '3', '9', 'A']; break;
+                        case '5': independentA = ['3', '6', '9', 'A', 'C']; break;
+                        case '6': independentA = ['3', '5', '9', 'A', 'C']; break;
+                        case '7': independentA = ['9', 'A', 'C', '或', 'B', 'D', 'E']; break;
+                        case '8': independentA = ['1', '2', '4', '或', '3', '5', '6']; break;
+                        case '9': independentA = ['3', '5', '6', 'A', 'C']; break;
+                        case 'A': independentA = ['3', '5', '6', '9', 'C']; break;
+                        case 'B': independentA = ['5', '6', 'C', '或', '7', 'D', 'E']; break;
+                        case 'C': independentA = ['3', '5', '6', '9', 'A']; break;
+                        case 'D': independentA = ['3', '6', 'A', '或', '7', 'B', 'E']; break;
+                        case 'E': independentA = ['3', '5', '9', '或', '7', 'B', 'D']; break;
+                        default: independentA = []; break;
                     }
 
                     independentA.forEach(a => {
-                        if (a === '或')
-                            independent.push(a);
-                        else {
-                            independent.push(a + rootCode);
-                        }
+                        if (a === '或') independent.push(a);
+                        else independent.push(a + "___");
                     });
 
-                    selectedCellAnalysis.value = {
+                    selectedCell.value = {
                         fullCode: fullCode,
                         parents,
                         children,
                         independent
                     };
-                    updateUrlParams();
                 };
 
-                // 已使用根字段排序從小到大
-                const sortedUsedRootHexes = computed(() => Array.from(currentRootSetCodes.value).sort());
+                // 獲取 strings 項目的 class
+                const getStringItemClass = (stringsItem) => {
+                    if (isAllCdb.value) return 'side-col-item-all';
+                    return stringsItem?.source === stringsItemSource.CURRENT ? 'side-col-item-current' : 'side-col-item-default';
+                };
 
-                // 當前選定根字段下的所有已使用字段清單
-                const currentRootSetItems = computed(() => {
-                    if (!selectedRootHex.value) return [];
-                    return parsedSetItems.value.filter(item => item.bc.toUpperCase() === selectedRootHex.value.toUpperCase());
-                });
+                // 獲取 root cell 的 class
+                const getRootCellClass = (rootCode) => {
+                    const rootItem = currentRootsMap.value.get(rootCode);
+                    if (!rootItem) return 'cell-unused';
+                    const source = rootItem.source;
+                    if (source === stringsItemSource.FULL || source === stringsItemSource.CURRENT) return 'cell-used';
+                    if (source === stringsItemSource.DEFAULT) return 'cell-default';
+                    if (source === stringsItemSource.BOTH) return 'cell-both';
+                    return 'cell-unused';
+                };
 
-                // 執行搜尋與過濾
-                const handleSearch = async (resetPage = true) => {
-                    if (!selectedCdbId.value) return;
-                    updateUrlParams();
+                // 獲取 字段詳細 cell 的 class
+                const getDetailCellClass = (code) => {
+                    const source = current.setnames.find(item => item.code.substring(2, 6) === code)?.source;
+                    if (source === stringsItemSource.FULL || source === stringsItemSource.CURRENT) return 'cell-used';
+                    if (source === stringsItemSource.DEFAULT) return 'cell-default';
+                    if (source === stringsItemSource.BOTH) return 'cell-both';
+                    return 'cell-unused';
+                };
 
-                    if (currentMode.value === 2) {
-                        searching.value = true;
-                        const activeConfig = cdbConfigs.value.find(c => String(c.id) === String(selectedCdbId.value));
-                        {
-                            const rawCards = await cacheCdb();
-                            currentCdbCards.value = rawCards;
+                // ============================================================
+                // lflist
+                // ============================================================
 
-                            const cardGroups = [rawCards.map(card => ({
-                                ...card,
-                                sourceFilePath: activeConfig?.filePath || ''
-                            }))];
-
-                            const selectedFilter = {
-                                cdbId: selectedCdbId.value,
-                                iflistVersion: selectedIflistVersion.value,
-                                iflistStatus: selectedIflistIndex.value,
-                                nameId: filter.value.nameId.trim().toLowerCase()
-                            };
-
-                            let filtered = MatcheFilterCards(cardGroups, selectedFilter, currentIflistMap.value);
-
-                            filtered = filtered.filter(card => {
-                                const limitStatus = getCardLimitStatus(card, currentIflistMap.value);
-                                if (![0, 1, 2].includes(limitStatus)) return false;
-                                if (selectedIflistIndex.value > 0) {
-                                    return limitStatus === Number(selectedIflistIndex.value) - 1;
-                                }
-                                return true;
-                            });
-
-                            filtered.sort((a, b) => {
-                                const statusA = getCardLimitStatus(a, currentIflistMap.value);
-                                const statusB = getCardLimitStatus(b, currentIflistMap.value);
-
-                                if (statusA !== statusB) {
-                                    return statusA - statusB;
-                                }
-                                return 0;
-                            });
-
-                            resultCards.value = filtered;
+                // 初始化所有卡片
+                const getCurrentAllCards = async () => {
+                    if (loaded.card) return;
+                    try {
+                        if (isAllCdb.value) {
+                            if (cache.fullCards.length === 0)
+                                cache.fullCards = await loadAllCards();
+                            current.allCards = cache.fullCards.map(item => ({ ...item }));
+                        } else {
+                            current.allCards = await loadCardsByCdb(selectedCdb.value);
                         }
-                        if (resetPage) currentPage.value = 1;
-                        searching.value = false;
+                    } catch (error) {
+                        current.allCards = [];
+                    } finally {
+                        loaded.card = true;
                     }
                 };
 
-                const handleIflistVersionChange = async () => {
-                    await fetchBanlistByVersion(selectedIflistVersion.value);
+                // 初始化禁卡表 select
+                const getCurrentLflist = async () => {
+                    if (loaded.lflist) return;
+                    try {
+                        if (isAllCdb.value) {
+                            current.lflist = cache.fullLflist.map(item => ({ ...item }));
+                        } else {
+                            const allLflists = await loadLflistsByCdb(selectedCdb.value);
+                            current.lflist = (Array.isArray(allLflists) ? allLflists : []).map((item, index) => ({
+                                key: `${item.cdbId}:${item.version}:${index}`,
+                                ver: item.version,
+                                lflist: item
+                            }));
+                        }
+                    } catch (error) {
+                        current.lflist = [];
+                        console.error('取得 lflist.conf 失敗：', error);
+                    } finally {
+                        loaded.lflist = true;
+                    }
+
+                    if (current.lflist.length > 0) {
+                        selectedLflist.value = current.lflist[0].key;
+                        currentLflistMap.value = current.lflist[0].lflist || {};
+                    } else {
+                        selectedLflist.value = '';
+                        currentLflistMap.value = {};
+                    }
+                };
+
+                // 將未匹配 id 複製到剪貼版
+                const copyId = async (id) => {
+                    await navigator.clipboard.writeText(String(id));
+                };
+
+                // 根據版本 select 切換對應禁卡表
+                const loadLflist = () => {
+                    const key = selectedLflist.value;
+                    if (key) {
+                        const currentLflist = current.lflist.find(item => item.key === key);
+                        if (currentLflist) {
+                            currentLflistMap.value = currentLflist.lflist || {};
+                            return;
+                        }
+                    }
+                    selectedLflist.value = '';
+                    currentLflistMap.value = {};
+                };
+
+                // 根據當前禁卡表版本獲取卡片與未匹配id
+                const getCurrentLflistCards = () => {
+                    if (!currentLflistMap.value || Object.keys(currentLflistMap.value).length === 0) {
+                        current.lflistCards = [];
+                        current.unmatchCards = [];
+                        return;
+                    }
+
+                    current.lflistCards = [];
+                    current.unmatchCards = [];
+
+                    const existingIds = new Set();
+                    const limitStatusMap = new Map();
+                    const limitCategories = [
+                        { status: 0, ids: currentLflistMap.value?.forbiddenIds },
+                        { status: 1, ids: currentLflistMap.value?.limitIds },
+                        { status: 2, ids: currentLflistMap.value?.semiLimitIds }
+                    ];
+
+                    limitCategories.forEach(({ status, ids }) => {
+                        if (!ids) return;
+                        for (const id of ids) {
+                            limitStatusMap.set(Number(id), status);
+                        }
+                    });
+
+                    current.allCards.forEach(card => {
+                        const numId = Number(card.id);
+                        if (limitStatusMap.has(numId)) {
+                            existingIds.add(numId);
+                            current.lflistCards.push(card);
+                        }
+                    });
+
+                    for (const [id, status] of limitStatusMap.entries()) {
+                        if (!existingIds.has(id)) {
+                            current.unmatchCards.push({ id, status });
+                        }
+                    }
+
+                    current.unmatchCards.sort((a, b) => {
+                        let n = a.status - b.status;
+                        return n !== 0 ? n : a.id - b.id;
+                    });
+                };
+
+                // 重置搜索內容
+                const resetFilter = () => {
+                    filter.value.nameId = '';
+                    selectedLflistStatus.value = 0;
+                    if (current.lflist.length > 0) {
+                        selectedLflist.value = current.lflist[0].key;
+                        currentLflistMap.value = current.lflist[0].lflist || {};
+                    } else {
+                        selectedLflist.value = '';
+                        currentLflistMap.value = {};
+                    }
                     handleSearch();
                 };
 
-                const fetchCdbConfigs = async () => {
-                    loading.cdb = true;
-                    try {
-                        cdbConfigs.value = await loadAllConfigs();
+                // 查詢卡片
+                const handleSearch = () => {
+                    if (currentMode.value !== viewMode.LFLIST) return;
 
-                        if (!selectedCdbId.value) {
-                            selectedCdbId.value = ALL_CDB_ID;
+                    const selectedFilter = {
+                        lflistStatus: selectedLflistStatus.value,
+                        nameId: filter.value.nameId.trim().toLowerCase()
+                    };
+
+                    const filterCard = MatcheFilterCards(current.lflistCards, selectedFilter, currentLflistMap.value);
+
+                    const statusMap = new Map();
+                    filterCard.forEach(card => {
+                        statusMap.set(card.id, getCardLimitStatus(card, currentLflistMap.value));
+                    });
+
+                    filterCard.sort((a, b) => {
+                        const statusA = statusMap.get(a.id) ?? 99;
+                        const statusB = statusMap.get(b.id) ?? 99;
+                        if (statusA !== statusB) {
+                            return statusA - statusB;
                         }
+                        return sortCards(a, b);
+                    });
+
+                    current.filterCards.splice(0, current.filterCards.length, ...filterCard);
+                    currentPage.value = 1;
+                };
+
+                // 查詢卡片禁限小圖標
+                const getLimitImg = (card) => getCardLimitUrl(card, currentLflistMap.value)
+
+                // 刷新 版本卡表 與 顯示
+                const refreahLflistView = () => {
+                    loadLflist();
+                    getCurrentLflistCards();
+                    handleSearch();
+                }
+
+                // ============================================================
+                // 初始化
+                // ============================================================
+                const fetchCdbConfigs = async () => {
+                    try {
+                        cache.cdbs = await loadAllConfigs();
                     } catch (error) {
                         console.error('取得數據庫清單失敗：', error);
                     } finally {
-                        loading.cdb = false;
+                        loaded.cdb = true;
                     }
                 };
 
-                const handleCdbChange = async () => {
-                    await fetchSetnamesByCdb(selectedCdbId.value);
-                    await fetchIflistVersions();
-                    await handleSearch();
-                };
-
-                const switchMode = async (mode) => {
-                    if (currentMode.value === mode) return;
-                    currentMode.value = mode;
-                    if (mode === 1) {
-                        await fetchSetnamesByCdb(selectedCdbId.value);
-                    } else if (mode === 2) {
-                        await fetchIflistVersions();
-                        await handleSearch();
+                const fetchCacheStrings = async () => {
+                    try {
+                        const fullStrings = await loadAllStrings();
+                        cache.fullStrings = normalizeStrings(fullStrings, stringsItemSource.FULL);
+                        const defaultStrings = await loadDefaultStrings();
+                        cache.defaultStrings = normalizeStrings(defaultStrings, stringsItemSource.DEFAULT);
+                    } catch (error) {
+                        cache.fullStrings = {};
+                        cache.defaultStrings = {};
+                        console.error('取得 strings.conf 失敗：', error);
                     }
-                    updateUrlParams();
                 };
 
-                const resetFilter = () => {
-                    filter.value.nameId = '';
-                    selectedIflistIndex.value = 0;
-                    if (iflistVers.value.length > 0) {
-                        selectedIflistVersion.value = 0;
+                const fetchCacheLflist = async () => {
+                    try {
+                        const allLflists = await loadAllLflists();
+                        cache.fullLflist = (Array.isArray(allLflists) ? allLflists : []).map((item, index) => ({
+                            key: `${item.cdbId}:${item.version}:${index}`,
+                            ver: item.version,
+                            lflist: item
+                        }));
+                    } catch (error) {
+                        cache.fullLflist = [];
+                        console.error('取得 lflist.conf 失敗：', error);
                     }
-                    handleSearch(true);
                 };
 
-                const hexChars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'];
+                onBeforeUnmount(() => window.removeEventListener('resize', updateNameOverflow));
+
+                watch([pagedCards, () => current.counters, () => current.victorys], updateNameOverflow, { flush: 'post' });
+
+                watch(selectedLflist, (newVal) => {
+                    if (newVal) {
+                        refreahLflistView();
+                    }
+                });
 
                 watch(pageSize, () => {
                     currentPage.value = 1;
-                    updateUrlParams();
-                });
-
-                watch(currentPage, () => updateUrlParams());
-
-                watch(stringsViewType, () => {
-                    updateUrlParams();
                 });
 
                 onMounted(async () => {
                     window.addEventListener('resize', updateNameOverflow);
-                    loadFromUrl();
-                    await fetchCdbConfigs();
-                    if (selectedCdbId.value) {
-                        await fetchSetnamesByCdb(selectedCdbId.value);
-                        await fetchIflistVersions();
-                        if (currentMode.value === 2) {
-                            await handleSearch(false);
-                        }
-                    }
+                    await Promise.all([
+                        fetchCdbConfigs(),
+                        fetchCacheStrings(),
+                        fetchCacheLflist(),
+                    ]);
+                    await handleCdbChange();
                 });
 
                 return {
-                    ALL_CDB_ID,
-                    cdbConfigs,
-                    selectedCdbId,
+                    loaded,
+                    cache,
+                    current,
+                    viewMode,
                     currentMode,
-                    stringsViewType,
+                    CDB_VER_NA,
+                    selectedCdb,
+                    switchCurrentMode,
+                    hexChars,
+                    // strings
                     selectedRootHex,
-                    selectedCellAnalysis,
-                    loading,
-                    iflistVers,
-                    selectedIflistVersion,
-                    selectedIflistIndex,
-                    currentIflistMap,
+                    currentRootSetnames,
+                    selectedCell,
+                    clickRootHex,
+                    ShowSetnameAnalysis,
+                    getStringItemClass,
+                    getRootCellClass,
+                    getDetailCellClass,
+                    // lflist
+                    selectedLflist,
+                    selectedLflistStatus,
                     filter,
-                    resultCards,
-                    pagedCards,
-                    searching,
+                    copyId,
+                    handleCdbChange,
+                    resetFilter,
+                    getLimitImg,
+                    handleSearch,
                     pageSizeOptions,
                     pageSize,
                     currentPage,
                     totalPages,
-                    unmatchedIflistItems,
-                    copyId,
-                    getCardUrl,
-                    getCardUrlError,
-                    getCardLimitUrl,
+                    pagedCards,
                     previousPage,
                     nextPage,
                     onPageInput,
-                    validatePage,
-                    handleCdbChange,
-                    switchMode,
-                    handleIflistVersionChange,
-                    handleSearch,
-                    resetFilter,
-                    hexChars,
-                    isRootSetUsed,
-                    isDetailCellUsed,
-                    getRootSetCellClass,
-                    getDetailCellClass,
-                    getStringItemClass,
-                    selectRootHexAndDetail,
-                    handleDetailCellClick,
-                    sortedUsedRootHexes,
-                    currentRootSetItems,
-                    rawSetnames,
-                    counterList,
-                    victoryList,
-                    updateUrlParams,
+                    validatePage
                 };
             }
         }).mount('#app');

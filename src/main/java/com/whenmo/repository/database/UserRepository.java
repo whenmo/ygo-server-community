@@ -1,8 +1,8 @@
 package com.whenmo.repository.database;
 
 import com.whenmo.model.database.domain.User;
-import org.springframework.data.jpa.repository.JpaRepository;
 
+import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 

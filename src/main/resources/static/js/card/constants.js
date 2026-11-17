@@ -248,6 +248,13 @@ const CATEGORY_CN = {
     [CATEGORY.DISABLE_EFFECT]: '效果無效'
 };
 
+const LIMIT_CN = {
+    [0]: '禁止',
+    [1]: '限制',
+    [2]: '準限制',
+    [3]: '無限制'
+};
+
 window.APP_CONSTANTS = {
     RULE,
     RULE_CN,
@@ -263,4 +270,5 @@ window.APP_CONSTANTS = {
     LINK,
     CATEGORY,
     CATEGORY_CN,
+    LIMIT_CN,
 };

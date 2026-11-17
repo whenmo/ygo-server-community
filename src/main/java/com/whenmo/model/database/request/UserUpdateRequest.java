@@ -1,7 +1,5 @@
 package com.whenmo.model.database.request;
 
-import org.springframework.security.crypto.password.PasswordEncoder;
-
 import com.whenmo.model.database.domain.User;
 
 import lombok.*;
@@ -12,27 +10,22 @@ import lombok.*;
 @AllArgsConstructor
 public class UserUpdateRequest {
 
-    private String name;
-    private String password;
-    private Boolean isAdmin;
+    @Builder.Default
+    private String name = null;
 
-    public void setName(String name) {
-        this.name = (name != null && name.isBlank()) ? null : name;
-    }
+    @Builder.Default
+    private String newPassword = null;
 
-    public void setPassword(String password) {
-        this.password = (password != null && password.isBlank()) ? null : password;
-    }
+    @Builder.Default
+    private Boolean isAdmin = false;
 
-    public void updateModel(User model, PasswordEncoder passwordEncoder) {
-        if (model == null)
+    public void updateUser(User user, String trimName, String encodePasswordHash) {
+        if (user == null)
             return;
-
-        if (this.name != null)
-            model.setName(this.name);
-        if (this.password != null && passwordEncoder != null)
-            model.setPasswordHash(passwordEncoder.encode(this.password));
-        if (this.isAdmin != null)
-            model.setIsAdmin(this.isAdmin);
+        if (trimName != null)
+            user.setName(trimName);
+        if (encodePasswordHash != null)
+            user.setPasswordHash(encodePasswordHash);
+        user.setIsAdmin(Boolean.TRUE.equals(isAdmin));
     }
 }

@@ -16,25 +16,22 @@
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
     <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
+    <script th:src="@{/js/apiHelper/deckHelper.js}" src="/js/apiHelper/deckHelper.js"></script>
+    <script th:src="@{/js/apiHelper/deckPackHelper.js}" src="/js/apiHelper/deckPackHelper.js"></script>
 
     <style>
-        .deck-table-item-public,
         .deck-table-item-name,
         .deck-table-item-pack,
-        .deck-table-item-count,
         .deck-table-item-time {
             border-top: 1px solid var(--brown-hover);
         }
 
-        .deck-table-item-public,
         .deck-table-item-pack,
-        .deck-table-item-count,
         .deck-table-item-time {
             width: 1%;
             white-space: nowrap;
         }
 
-        .deck-table-item-public,
         .deck-table-item-pack {
             text-align: center;
         }
@@ -75,9 +72,9 @@
 </head>
 
 <body>
-    <div th:replace="~{fragments/layout :: navbar}"></div>
+    <div th:replace="~{fragments/layout :: navbar('profile')}"></div>
 
-    <div id="app" class="two-column-layout-container">
+    <div id="app" class="two-column-layout-container" th:attr="data-user-id=${userId}">
         <div th:replace="~{personal/menu :: sidebar('decks')}"></div>
 
         <main class="main-column" style="display: flex; flex-direction: column; height: calc(100vh - 60px);">
@@ -107,8 +104,8 @@
                         <select v-model="viewFilter.pack" class="module-select">
                             <option value="all">N/A</option>
                             <option value="none">未分類</option>
-                            <option v-for="packName in availablePackNames" :key="packName" :value="packName">
-                                {{ packName }}
+                            <option v-for="pack in packs" :key="pack.id" :value="pack.name">
+                                {{ pack.name }}
                             </option>
                         </select>
                         <h2 style="font-size: 1rem; color: var(--red-color);">排序 : </h2>
@@ -129,10 +126,10 @@
                 <table class="module-table">
                     <thead>
                         <tr>
-                            <th>公開</th>
+                            <th style="text-align: center;">最愛</th>
+                            <th style="text-align: center;">公開</th>
                             <th>名稱</th>
                             <th style="text-align: center;">卡包</th>
-                            <th style="text-align: center;">張數</th>
                             <th style="text-align: center;">最後修正</th>
                             <th class="table-col-oper">操作</th>
                         </tr>
@@ -145,21 +142,21 @@
                             <td colspan="6" class="table-item-empty-row">目前尚無符合條件的卡組</td>
                         </tr>
                         <tr v-else v-for="item in pagedDecks" :key="item.deckInfo.id">
-                            <td class="deck-table-item-public">
+                            <td class="table-item-icon">
+                                <div class="dot" :class="{ green: item.deckInfo.isFavor }"></div>
+                            </td>
+                            <td class="table-item-icon">
                                 <div class="dot" :class="{ green: item.deckInfo.isPublic }"></div>
                             </td>
                             <td class="deck-table-item-name">
-                                <a class="deck-table-name" :href="`/view/deck/${item.user.id}/${item.deckInfo.id}`"
-                                    target="_blank" rel="noopener">
+                                <a class="deck-table-name" :href="`/view/deck/mine/${item.deckInfo.id}`" target="_blank"
+                                    rel="noopener">
                                     {{ item.deckInfo.name }}
                                 </a>
                             </td>
                             <td class="deck-table-item-pack">
-                                <span v-if="item.deckInfo.packName">{{ item.deckInfo.packName }}</span>
+                                <span v-if="item.deckPack?.name">{{ item.deckPack.name }}</span>
                                 <span v-else>-</span>
-                            </td>
-                            <td class="deck-table-item-count">
-                                <span>{{ formatDeckCount(item) }}</span>
                             </td>
                             <td class="deck-table-item-time">
                                 {{ formatTime(item.deckInfo.updatedAt) }}
@@ -197,23 +194,17 @@
                 const decks = ref([]);
                 const packs = ref([]);
                 const loading = ref(false);
+                const userId = Number(document.getElementById('app').dataset.userId);
+
+                // 引入 deckHelper 與 deckPackHelper
+                const { loadMineDecks, createDeck: apiCreateDeck } = useDeckHelper();
+                const { loadPublicDeckPacks, loadUserDeckPacks, createPrivateDeckPack } = useDeckPackHelper();
 
                 // 檢視設定篩選與排序狀態
                 const viewFilter = reactive({
                     public: 'all',
                     pack: 'all',
                     sort: 'public'
-                });
-
-                // 取得所有自己卡組內出現過的卡包名稱清單（排除重複與空值）
-                const availablePackNames = computed(() => {
-                    const set = new Set();
-                    decks.value.forEach(item => {
-                        if (item.deckInfo && item.deckInfo.packName) {
-                            set.add(item.deckInfo.packName);
-                        }
-                    });
-                    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
                 });
 
                 // 根據檢視設定進行過濾與排序的卡組計算屬性
@@ -229,9 +220,9 @@
 
                     // 2. 卡包篩選
                     if (viewFilter.pack === 'none') {
-                        result = result.filter(item => !item.deckInfo?.packName);
+                        result = result.filter(item => !item.deckPack?.name);
                     } else if (viewFilter.pack !== 'all') {
-                        result = result.filter(item => item.deckInfo?.packName === viewFilter.pack);
+                        result = result.filter(item => item.deckPack?.name === viewFilter.pack);
                     }
 
                     // 3. 排序方式
@@ -240,8 +231,8 @@
                         const nameB = b.deckInfo?.name || '';
 
                         if (viewFilter.sort === 'pack') {
-                            const packA = a.deckInfo?.packName || '\uFFFF';
-                            const packB = b.deckInfo?.packName || '\uFFFF';
+                            const packA = a.deckPack?.name || '\uFFFF';
+                            const packB = b.deckPack?.name || '\uFFFF';
                             const packCompare = packA.localeCompare(packB, 'zh-Hant');
                             if (packCompare !== 0) return packCompare;
                             return nameA.localeCompare(nameB, 'zh-Hant');
@@ -276,11 +267,10 @@
                     currentPage.value = 1;
                 });
 
-                const fetchDecks = async () => {
+                const fetchDecks = async (force = false) => {
                     loading.value = true;
                     try {
-                        const response = await axios.get('/api/decks/mine');
-                        decks.value = response.data;
+                        decks.value = await loadMineDecks(force);
                     } catch (error) {
                         classicalSwal.fire({
                             icon: 'error',
@@ -292,19 +282,19 @@
                     }
                 };
 
+                // 使用 deckPackHelper 從 API 讀取卡包列表
                 const fetchPacks = async () => {
                     try {
-                        const response = await axios.get('/api/decks/packNames');
-                        packs.value = response.data;
+                        const [publicPacks, userPacks] = await Promise.all([
+                            loadPublicDeckPacks(),
+                            loadUserDeckPacks(userId)
+                        ]);
+                        packs.value = [...publicPacks, ...userPacks]
+                            .filter(pack => pack.name)
+                            .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hant'));
                     } catch (error) {
                         packs.value = [];
                     }
-                };
-
-                const formatDeckCount = (item) => {
-                    const packLen = item.pack?.length ?? 0;
-                    if (packLen > 0) return packLen;
-                    return `${item.main?.length ?? 0} / ${item.extra?.length ?? 0} / ${item.side?.length ?? 0}`;
                 };
 
                 const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
@@ -312,32 +302,6 @@
                 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
                     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
                 })[character]);
-
-                const createPack = async () => {
-                    const result = await classicalSwal.fire({
-                        title: '新增卡組 Pack',
-                        input: 'text',
-                        inputLabel: 'Pack 名稱',
-                        showCancelButton: true,
-                        confirmButtonText: '新增',
-                        cancelButtonText: '取消',
-                        preConfirm: (value) => {
-                            if (!value || !value.trim()) {
-                                Swal.showValidationMessage('Pack 名稱不可為空');
-                                return false;
-                            }
-                            return value.trim();
-                        }
-                    });
-                    if (!result.isConfirmed) return;
-                    try {
-                        await axios.post('/api/decks/packs', { name: result.value });
-                        await fetchPacks();
-                        classicalSwal.fire({ icon: 'success', title: 'Pack 已新增', timer: 1000, showConfirmButton: false });
-                    } catch (error) {
-                        classicalSwal.fire({ icon: 'error', title: '新增失敗', text: error.response?.data?.message || '無法新增 Pack' });
-                    }
-                };
 
                 const editDeck = (item) => window.open(`/personal/decks/${item.deckInfo.id}/edit`, '_blank', 'noopener');
 
@@ -363,15 +327,16 @@
                                 <table class="module-table">
                                     <thead>
                                         <tr>
-                                            <th style="width: 80px; text-align: center;">公開</th>
+                                            <th style="text-align: center;">最愛</th>
+                                            <th style="text-align: center;">公開</th>
                                             <th>名稱</th>
-                                            <th style="text-align: center; width: 150px;">卡包</th>
-                                            <th style="text-align: center; width: 80px;">張數</th>
-                                            <th class="table-col-oper" style="width: 60px;">操作</th>
+                                            <th style="text-align: center;">卡包</th>
+                                            <th style="text-align: center;">張數</th>
+                                            <th class="table-col-oper">操作</th>
                                         </tr>
                                     </thead>
                                     <tbody id="swal-ydk-editable-body" class="swal-editor-body">
-                                        <tr><td colspan="5" class="table-item-empty-row">尚未讀取檔案</td></tr>
+                                        <tr><td colspan="6" class="table-item-empty-row">尚未讀取檔案</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -402,9 +367,13 @@
                                     const tr = document.createElement('tr');
                                     tr.className = 'swal-editor-row';
                                     tr.innerHTML = `
-                                        <td style="text-align: center;">
+                                        <td style="text-align: center; width: 1%;">
+                                            <button type="button" class="module-toggle ${item.isFavor ? 'active' : ''}" data-index="${index}" data-action="toggle-favor" style="width: 100%;">
+                                                <span>最愛</span>
+                                            </button>
+                                        </td>
+                                        <td style="text-align: center; width: 1%;">
                                             <button type="button" class="module-toggle ${item.isPublic ? 'active' : ''}" data-index="${index}" data-action="toggle-public" style="width: 100%;">
-                                                <span class="module-toggle-status"></span>
                                                 <span>${item.isPublic ? "公開" : "私人"}</span>
                                             </button>
                                         </td>
@@ -414,7 +383,7 @@
                                         <td style="text-align: center;">
                                             <select class="module-select ydk-pack-select" data-index="${index}" style="padding: 2px; width: 100%;">
                                                 <option value="">未分類</option>
-                                                ${packs.value.map(p => `<option value="${escapeHtml(p)}" ${item.packName === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+                                                ${packs.value.map(pack => `<option value="${pack.id}" ${Number(item.packId) === pack.id ? 'selected' : ''}>${escapeHtml(pack.name)}</option>`).join('')}
                                             </select>
                                         </td>
                                         <td style="text-align: center;">
@@ -447,7 +416,8 @@
 
                                         batchItems.push({
                                             name: defaultName,
-                                            packName: '',
+                                            packId: '',
+                                            isFavor: false,
                                             isPublic: true,
                                             main: parsed.main,
                                             extra: parsed.extra,
@@ -470,9 +440,17 @@
                             });
 
                             editableBody.addEventListener('click', (e) => {
-                                const toggleBtn = e.target.closest('[data-action="toggle-public"]');
-                                if (toggleBtn) {
-                                    const idx = Number(toggleBtn.dataset.index);
+                                const favorBtn = e.target.closest('[data-action="toggle-favor"]');
+                                if (favorBtn) {
+                                    const idx = Number(favorBtn.dataset.index);
+                                    batchItems[idx].isFavor = !batchItems[idx].isFavor;
+                                    renderTable();
+                                    return;
+                                }
+
+                                const publicBtn = e.target.closest('[data-action="toggle-public"]');
+                                if (publicBtn) {
+                                    const idx = Number(publicBtn.dataset.index);
                                     batchItems[idx].isPublic = !batchItems[idx].isPublic;
                                     renderTable();
                                     return;
@@ -498,7 +476,7 @@
                                 const packSelect = e.target.closest('.ydk-pack-select');
                                 if (packSelect) {
                                     const idx = Number(packSelect.dataset.index);
-                                    batchItems[idx].packName = packSelect.value;
+                                    batchItems[idx].packId = packSelect.value ? Number(packSelect.value) : null;
                                 }
                             });
                         },
@@ -527,17 +505,16 @@
                     for (const item of itemsToImport) {
                         try {
                             const payload = {
-                                deckInfo: {
-                                    name: item.name.trim(),
-                                    packName: item.packName || null,
-                                    isPublic: item.isPublic
-                                },
+                                name: item.name.trim(),
+                                packId: item.packId || null,
+                                isFavor: item.isFavor,
+                                isPublic: item.isPublic,
                                 pack: item.pack,
                                 main: item.main,
                                 extra: item.extra,
                                 side: item.side
                             };
-                            await axios.post('/api/decks', payload);
+                            await apiCreateDeck(payload);
                             successList.push(item.name.trim());
                         } catch (error) {
                             const errMsg = error.response?.data?.message || '未知錯誤';
@@ -545,7 +522,7 @@
                         }
                     }
 
-                    await Promise.all([fetchDecks(), fetchPacks()]);
+                    await Promise.all([fetchDecks(true), fetchPacks()]);
                     loading.value = false;
 
                     let resultHtml = `<div style="text-align: left; max-height: 250px; overflow-y: auto; font-size: 0.95rem; line-height: 1.6;">`;
@@ -623,7 +600,6 @@
                     packs,
                     loading,
                     viewFilter,
-                    availablePackNames,
                     filteredAndSortedDecks,
                     pagedDecks,
                     pageSizeOptions,
@@ -635,10 +611,8 @@
                     onPageInput,
                     validatePage,
                     formatTime,
-                    formatDeckCount,
                     createDeck,
                     editDeck,
-                    createPack,
                     openImportYdkModal
                 };
             }

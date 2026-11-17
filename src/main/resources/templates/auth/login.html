@@ -11,13 +11,15 @@
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
     <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
 
-    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
-    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
-    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
+
 </head>
 
 <body>
-    <div th:replace="~{fragments/layout :: navbar}"></div>
+    <div th:replace="~{fragments/layout :: navbar('auth')}"></div>
 
     <div class="auth-layout">
         <div id="app" class="auth-box">

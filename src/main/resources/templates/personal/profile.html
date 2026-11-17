@@ -14,6 +14,7 @@
     <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/apiHelper/userHelper.js}" src="/js/apiHelper/userHelper.js"></script>
 
     <style>
         .profile-settings {
@@ -102,6 +103,7 @@
         createApp({
             setup() {
                 const displayName = ref(document.getElementById('app').dataset.profileName);
+                const { updateProfileInfo, updateProfilePassword } = window.useUserHelper();
 
                 const editName = async () => {
                     const result = await classicalSwal.fire({
@@ -124,8 +126,8 @@
 
                     if (!result.isConfirmed) return;
                     try {
-                        const response = await axios.put('/api/users/profile', { name: result.value });
-                        displayName.value = response.data.name;
+                        const response = await updateProfileInfo({ name: result.value });
+                        displayName.value = response.name;
                         classicalSwal.fire({ icon: 'success', title: '名稱已更新', timer: 1200, showConfirmButton: false });
                     } catch (error) {
                         classicalSwal.fire({
@@ -177,7 +179,7 @@
 
                     if (!result.isConfirmed) return;
                     try {
-                        await axios.put('/api/users/profile', result.value);
+                        await updateProfilePassword(result.value);
                         classicalSwal.fire({ icon: 'success', title: '密碼已更新', timer: 1200, showConfirmButton: false });
                     } catch (error) {
                         classicalSwal.fire({

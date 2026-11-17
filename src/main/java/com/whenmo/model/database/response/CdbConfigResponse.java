@@ -18,12 +18,15 @@ public class CdbConfigResponse {
     private String filePath;
     private String picCdn;
 
-    public static CdbConfigResponse fromModel(CdbConfig model) {
+    public static CdbConfigResponse fromCdbConfig(CdbConfig cdbConfig) {
+        if (cdbConfig == null)
+            return null;
+
         return CdbConfigResponse.builder()
-                .id(model.getId())
-                .name(model.getName())
-                .filePath(model.getFilePath())
-                .picCdn(model.getPicCdn())
+                .id(cdbConfig.getId())
+                .name(cdbConfig.getName())
+                .filePath(cdbConfig.getFilePath())
+                .picCdn(cdbConfig.getPicCdn())
                 .build();
     }
 }

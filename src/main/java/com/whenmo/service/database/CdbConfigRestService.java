@@ -4,25 +4,20 @@ import com.whenmo.model.database.domain.*;
 import com.whenmo.model.database.request.*;
 import com.whenmo.model.database.response.*;
 import com.whenmo.repository.database.CdbConfigRepository;
-import com.whenmo.service.cdb.CdbDiskCacheService;
+import com.whenmo.service.cdb.DiskCacheService;
 import com.whenmo.service.RestServiceHelper;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.RequestBody;
-
 import java.util.List;
 
 @Service
-@Validated
 @RequiredArgsConstructor
 public class CdbConfigRestService {
 
     private final CdbConfigRepository cdbConfigRepository;
-    private final CdbDiskCacheService cdbDiskCache;
+    private final DiskCacheService cdbDiskCache;
 
     // ============================================================
     // Read
@@ -33,24 +28,15 @@ public class CdbConfigRestService {
      */
     @Transactional(readOnly = true)
     public List<CdbConfigResponse> getAllConfigs() {
-        return toResponse(cdbConfigRepository.findAll());
+        return cdbConfigRepository.findAll().stream().map(CdbConfigResponse::fromCdbConfig).toList();
     }
 
     /**
-     * 根據 ID 取得單筆 CDB 設定
+     * 取得單個 CDB 設定
      */
     @Transactional(readOnly = true)
-    public CdbConfigResponse getConfigById(int id) {
-        return CdbConfigResponse.fromModel(getById(id));
-    }
-
-    /**
-     * 根據 name 進行模糊查詢
-     */
-    @Transactional(readOnly = true)
-    public List<CdbConfigResponse> searchConfigsByName(String name) {
-        RestServiceHelper.validateString(name, "名稱");
-        return toResponse(cdbConfigRepository.findByNameContaining(name));
+    public CdbConfigResponse getCdbConfig(Integer configId) {
+        return CdbConfigResponse.fromCdbConfig(getById(configId));
     }
 
     // ============================================================
@@ -61,8 +47,16 @@ public class CdbConfigRestService {
      * 新增 CDB 設定
      */
     @Transactional
-    public CdbConfigResponse createConfig(@Valid @RequestBody CdbConfigCreateRequest request) {
-        RestServiceHelper.validateString(request.getName(), "名稱");
+    public CdbConfigResponse createConfig(CdbConfigEditRequest request) {
+
+        String baseName = RestServiceHelper.getValidTrimString(request.getName(), "顯示名稱不可為空");
+        String name = baseName;
+        int i = 1;
+
+        while (cdbConfigRepository.existsByName(name)) {
+            name = baseName + "_" + i;
+            i++;
+        }
 
         String filePath = request.getFilePath();
         RestServiceHelper.validateFilePath(filePath);
@@ -70,8 +64,8 @@ public class CdbConfigRestService {
         if (cdbConfigRepository.existsByFilePath(filePath))
             throw new IllegalArgumentException("資料庫已有重複的 CDB 檔案路徑: " + filePath);
 
-        CdbConfig config = request.toModel();
-        return CdbConfigResponse.fromModel(cdbConfigRepository.save(config));
+        CdbConfig config = request.toCdbConfig(name);
+        return CdbConfigResponse.fromCdbConfig(cdbConfigRepository.save(config));
     }
 
     // ============================================================
@@ -82,19 +76,33 @@ public class CdbConfigRestService {
      * 更新 CDB 設定
      */
     @Transactional
-    public CdbConfigResponse updateConfig(Integer id, CdbConfigUpdateRequest request) {
-        CdbConfig config = getById(id);
+    public CdbConfigResponse updateConfig(Integer cdbId, CdbConfigEditRequest request) {
+        CdbConfig config = getById(cdbId);
+
+        String baseName = RestServiceHelper.getValidTrimString(request.getName(), "顯示名稱不可為空");
+        String name = baseName;
+        if (!config.getName().equals(name)) {
+            int i = 1;
+
+            while (cdbConfigRepository.existsByName(name)) {
+                name = baseName + "_" + i;
+                i++;
+            }
+        }
 
         String filePath = request.getFilePath();
-        if (filePath != null && !config.getFilePath().equals(filePath)) {
+        if (!config.getFilePath().equals(filePath)) {
             RestServiceHelper.validateFilePath(filePath);
 
             if (cdbConfigRepository.existsByFilePath(filePath))
                 throw new IllegalArgumentException("資料庫已有重複的 CDB 檔案路徑: " + filePath);
         }
 
-        request.updateModel(config);
-        return CdbConfigResponse.fromModel(cdbConfigRepository.save(config));
+        request.updateCdbConfig(config, name);
+        cdbDiskCache.removeCdbCardCache(cdbId);
+        cdbDiskCache.removeCdbStringsCache(cdbId);
+        cdbDiskCache.removeCdbLflistCache(cdbId);
+        return CdbConfigResponse.fromCdbConfig(cdbConfigRepository.save(config));
     }
 
     // ============================================================
@@ -105,33 +113,19 @@ public class CdbConfigRestService {
      * 刪除 CDB 設定
      */
     @Transactional
-    public void deleteConfig(Integer id) {
-        cdbConfigRepository.delete(getById(id));
-        cdbDiskCache.removeCdbCardCache(id);
-    }
-
-    /**
-     * 批次刪除 CDB 設定
-     */
-    @Transactional
-    public void deleteConfigs(List<Integer> ids) {
-        if (ids == null || ids.isEmpty())
-            return;
-
-        List<CdbConfig> configs = cdbConfigRepository.findAllById(ids);
-        configs.forEach(config -> cdbDiskCache.removeCdbCardCache(config.getId()));
-        cdbConfigRepository.deleteAll(configs);
+    public void deleteConfig(Integer cdbId) {
+        cdbConfigRepository.delete(getById(cdbId));
+        cdbDiskCache.removeCdbCardCache(cdbId);
+        cdbDiskCache.removeCdbStringsCache(cdbId);
+        cdbDiskCache.removeCdbLflistCache(cdbId);
     }
 
     // ============================================================
     // Helpers
     // ============================================================
 
-    private CdbConfig getById(Integer id) {
-        return cdbConfigRepository.findById(id).orElseThrow(() -> new RuntimeException("找不到對應的 CDB 設定，ID: " + id));
-    }
-
-    private List<CdbConfigResponse> toResponse(List<CdbConfig> list) {
-        return list.stream().map(CdbConfigResponse::fromModel).toList();
+    private CdbConfig getById(Integer cdbId) {
+        return cdbConfigRepository.findById(cdbId)
+                .orElseThrow(() -> new RuntimeException("找不到對應的 CDB 設定，ID: " + cdbId));
     }
 }

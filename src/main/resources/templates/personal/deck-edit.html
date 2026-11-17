@@ -15,6 +15,8 @@
     <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
     <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script th:src="@{/js/apiHelper/deckHelper.js}" src="/js/apiHelper/deckHelper.js"></script>
+    <script th:src="@{/js/apiHelper/deckPackHelper.js}" src="/js/apiHelper/deckPackHelper.js"></script>
 
     <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
     <script th:src="@{/js/helper/configHelper.js}" src="/js/helper/configHelper.js"></script>
@@ -23,6 +25,7 @@
     <script th:src="@{/js/helper/lflistHelper.js}" src="/js/helper/lflistHelper.js"></script>
     <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
+    <script th:src="@{/js/apiHelper/applicationConfigHelper.js}" src="/js/apiHelper/applicationConfigHelper.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
 
     <style>
@@ -239,7 +242,7 @@
 <body>
     <div th:replace="~{fragments/layout :: navbar}"></div>
 
-    <div id="editor-app" class="deck-edit-layout" th:attr="data-deck-id=${deckId}" @dragend="onDragEnd">
+    <div id="editor-app" class="deck-edit-layout" th:attr="data-deck-id=${deckId},data-user-id=${userId}" @dragend="onDragEnd">
         <!-- 左側 -->
         <aside class="aside-column">
             <div class="aside-content">
@@ -261,9 +264,9 @@
                             <p class="aside-long-row-title">卡包</p>
                             <p v-if="loading.pack" class="span-hint-msg">載入中...</p>
                             <p v-else-if="packs.length === 0" class="span-hint-msg">無卡包</p>
-                            <select v-else v-model="packName" class="module-select">
+                            <select v-else v-model="packId" class="module-select">
                                 <option value="">未分類</option>
-                                <option v-for="pack in packs" :key="pack" :value="pack">{{ pack }}</option>
+                                <option v-for="pack in packs" :key="pack.id" :value="pack.id">{{ pack.name }}</option>
                             </select>
                         </div>
 
@@ -933,6 +936,9 @@
                 const root = document.getElementById('editor-app');
                 const rawDeckId = root.dataset.deckId;
                 const deckId = (rawDeckId && rawDeckId !== '' && rawDeckId !== 'null') ? Number(rawDeckId) : null;
+                const userId = Number(root.dataset.userId);
+                const { getMineDeck, createDeck, updateDeck, deleteDeck: deleteDeckRequest } = window.useDeckHelper();
+                const { loadPublicDeckPacks, loadUserDeckPacks } = window.useDeckPackHelper();
 
                 const loading = reactive({
                     page: true,
@@ -952,7 +958,7 @@
 
                 const loadError = ref('');
                 const deckName = ref('');
-                const packName = ref('');
+                const packId = ref('');
                 const isPublic = ref(false);
                 const isPackShow = ref(false);
                 const packCards = ref([]);
@@ -1437,7 +1443,7 @@
 
                 const loadDeckResponseData = async (data) => {
                     deckName.value = data.deckInfo.name;
-                    packName.value = data.deckInfo.packName || '';
+                    packId.value = data.deckPack?.id ?? '';
                     isPublic.value = Boolean(data.deckInfo.isPublic);
 
                     const rawPack = data.pack || [];
@@ -1463,8 +1469,7 @@
                         await fetchIflistVersions(selectedCdbId.value);
                     }
 
-                    const response = await axios.get(`/api/decks/mine/${deckId}`);
-                    const data = response.data;
+                    const data = await getMineDeck(deckId);
 
                     lastData.value = JSON.parse(JSON.stringify(data));
                     await loadDeckResponseData(data);
@@ -1833,8 +1838,12 @@
 
                 const loadPacks = async () => {
                     try {
-                        const response = await axios.get('/api/decks/packNames');
-                        packs.value = response.data;
+                        const [publicPacks, userPacks] = await Promise.all([
+                            loadPublicDeckPacks(),
+                            loadUserDeckPacks(userId)
+                        ]);
+                        packs.value = [...publicPacks, ...userPacks]
+                            .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hant'));
                     } catch (e) {
                         packs.value = [];
                     }
@@ -1847,31 +1856,29 @@
                     }
                     try {
                         const payload = {
-                            deckInfo: {
-                                name: deckName.value.trim(),
-                                packName: packName.value || null,
-                                isPublic: isPublic.value
-                            },
+                            name: deckName.value.trim(),
+                            packId: packId.value ? Number(packId.value) : null,
+                            isPublic: isPublic.value,
                             pack: packCards.value,
                             main: deckSections.main,
                             extra: deckSections.extra,
                             side: deckSections.side
                         };
 
-                        let response;
+                        let savedDeck;
                         if (!deckId) {
-                            response = await axios.post('/api/decks', payload);
-                            const newId = response.data.deckInfo?.id;
+                            savedDeck = await createDeck(payload);
+                            const newId = savedDeck.deckInfo?.id;
                             classicalSwal.fire({ icon: 'success', title: '卡組已建立', timer: 1100, showConfirmButton: false });
                             if (newId) {
                                 setTimeout(() => { window.location.replace(`/personal/decks/${newId}/edit`); }, 1000);
                             }
                         } else {
-                            response = await axios.put(`/api/decks/${deckId}`, payload);
-                            if (response.data.deckInfo && response.data.deckInfo.name) {
-                                deckName.value = response.data.deckInfo.name;
+                            savedDeck = await updateDeck(deckId, payload);
+                            if (savedDeck.deckInfo && savedDeck.deckInfo.name) {
+                                deckName.value = savedDeck.deckInfo.name;
                             }
-                            lastData.value = JSON.parse(JSON.stringify(payload));
+                            lastData.value = JSON.parse(JSON.stringify(savedDeck));
                             classicalSwal.fire({ icon: 'success', title: '卡組已儲存', timer: 1100, showConfirmButton: false });
                         }
                     } catch (error) {
@@ -1915,7 +1922,7 @@
                     if (!result.isConfirmed) return;
 
                     try {
-                        await axios.delete(`/api/decks/${deckId}`);
+                        await deleteDeckRequest(deckId);
                         await classicalSwal.fire({
                             icon: 'success',
                             title: '卡組已刪除',
@@ -1966,7 +1973,7 @@
                     loading,
                     loadError,
                     deckName,
-                    packName,
+                    packId,
                     isPublic,
                     isPackShow,
                     packs,

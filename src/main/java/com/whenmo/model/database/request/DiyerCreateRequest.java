@@ -1,15 +1,15 @@
 package com.whenmo.model.database.request;
 
 import com.whenmo.model.database.domain.Diyer;
-import com.whenmo.model.database.domain.DiyerString;
-
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Builder
@@ -19,19 +19,19 @@ public class DiyerCreateRequest {
 
     @NotBlank(message = "作者名稱不可為空")
     private String name;
-    private Integer userId;
-    private Set<Integer> codeRanges;
-    private Set<Integer> setRanges;
-    @Valid
-    private Set<DiyerStringRequest> strings;
+    @NotNull(message = "數據庫不可為空")
+    private Integer cdbId;
+    @Builder.Default
+    private Integer userId = null;
+    @Builder.Default
+    private List<@NotNull(message = "codeRanges must not null") @Min(value = 1, message = "codeRanges must >= 1") @Max(value = 2000, message = "codeRanges must <= 2000") Integer> codeRanges = new ArrayList<>();
+    @Builder.Default
+    private List<@NotNull(message = "setRanges must not null") @Min(value = 1, message = "setRanges must >= 1") @Max(value = 255, message = "setRanges must <= 0xFF") Integer> setRanges = new ArrayList<>();
+    @Builder.Default
+    private List<@Valid DiyerStringEditRequest> strings = new ArrayList<>();
 
-    public Diyer toDiyerWithoutUser() {
-        Set<DiyerString> fullStrings = (strings == null) ? new HashSet<>()
-                : strings.stream().map(DiyerStringRequest::toDiyerString).collect(Collectors.toSet());
-
-        return Diyer.builder().name(name)
-                .codeRanges(codeRanges != null ? codeRanges : new HashSet<>())
-                .setRanges(setRanges != null ? setRanges : new HashSet<>())
-                .strings(fullStrings).build();
+    public Diyer toDiyer(String trimName) {
+        return Diyer.builder().name(trimName).cdbId(cdbId).userId(userId).codeRanges(codeRanges).setRanges(setRanges)
+                .build();
     }
 }

@@ -4,19 +4,15 @@ import com.whenmo.model.database.domain.*;
 import com.whenmo.model.database.request.*;
 import com.whenmo.model.database.response.*;
 import com.whenmo.repository.database.UserRepository;
+import com.whenmo.service.RestServiceHelper;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.RequestBody;
-
 import java.util.List;
 
 @Service
-@Validated
 @RequiredArgsConstructor
 public class UserRestService {
 
@@ -29,30 +25,26 @@ public class UserRestService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
-        return userRepository.findAll().stream().map(UserResponse::fromModel).toList();
+        return userRepository.findAll().stream().map(UserResponse::fromUser).toList();
     }
 
     @Transactional(readOnly = true)
     public UserResponse getUserById(Integer id) {
-        return UserResponse.fromModel(getById(id));
+        return UserResponse.fromUser(getById(id));
     }
 
     @Transactional(readOnly = true)
     public UserResponse login(UserLoginRequest request) {
-        String name = request.getName() == null ? null : request.getName().trim();
-        if (name == null || name.isEmpty()) {
+        String name = RestServiceHelper.getValidTrimString(request.getName(), "用戶名稱或密碼錯誤");
+        String password = RestServiceHelper.getValidTrimString(request.getPassword(), "用戶名稱或密碼錯誤");
+
+        User user = userRepository.findByName(name).orElseThrow(() -> new IllegalArgumentException("用戶名稱或密碼錯誤"));
+
+        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("用戶名稱或密碼錯誤");
         }
 
-        User user = userRepository.findByName(name)
-                .orElseThrow(() -> new IllegalArgumentException("用戶名稱或密碼錯誤"));
-
-        if (request.getPassword() == null || request.getPassword().isEmpty() || user.getPasswordHash() == null
-                || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            throw new IllegalArgumentException("用戶名稱或密碼錯誤");
-        }
-
-        return UserResponse.fromModel(user);
+        return UserResponse.fromUser(user);
     }
 
     // ============================================================
@@ -60,24 +52,18 @@ public class UserRestService {
     // ============================================================
 
     @Transactional
-    public UserResponse createUser(@Valid @RequestBody UserCreateRequest request) {
-        String name = request.getName() == null ? null : request.getName().trim();
-        if (name == null || name.isEmpty()) {
-            throw new IllegalArgumentException("用戶名稱不可為空");
-        }
-        if (userRepository.existsByName(name)) {
-            throw new IllegalArgumentException("用戶名稱已存在: " + name);
-        }
+    public UserResponse createUser(UserCreateRequest request) {
+        String password = RestServiceHelper.getValidTrimString(request.getPassword(), "密碼不可為空");
 
-        // 檢查資料庫是否完全沒有用戶，若沒有則自動賦予管理員權限
+        String name = getValidUserrName(request.getName());
+
+        User user = request.toUser(name, passwordEncoder.encode(password));
+
         if (userRepository.count() == 0) {
-            request.setIsAdmin(true);
+            user.setIsAdmin(true);
         }
 
-        User user = request.toModel(passwordEncoder);
-        user.setName(name);
-
-        return UserResponse.fromModel(userRepository.save(user));
+        return UserResponse.fromUser(userRepository.save(user));
     }
 
     // ============================================================
@@ -85,52 +71,49 @@ public class UserRestService {
     // ============================================================
 
     @Transactional
-    public UserResponse updateUser(Integer id, UserUpdateRequest request) {
-        User user = getById(id);
+    public UserResponse updateUser(Integer userId, UserUpdateRequest request) {
+        User user = getById(userId);
 
-        String newName = request.getName();
-        if (newName != null && !user.getName().equals(newName)) {
-            if (userRepository.existsByName(newName)) {
-                throw new IllegalArgumentException("用戶名稱已存在: " + newName);
-            }
-        }
+        String name = null;
+        if (request.getName() != null && request.getName().equals(user.getName()))
+            name = getValidUserrName(request.getName());
 
-        request.updateModel(user, passwordEncoder);
-        return UserResponse.fromModel(userRepository.save(user));
+        String password = null;
+        if (request.getNewPassword() != null)
+            password = RestServiceHelper.getValidTrimString(request.getNewPassword(), "新密碼不可為空");
+
+        request.updateUser(user, name, password);
+        return UserResponse.fromUser(userRepository.save(user));
     }
 
     @Transactional
-    public UserResponse updateProfile(Integer id, UserProfileUpdateRequest request) {
-        User user = getById(id);
-        boolean changingName = request.getName() != null;
-        boolean changingPassword = request.getOldPassword() != null || request.getNewPassword() != null;
+    public UserResponse userUpdateInfo(Integer userId, UserUpdateInfoRequest request) {
+        User user = getById(userId);
 
-        if (changingName == changingPassword) {
-            throw new IllegalArgumentException("請一次只修改名稱或密碼");
+        String name = getValidUserrName(request.getName());
+        if (user.getName().equals(name))
+            throw new IllegalArgumentException("新名稱與舊名稱不能相同");
+
+        request.updateModel(user, name);
+        return UserResponse.fromUser(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserResponse userUpdatePassword(Integer userId, UserUpdatePasswordRequest request) {
+        User user = getById(userId);
+
+        String oldPassword = RestServiceHelper.getValidTrimString(request.getOldPassword(), "舊密碼不可為空");
+        String newPassword = RestServiceHelper.getValidTrimString(request.getNewPassword(), "新密碼不可為空");
+
+        if (oldPassword.equals(newPassword)) {
+            throw new IllegalArgumentException("新密碼與舊密碼不能相同");
+        } else if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("舊密碼錯誤");
         }
 
-        if (changingName) {
-            String newName = request.getName().trim();
-            if (newName.isEmpty()) {
-                throw new IllegalArgumentException("用戶名稱不可為空");
-            }
-            if (!user.getName().equals(newName) && userRepository.existsByName(newName)) {
-                throw new IllegalArgumentException("用戶名稱已存在: " + newName);
-            }
-            user.setName(newName);
-        } else {
-            String oldPassword = request.getOldPassword();
-            String newPassword = request.getNewPassword();
-            if (oldPassword == null || oldPassword.isEmpty() || newPassword == null || newPassword.isEmpty()) {
-                throw new IllegalArgumentException("舊密碼與新密碼不可為空");
-            }
-            if (user.getPasswordHash() == null || !passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-                throw new IllegalArgumentException("舊密碼錯誤");
-            }
-            user.setPasswordHash(passwordEncoder.encode(newPassword));
-        }
+        request.updateUser(user, passwordEncoder.encode(newPassword));
 
-        return UserResponse.fromModel(userRepository.save(user));
+        return UserResponse.fromUser(userRepository.save(user));
     }
 
     // ============================================================
@@ -138,15 +121,27 @@ public class UserRestService {
     // ============================================================
 
     @Transactional
-    public void deleteUser(Integer id) {
-        userRepository.delete(getById(id));
+    public void deleteUser(Integer userId) {
+        userRepository.delete(getById(userId));
     }
 
     // ============================================================
     // Helpers
     // ============================================================
 
-    public User getById(Integer id) {
-        return userRepository.findById(id).orElseThrow(() -> new RuntimeException("找不到對應的用戶ID: " + id));
+    private User getById(Integer userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new RuntimeException("找不到對應的用戶ID: " + userId));
     }
+
+    public String getNameById(Integer userId) {
+        return getById(userId).getName();
+    }
+
+    private String getValidUserrName(String name) {
+        String validName = RestServiceHelper.getValidTrimString(name, "用戶名稱不可為空");
+        if (userRepository.existsByName(validName))
+            throw new IllegalArgumentException("用戶名稱已存在: " + validName);
+        return validName;
+    }
+
 }

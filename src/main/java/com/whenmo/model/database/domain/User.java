@@ -26,8 +26,4 @@ public class User {
     @Column(name = "is_admin", nullable = false)
     @Builder.Default
     private Boolean isAdmin = false;
-
-    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
-    @ToString.Exclude
-    private Diyer diyer;
 }

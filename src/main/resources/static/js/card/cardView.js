@@ -53,7 +53,7 @@
     };
 
     // 格式化卡片效果文本並替換「」內的文字
-    const getFormattedDesc = (card, configId, onClickCallback) => {
+    const getFormattedDesc = (card, onClickCallback) => {
         if (!card?.desc) return '沒有效果文本。';
 
         const escaped = card.desc.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -67,7 +67,7 @@
                 return `「<a class="effect-href" onclick="window['${callbackName}'](event); return false;">${p1}</a>」`;
             }
 
-            const targetUrl = `/view/cards?cdb=${configId}&nameId=${encodeURIComponent(p1)}`;
+            const targetUrl = `/view/cards?nameId=${encodeURIComponent(p1)}`;
             return `「<a class="effect-href" href="${targetUrl}">${p1}</a>」`;
         });
     };
@@ -80,8 +80,7 @@
         cardSemiLimitUrl: 'https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_2.png'
     };
 
-    fetch('/api/config')
-        .then(response => response.ok ? response.json() : {})
+    window.useAppHelper().loadApplicationConfig()
         .then(config => {
             if (typeof config.fallback_unknown_card === 'string' && config.fallback_unknown_card.trim()) {
                 cardViewConfig.fallbackUnknownCard = config.fallback_unknown_card.trim();
@@ -97,13 +96,6 @@
             }
         })
         .catch(() => { });
-
-    const getCardUrl = (card) => {
-        const picCdn = typeof card?.picCdn === 'string' ? card.picCdn.trim() : '';
-        if (!picCdn || !card?.id) return null;
-
-        return `${picCdn}/${card.id}.jpg`;
-    };
 
     const getCardLimitUrl = (card, iflistMap) => {
         const status = window.APP_CONSTANTS?.getCardLimitStatus?.(card, iflistMap);
@@ -145,7 +137,6 @@
         getCardAttributeRace,
         formatAtkDefValue,
         getCardAtkDef,
-        getCardUrl,
         getCardLimitUrl,
         getCardUrlError,
         getCardInfoRowTwo,

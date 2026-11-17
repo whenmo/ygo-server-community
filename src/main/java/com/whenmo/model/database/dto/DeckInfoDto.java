@@ -2,11 +2,9 @@ package com.whenmo.model.database.dto;
 
 import java.time.LocalDateTime;
 
-import com.whenmo.model.database.domain.UserDeck;
+import com.whenmo.model.database.domain.Deck;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 @Data
 @Builder
@@ -14,14 +12,18 @@ import lombok.Data;
 public class DeckInfoDto {
     private Integer id;
     private String name;
-    private String packName;
     private Boolean isPublic;
+    private Boolean isFavor;
     private LocalDateTime updatedAt;
 
-    public static DeckInfoDto fromModel(UserDeck model) {
-        if (model == null)
+    public static DeckInfoDto fromDeck(Deck deck) {
+        if (deck == null)
             return null;
-        return DeckInfoDto.builder().id(model.getId()).name(model.getName()).packName(model.getPackName())
-                .isPublic(model.getIsPublic()).updatedAt(model.getUpdatedAt()).build();
+        return new DeckInfoDto(
+                deck.getId(),
+                deck.getName(),
+                deck.getIsPublic(),
+                deck.getIsFavor(),
+                deck.getUpdatedAt());
     }
 }

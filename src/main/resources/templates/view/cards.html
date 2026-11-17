@@ -11,16 +11,16 @@
     <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
     <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
 
-    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
-    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
-    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
-    <!-- <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script> -->
+    <script th:src="@{/js/api/appHelper.js}" src="/js/api/appHelper.js"></script>
+    <script th:src="@{/js/api/cdbConfigHelper.js}" src="/js/api/cdbConfigHelper.js"></script>
+    <script th:src="@{/js/api/cdbHelper.js}" src="/js/api/cdbHelper.js"></script>
 
-    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
-    <script th:src="@{/js/helper/configHelper.js}" src="/js/helper/configHelper.js"></script>
-    <script th:src="@{/js/helper/cdbcardHelper.js}" src="/js/helper/cdbcardHelper.js"></script>
-    <script th:src="@{/js/helper/stringsHelper.js}" src="/js/helper/stringsHelper.js"></script>
-    <script th:src="@{/js/helper/lflistHelper.js}" src="/js/helper/lflistHelper.js"></script>
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
+
     <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
@@ -139,7 +139,7 @@
 </head>
 
 <body>
-    <div th:replace="~{fragments/layout :: navbar}"></div>
+    <div th:replace="~{fragments/layout :: navbar('card')}"></div>
 
     <div id="app" class="two-column-layout-container">
         <!-- 卡片篩選 -->
@@ -162,10 +162,9 @@
                 <div class="aside-long-row">
                     <p class="aside-long-row-title">禁限</p>
                     <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                    <select v-else v-model="selectedIflistVersion" @change="handleIflistVersionChange"
-                        class="module-select">
+                    <select v-else v-model="usedLflistKey" @change="handleLflistVerChange" class="module-select">
                         <option value="">N/A</option>
-                        <option v-for="item in iflistVers" :key="item.key" :value="item.key">{{ item.version }}</option>
+                        <option v-for="item in allLflist" :key="item.key" :value="item.key">{{ item.ver }}</option>
                     </select>
                 </div>
 
@@ -186,8 +185,8 @@
                     <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
                         <legend>狀態</legend>
                         <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                        <select v-else v-model.number="selectedIflistIndex" class="module-select"
-                            :disabled="!selectedIflistVersion">
+                        <select v-else v-model.number="selectedLflistStatus" class="module-select"
+                            :disabled="!usedLflistKey">
                             <option value="0">N/A</option>
                             <option value="4">無限制</option>
                             <option value="3">準限制</option>
@@ -556,9 +555,9 @@
                     <div class="cards-grid">
                         <a v-for="card in pagedCards" :key="card.cdbId + ':' + card.id" class="card-item"
                             :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank">
-                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="card-limit-badge"
-                                :src="getCardLimitUrl(card, currentIflistMap)">
-                            <img v-if="getCardUrl(card)" class="card-item-image" :src="getCardUrl(card)"
+                            <img v-if="getCardLimitUrl(card, currentLflistMap)" class="card-limit-badge"
+                                :src="getCardLimitUrl(card, currentLflistMap)">
+                            <img v-if="card.picCdn" class="card-item-image" :src="card.picCdn"
                                 :alt="card.name || '卡片圖片'" @error="getCardUrlError">
                             <div class="card-item-body">
                                 <span class="card-item-name" :title="card.name || '未命名卡片'">
@@ -658,16 +657,14 @@
                     linkMode: 0
                 });
 
-                const iflistVers = ref([]);
-                const selectedIflistVersion = ref('');
-                const selectedIflistIndex = ref(0);
-                const currentIflistMap = ref({});
-                const defaultSetnameCatalog = ref([]);
+                const allLflist = ref([]);
+                const usedLflistKey = ref('');
+                const currentLflistMap = ref({});
+                const selectedLflistStatus = ref(0);
 
-                const { loadAllConfigs } = window.useConfigHelper();
-                const { loadAllCards } = window.useCdbCardHelper();
-                const { loadAllStrings, loadStringsByConfig, loadDefaultSetnames } = window.useStringsHelper();
-                const { loadAllLflists } = window.useLflistHelper(ref({}), ref(''), ref({}));
+                // 透過 Helper 載入資料
+                const { loadAllConfigs } = useCdbConfigHelper();
+                const { loadAllCards, loadAllStrings, loadStringsByConfig, loadDefaultSetnames, loadAllLflists } = useCdbHelper();
                 const isAllCdb = computed(() => String(selectedCdbId.value) === ALL_CDB_ID);
 
                 // 使用 usePageHelper 簡化分頁邏輯 (預設每頁 30 張)
@@ -717,6 +714,7 @@
                 const options = reactive({
                     rule: initialRules,
                     setname: [],
+                    fullSetname: [],
                     defaultSetname: [],
                     typeMain: mapToOptions(TYPE_MAIN, TYPE_CN),
                     typeMonster: mapToOptions(TYPE_MONSTER, TYPE_CN),
@@ -762,117 +760,23 @@
                     defMax: ''
                 });
 
-                const fetchCardInfo = async (key, endpoint) => {
-                    loading[key] = true;
-                    try {
-                        const response = { data: [] };
-                        options[key] = response.data;
-                        if (key === 'defaultSetname') {
-                            defaultSetnameCatalog.value = response.data.map(item => ({ ...item, active: false }));
-                        }
-                    } catch (error) {
-                        console.error(`讀取 [${key}] 失敗：`, error);
-                    } finally {
-                        loading[key] = false;
-                    }
-                };
-
-                const fetchSetnamesByCdb = async (configId) => {
-                    loading.setname = true;
-                    try {
-                        const response = isAllCdb.value
-                            ? await loadAllStrings()
-                            : await loadStringsByConfig(configId);
-                        const data = response.setnames || [];
-                        options.setname = data.map(item => ({
-                            ...item,
-                            active: false
-                        }));
-                        options.defaultSetname = isAllCdb.value
-                            ? []
-                            : defaultSetnameCatalog.value.map(item => ({ ...item, active: false }));
-                    } catch (error) {
-                        console.error('讀取字段清單失敗：', error);
-                        options.setname = [];
-                        options.defaultSetname = isAllCdb.value ? [] : defaultSetnameCatalog.value.map(item => ({ ...item, active: false }));
-                    } finally {
-                        loading.setname = false;
-                    }
-                };
-
-                const fetchIflistVersions = async () => {
-                    loading.iflist = true;
-                    try {
-                        const lflists = await loadAllLflists();
-                        iflistVers.value = (Array.isArray(lflists) ? lflists : []).map((item, index) => ({
-                            ...item,
-                            key: `${item.cdbId}:${item.version}:${index}`
-                        }));
-                        if (iflistVers.value.length > 0) {
-                            if (!iflistVers.value.some(item => item.key === selectedIflistVersion.value)) {
-                                selectedIflistVersion.value = iflistVers.value[0].key;
-                            }
-                            await fetchBanlistByVersion(selectedIflistVersion.value);
-                        } else {
-                            selectedIflistVersion.value = '';
-                            selectedIflistIndex.value = 0;
-                            currentIflistMap.value = {};
-                        }
-                    } catch (error) {
-                        iflistVers.value = [];
-                        currentIflistMap.value = {};
-                    } finally {
-                        loading.iflist = false;
-                    }
-                };
-
-                const fetchBanlistByVersion = async (index) => {
-                    if (!index) {
-                        selectedIflistIndex.value = 0;
-                        currentIflistMap.value = {};
-                        return;
-                    }
-                    const lflist = iflistVers.value.find(item => item.key === index);
-                    if (!lflist) {
-                        currentIflistMap.value = {};
-                        return;
-                    }
-                    currentIflistMap.value = {
-                        0: (lflist.forbiddenIds || []).map(id => ({ id })),
-                        1: (lflist.limitIds || []).map(id => ({ id })),
-                        2: (lflist.semiLimitIds || []).map(id => ({ id }))
-                    };
-                };
-
-                const handleIflistVersionChange = async () => {
-                    await fetchBanlistByVersion(selectedIflistVersion.value);
+                const handleLflistVerChange = async () => {
+                    await setCurrentLflistMap()
                     handleSearch();
                 };
 
-                const fetchCdbConfigs = async () => {
-                    loading.cdb = true;
-                    try {
-                        cdbConfigs.value = await loadAllConfigs();
-
-                        const params = new URLSearchParams(window.location.search);
-                        const urlCdb = params.get('cdb');
-                        if (urlCdb === ALL_CDB_ID) {
-                            selectedCdbId.value = ALL_CDB_ID;
-                        } else if (urlCdb && cdbConfigs.value.some(item => String(item.id) === String(urlCdb))) {
-                            selectedCdbId.value = isNaN(urlCdb) ? urlCdb : Number(urlCdb);
-                        } else if (cdbConfigs.value.length > 0) {
-                            selectedCdbId.value = ALL_CDB_ID;
-                        }
-
-                        if (selectedCdbId.value) {
-                            await fetchSetnamesByCdb(selectedCdbId.value);
-                        }
-
-                    } catch (error) {
-                        console.error('取得數據庫清單失敗：', error);
-                    } finally {
-                        loading.cdb = false;
+                const setCurrentLflistMap = async () => {
+                    const key = usedLflistKey.value
+                    if (!key) {
+                        currentLflistMap.value = {};
+                        return;
                     }
+                    const currentLflist = allLflist.value.find(item => item.key === key);
+                    if (!currentLflist) {
+                        currentLflistMap.value = {};
+                        return;
+                    }
+                    currentLflistMap.value = currentLflist.lflist || {};
                 };
 
                 const cacheCdb = async () => {
@@ -888,7 +792,7 @@
                 };
 
                 const handleCdbChange = async () => {
-                    await fetchSetnamesByCdb(selectedCdbId.value);
+                    await fetchSetnames();
                     await handleSearch();
                 };
 
@@ -916,8 +820,8 @@
                         cdbId: currentCdbId,
                         ruleIndex: rIndex,
                         ruleCode: rIndex < 2 ? rIndex : options.rule[rIndex - 2]?.code,
-                        iflistVersion: selectedIflistVersion.value,
-                        iflistStatus: selectedIflistIndex.value,
+                        lflistVer: usedLflistKey.value,
+                        lflistStatus: selectedLflistStatus.value,
                         linkMarker: linkMarkers.value.filter(i => i.active).map(i => i.code).reduce((acc, code) => acc | code, 0),
                         category: options.category.filter(i => i.active).map(i => BigInt(i.code)).reduce((acc, code) => acc | code, 0n),
                         level: options.level.filter(i => i.active).reduce((acc, item) => acc | (1 << (item.code - 1)), 0),
@@ -981,7 +885,7 @@
                         params.set('sets', selectedFilter.sets.join(','));
                     }
 
-                    if (selectedFilter.iflistVersion) params.set('iflistVer', selectedFilter.iflistVersion);
+                    if (selectedFilter.lflistVer) params.set('lflistVer', selectedFilter.lflistVer);
 
                     let searchMode = (selectedFilter.setMode ? 1 : 0);
                     searchMode |= (selectedFilter.typMode ? 1 : 0) << 1;
@@ -989,7 +893,7 @@
 
                     let sf = BigInt(selectedFilter.ruleIndex ?? 0); // ruleIndex 0 ~ 3 (2 bits)
                     sf |= BigInt(searchMode) << 3n; // searchMode 3 ~ 5 (3 bits)
-                    sf |= BigInt(selectedFilter.iflistStatus ?? 0) << 6n; // iflistStatus 6 ~ 8 (3 bits)
+                    sf |= BigInt(selectedFilter.lflistStatus ?? 0) << 6n; // iflistStatus 6 ~ 8 (3 bits)
                     sf |= BigInt(selectedFilter.typeMain ?? 0) << 9n; // typeMain 9 ~ 11 (3 bits)
                     sf |= BigInt(compressBits(selectedFilter.typeMonster, MASK_TYPE_MONSTER)) << 12n; // typeMonster 12 ~ 27 (16 bits)
                     sf |= BigInt(compressBits(selectedFilter.typeSpellTrap, MASK_TYPE_SPELL_TRAP)) << 28n; // typeSpellTrap 28 ~ 34 (7 bits)
@@ -1061,8 +965,8 @@
                         }
                     }
 
-                    const urlIfVer = params.get('iflistVer');
-                    if (urlIfVer) selectedIflistVersion.value = urlIfVer;
+                    const urlLfVer = params.get('lflistVer');
+                    if (urlLfVer) usedLflistKey.value = urlLfVer;
 
                     const sfRaw = params.get('sf');
                     if (sfRaw) {
@@ -1077,7 +981,7 @@
                             andModes.typMode = (searchMode >> 1) & 1;
                             andModes.linkMode = (searchMode >> 2) & 1;
 
-                            selectedIflistIndex.value = Number((sf >> 6n) & 0x7n);
+                            selectedLflistStatus.value = Number((sf >> 6n) & 0x7n);
 
                             applyMaskToList(options.typeMain, Number((sf >> 9n) & 0x7n));
 
@@ -1117,7 +1021,7 @@
 
                     const selectedFilter = getSelectedFilter();
 
-                    resultCards.value = MatcheFilterCards(cardGroups, selectedFilter, currentIflistMap.value);
+                    resultCards.value = MatcheFilterCards(cardGroups, selectedFilter, currentLflistMap.value);
 
                     hasSearched.value = true;
 
@@ -1154,7 +1058,7 @@
                             options[key].forEach(item => item.active = false);
                         }
                     });
-                    selectedIflistIndex.value = 0;
+                    selectedLflistStatus.value = 0;
                     handleSearch(true);
                 };
 
@@ -1165,25 +1069,123 @@
 
                 watch(currentPage, () => updateUrlParams(getSelectedFilter()));
 
+                const fetchCdbConfigs = async () => {
+                    loading.cdb = true;
+                    try {
+                        cdbConfigs.value = await loadAllConfigs();
+
+                        const params = new URLSearchParams(window.location.search);
+                        const urlCdb = params.get('cdb');
+                        if (urlCdb && cdbConfigs.value.some(item => String(item.id) === String(urlCdb))) {
+                            selectedCdbId.value = isNaN(urlCdb) ? urlCdb : Number(urlCdb);
+                        } else if (cdbConfigs.value.length > 0) {
+                            selectedCdbId.value = ALL_CDB_ID;
+                        }
+                        await fetchSetnames();
+                    } catch (error) {
+                        console.error('取得數據庫清單失敗：', error);
+                    } finally {
+                        loading.cdb = false;
+                    }
+                };
+
+                const fetchDefaultSetname = async () => {
+                    loading.defaultSetname = true;
+                    try {
+                        const data = await loadDefaultSetnames() || [];
+                        options.defaultSetname = data.map(item => ({ ...item, active: false }));
+                    } catch (error) {
+                        console.error('讀取預設字段清單失敗：', error);
+                        options.defaultSetname = [];
+                    } finally {
+                        loading.defaultSetname = false;
+                    }
+                };
+
+                const fetchSetnames = async () => {
+                    loading.setname = true;
+                    if (selectedCdbId.value === ALL_CDB_ID) {
+                        await fetchFullSetnames()
+                        options.setname = options.fullSetname.map(item => ({ ...item }));
+                    } else {
+                        await fetchCdbSetnames(selectedCdbId.value)
+                    }
+                    loading.setname = false;
+                };
+
+                const fetchFullSetnames = async () => {
+                    if (options.fullSetname.length > 0) return;
+                    try {
+                        const response = await loadAllStrings();
+                        const data = response.setnames || [];
+                        options.fullSetname = data.map(item => ({
+                            ...item,
+                            active: false
+                        }));
+                    } catch (error) {
+                        console.error('讀取組合字段清單失敗：', error);
+                        options.fullSetname = [];
+                    }
+                };
+
+                const fetchCdbSetnames = async (cdbId) => {
+                    try {
+                        const response = await loadStringsByConfig(cdbId);
+                        const data = response.setnames || [];
+                        options.setname = data.map(item => ({
+                            ...item,
+                            active: false
+                        }));
+                    } catch (error) {
+                        console.error('讀取字段清單失敗：', error);
+                        options.setname = [];
+                    }
+                };
+
+                const fetchAllIflist = async () => {
+                    loading.iflist = true;
+                    try {
+                        const allLflists = await loadAllLflists();
+                        allLflist.value = (Array.isArray(allLflists) ? allLflists : []).map((item, index) => ({
+                            key: `${item.cdbId}:${item.version}:${index}`,
+                            ver: item.version,
+                            lflist: item
+                        }));
+
+                        if (allLflist.value.length > 0) {
+                            usedLflistKey.value = allLflist.value[0].key;
+                            currentLflistMap.value = allLflist.value[0].lflist || {};
+                        } else {
+                            usedLflistKey.value = '';
+                            currentLflistMap.value = {};
+                        }
+                    } catch (error) {
+                        allLflist.value = [];
+                        currentLflistMap.value = {};
+                    } finally {
+                        loading.iflist = false;
+                    }
+                };
+
                 onMounted(async () => {
                     window.addEventListener('resize', updateCardNameOverflow);
                     await Promise.all([
                         fetchCdbConfigs(),
-                        loadDefaultSetnames().then(data => {
-                            defaultSetnameCatalog.value = data.map(item => ({ ...item, active: false }));
-                        })
+                        fetchDefaultSetname(),
                     ]);
 
+                    await fetchAllIflist();
+
                     loadFiltersFromUrl();
-                    await fetchSetnamesByCdb(selectedCdbId.value);
-                    await fetchIflistVersions();
+                    await fetchSetnames();
+                    loadFiltersFromUrl();
                     await handleSearch(false);
                 });
 
                 return {
                     ALL_CDB_ID,
                     isAllCdb,
-                    currentIflistMap,
+                    currentLflistMap,
                     isType,
                     frameStates,
                     selectedRuleIndex,
@@ -1198,7 +1200,6 @@
                     pageSize,
                     currentPage,
                     totalPages,
-                    getCardUrl,
                     getCardUrlError,
                     previousPage,
                     nextPage,
@@ -1212,10 +1213,10 @@
                     andModes,
                     filteredSetnames,
                     filteredDefaultSetnames,
-                    iflistVers,
-                    selectedIflistVersion,
-                    selectedIflistIndex,
-                    handleIflistVersionChange,
+                    allLflist,
+                    usedLflistKey,
+                    selectedLflistStatus,
+                    handleLflistVerChange,
                     toggleFrame,
                     toggleItem,
                     handleCdbChange,

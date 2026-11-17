@@ -3,30 +3,47 @@
 
 <body>
     <!-- 頂部導覽列 Header Fragment -->
-    <header th:fragment="navbar" class="site-navbar">
+    <header class="site-navbar" th:fragment="navbar(activeTab)">
         <!-- Logo / Title 區塊 -->
         <a class="nav-home" th:href="@{/}" href="/">
             <span class="home-text" th:text="${serverCommunityName}">YGO社區</span>
         </a>
 
-        <!-- 導覽連結與登入狀態判定 -->
+        <!-- 中間核心導覽連結 -->
+        <ul class="nav-links">
+            <li><a th:href="@{/view/cdbs}" href="/view/cdbs"
+                    th:classappend="${activeTab == 'cdb'} ? 'nav-active' : ''">數據庫狀態</a></li>
+            <li><a th:href="@{/view/cards}" href="/view/cards"
+                    th:classappend="${activeTab == 'card'} ? 'nav-active' : ''">卡片搜索</a></li>
+            <li><a th:href="@{/view/decks}" href="/view/decks"
+                    th:classappend="${activeTab == 'deck'} ? 'nav-active' : ''">公開卡組</a></li>
+        </ul>
+
+        <!-- 右側用戶與管理員區塊 -->
         <ul class="nav-links">
             <!-- 1. 已登入狀態 -->
             <th:block th:if="${currentUser != null and !#strings.isEmpty(currentUser)}">
-                <li><a th:href="@{/view/cdbs}" href="/view/cdbs">數據庫狀態</a></li>
-                <li><a th:href="@{/view/cards}" href="/view/cards">卡片搜索</a></li>
-                <li><a th:href="@{/view/decks}" href="/view/decks">公開卡組</a></li>
-                <li><a th:href="@{/personal/profile}" href="/personal/profile">個人主頁</a></li>
+                <li><a th:href="@{/personal/profile}" href="/personal/profile"
+                        th:classappend="${activeTab == 'profile'} ? 'nav-active' : ''">個人主頁</a></li>
+
+                <!-- 管理員專屬下拉選單 -->
                 <th:block th:if="${isAdmin != null and isAdmin}">
-                    <li><a th:href="@{/admin/cdb}" href="/admin/cdb">管理員後台</a></li>
+                    <li class="admin-dropdown-container" style="position: relative;">
+                        <a id="adminMenuBtn" href="javascript:void(0);"
+                            th:classappend="${activeTab == 'admin'} ? 'nav-active' : ''">管理員後台</a>
+
+                        <!-- 下拉面板 -->
+                        <div id="adminDropdownPanel" class="nav-menu">
+                            <a th:href="@{/admin/cdb}" href="/admin/cdb">數據庫配置</a>
+                            <a th:href="@{/admin/user}" href="/admin/user">用戶配置</a>
+                            <a th:href="@{/admin/diyer}" href="/admin/diyer">作者配置</a>
+                        </div>
+                    </li>
                 </th:block>
             </th:block>
 
             <!-- 2. 未登入狀態 -->
             <th:block th:unless="${currentUser != null and !#strings.isEmpty(currentUser)}">
-                <li><a th:href="@{/view/cdbs}" href="/view/cdbs">數據庫狀態</a></li>
-                <li><a th:href="@{/view/cards}" href="/view/cards">卡片搜索</a></li>
-                <li><a th:href="@{/view/decks}" href="/view/decks">公開卡組</a></li>
                 <li><a th:href="@{/auth/login}" href="/auth/login" class="nav-btn">登入</a></li>
             </th:block>
         </ul>

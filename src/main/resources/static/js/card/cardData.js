@@ -84,7 +84,7 @@
     };
 
     // 複合狀態檢查
-    const MatcheFilterCards = (cards, selectedFilter, iflistMap = {}) => {
+    const MatcheFilterCards = (cards, selectedFilter, lflistMap = {}) => {
         // 1. 統一對 selectedFilter 進行預先格式化與預設值補齊
         let ruleIndex = Number(selectedFilter.ruleIndex || 0);
         let ruleCode = Number(selectedFilter.ruleCode || 0);
@@ -96,7 +96,7 @@
             linkMode: Number(selectedFilter.linkMode || 0),
             category: BigInt(selectedFilter.category || 0n),
             ruleCode: ruleCode,
-            iflistStatus: Number(selectedFilter.iflistStatus || 0),
+            lflistStatus: Number(selectedFilter.lflistStatus || 0),
             typMode: Number(selectedFilter.typMode || 0),
             typeMain: Number(selectedFilter.typeMain || 0),
             typeMonster: Number(selectedFilter.typeMonster || 0),
@@ -113,8 +113,12 @@
             defMax: formatAtkDefValue(selectedFilter.defMax)
         };
 
-        // 2. 確保 iflistMap 一定是物件，避免後續重複判斷
-        const normalizedIflist = (iflistMap && typeof iflistMap === 'object') ? iflistMap : {};
+        // 2. 確保 lflistMap 一定是物件，避免後續重複判斷
+        const normalizedIflist = {
+            forbiddenIds: new Set(lflistMap?.forbiddenIds || []),
+            limitIds: new Set(lflistMap?.limitIds || []),
+            semiLimitIds: new Set(lflistMap?.semiLimitIds || [])
+        };
 
         // 3. 執行扁平化、過濾與排序
         return cards.flat().filter(card => cardMatchesFilter(card, normalizedFilter, normalizedIflist)).sort(sortCards);
@@ -131,7 +135,7 @@
         return null;
     }
 
-    const cardMatchesFilter = (card, selectedFilter, iflistMap) => {
+    const cardMatchesFilter = (card, selectedFilter, lflistMap) => {
         const cardType = Number(card.type || 0);
 
         let matchNameOrId = true;
@@ -172,7 +176,7 @@
 
         return matchNameOrId && matchEffect && matchCategory && matchLinkMarker
             && isRule(card, selectedFilter.ruleCode)
-            && matchIflist(card, selectedFilter.iflistStatus, iflistMap)
+            && matchLflist(card, selectedFilter.lflistStatus, lflistMap)
             && matchBitmask(card.type, selectedFilter.typeMain)
             && matchTypeMonster(cardType, selectedFilter.typeMonster, selectedFilter.typMode)
             && matchTypeSpellTrap(cardType, selectedFilter.typeSpellTrap)
@@ -185,21 +189,19 @@
             && matchSetcode(card, selectedFilter);
     };
 
-    const matchIflist = (card, iflistStatus, iflistMap) => {
-        if (iflistStatus === 0 || Object.keys(iflistMap).length === 0) return true;
+    const matchLflist = (card, lflistStatus, lflistMap) => {
+        if (lflistStatus === 0) return true;
 
         const cid = Number(card?.id);
-        const targetCount = iflistStatus - 1; // 1->0(禁止), 2->1(限制), 3->2(準限制), 4->3(無限制)
-        if (targetCount === 3) {
-            for (const items of Object.values(iflistMap)) {
-                if (Array.isArray(items) && items.some(item => Number(item.id) === cid)) {
-                    return false;
-                }
-            }
-            return true;
+        const targetCount = lflistStatus - 1; // 1->0(禁止), 2->1(限制), 3->2(準限制), 4->3(無限制)
+        if (targetCount === 0) {
+            return lflistMap.forbiddenIds.has(cid);
+        } else if (targetCount === 1) {
+            return lflistMap.limitIds.has(cid);
+        } else if (targetCount === 2) {
+            return lflistMap.semiLimitIds.has(cid);
         }
-        const items = iflistMap[targetCount] || iflistMap[String(targetCount)];
-        return Array.isArray(items) && items.some(item => Number(item.id) === cid);
+        return not(lflistMap.forbiddenIds.has(cid) || lflistMap.limitIds.has(cid) || lflistMap.semiLimitIds.has(cid));
     };
 
     const matchTypeMonster = (cardType, selectedMask, typMode = 0) => {

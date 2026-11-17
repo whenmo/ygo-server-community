@@ -4,13 +4,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.whenmo.model.database.domain.CdbConfig;
 
-import java.util.List;
-import java.util.Optional;
-
 public interface CdbConfigRepository extends JpaRepository<CdbConfig, Integer> {
-    List<CdbConfig> findByNameContaining(String name);
+
+    boolean existsByName(String name);
 
     boolean existsByFilePath(String filePath);
-
-    Optional<CdbConfig> findByFilePath(String filePath);
 }

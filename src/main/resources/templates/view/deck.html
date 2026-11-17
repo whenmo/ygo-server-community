@@ -11,17 +11,21 @@
     <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
     <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
 
-    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
-    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
-    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
+    <script th:src="@{/js/api/appHelper.js}" src="/js/api/appHelper.js"></script>
+    <script th:src="@{/js/api/deckHelper.js}" src="/js/api/deckHelper.js"></script>
+    <script th:src="@{/js/api/cdbConfigHelper.js}" src="/js/api/cdbConfigHelper.js"></script>
+    <script th:src="@{/js/api/cdbHelper.js}" src="/js/api/cdbHelper.js"></script>
+
+    <!-- <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script> -->
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
 
     <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
-    <script th:src="@{/js/helper/configHelper.js}" src="/js/helper/configHelper.js"></script>
-    <script th:src="@{/js/helper/cdbcardHelper.js}" src="/js/helper/cdbcardHelper.js"></script>
-    <script th:src="@{/js/helper/stringsHelper.js}" src="/js/helper/stringsHelper.js"></script>
-    <script th:src="@{/js/helper/lflistHelper.js}" src="/js/helper/lflistHelper.js"></script>
 
     <style>
         .deck-view-layout {
@@ -196,9 +200,9 @@
 </head>
 
 <body>
-    <div th:replace="~{fragments/layout :: navbar}"></div>
+    <div th:replace="~{fragments/layout :: navbar('deck')}"></div>
 
-    <div id="app" class="deck-view-layout" th:attr="data-user-id=${userId},data-deck-id=${deckId}">
+    <div id="app" class="deck-view-layout" th:attr="data-deck-id=${deckId},data-mode=${mode}">
         <!-- 左側：卡組資訊、CDB 與禁卡表設定 -->
         <aside class="aside-column">
             <p v-if="loading">載入中...</p>
@@ -207,12 +211,19 @@
 
                 <div class="aside-long-row">
                     <p class="aside-long-row-title">卡包</p>
-                    <p class="aside-long-row-label">{{ deck?.deckInfo?.packName || '未分類' }}</p>
+                    <p class="aside-long-row-label">{{ deck?.deckPack?.name || '未分類' }}</p>
                 </div>
 
                 <div class="aside-long-row">
                     <p class="aside-long-row-title">作者</p>
                     <p class="aside-long-row-label">{{ deck?.user?.name }}</p>
+                </div>
+
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">數量</p>
+                    <p v-if="isPackShow" class="aside-long-row-label">{{ packCards.length }}</p>
+                    <p v-else class="aside-long-row-label">{{ mainCards.length }}/{{ extraCards.length }}/{{
+                        sideCards.length }}</p>
                 </div>
 
                 <div class="aside-long-row">
@@ -231,9 +242,10 @@
 
                 <div class="aside-long-row">
                     <p class="aside-long-row-title">禁限</p>
-                    <select v-model="selectedIflistVersion" @change="handleIflistVersionChange" class="module-select">
+                    <select v-model="usedLflistKey" @change="handleLflistVerChange" class="module-select">
                         <option value="">N/A</option>
-                        <option v-for="ver in iflistVers" :key="ver.key" :value="ver.key">{{ ver.version }}</option>
+                        <option v-for="lflist in allLflist" :key="lflist.key" :value="lflist.key">{{ lflist.ver }}
+                        </option>
                     </select>
                 </div>
             </div>
@@ -248,61 +260,61 @@
         <main class="deck-view-deck-col">
             <p v-if="loading">卡組載入中...</p>
             <div v-else class="deck-view-scroll">
-                <div v-if="(packCards || []).length">
+                <div v-show="packCards.length">
                     <h3 class="deck-section-title">卡片列表（{{ packCards.length }}）</h3>
                     <div class="deck-section-cards">
                         <a v-for="(card, index) in packCards" :key="`pack-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank" rel="noopener"
                             @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(card, currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)"
-                                :alt="card.name" @error="getCardUrlError">
+                            <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
+                                alt="Limit">
+                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card?.picCdn" :alt="card.name"
+                                @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
                 </div>
 
-                <div v-if="(mainCards || []).length">
+                <div v-show="mainCards.length">
                     <h3 class="deck-section-title">主牌組（{{ mainCards.length }}）</h3>
                     <div class="deck-section-cards">
                         <a v-for="(card, index) in mainCards" :key="`main-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank" rel="noopener"
                             @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(card, currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)"
-                                :alt="card.name" @error="getCardUrlError">
+                            <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
+                                alt="Limit">
+                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
+                                @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
                 </div>
 
-                <div v-if="(extraCards || []).length">
+                <div v-show="extraCards.length">
                     <h3 class="deck-section-title">額外牌組（{{ extraCards.length }}）</h3>
                     <div class="deck-section-cards">
                         <a v-for="(card, index) in extraCards" :key="`extra-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank" rel="noopener"
                             @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(card, currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)"
-                                :alt="card.name" @error="getCardUrlError">
+                            <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
+                                alt="Limit">
+                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
+                                @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
                 </div>
 
-                <div v-if="(sideCards || []).length">
+                <div v-show="sideCards.length">
                     <h3 class="deck-section-title">副牌組（{{ sideCards.length }}）</h3>
                     <div class="deck-section-cards">
                         <a v-for="(card, index) in sideCards" :key="`side-${index}-${card.id}`" class="deck-card"
                             :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank" rel="noopener"
                             @mouseenter="hoverCard(card)">
-                            <img v-if="getCardLimitUrl(card, currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(card, currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(card)" style="object-fit: cover;" :src="getCardUrl(card)"
-                                :alt="card.name" @error="getCardUrlError">
+                            <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
+                                alt="Limit">
+                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
+                                @error="getCardUrlError">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
@@ -314,7 +326,7 @@
         <aside class="deck-view-card-col">
             <div v-if="hoveredCard"
                 style="display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0;">
-                <img v-if="getCardUrl(hoveredCard)" class="hover-card-image" :src="getCardUrl(hoveredCard)"
+                <img v-if="hoveredCard?.picCdn" class="hover-card-image" :src="hoveredCard.picCdn"
                     :alt="hoveredCard.name" @error="getCardUrlError">
                 <h4 class="hover-card-name">{{ hoveredCard.name }}[{{ hoveredCard.id }}]</h4>
                 <div class="hover-card-stats">
@@ -325,9 +337,7 @@
                     <span v-else-if="isType.Monster(hoveredCard)">{{ getLevelView(hoveredCard) }}</span>
                     <span v-if="isType.Monster(hoveredCard)">{{ getCardAtkDef(hoveredCard) }}</span>
                 </div>
-                <div class="hover-card-setcodes" v-if="hoverCardSetCodes.length">
-                    字段 : {{ hoverCardSetCodes.map(item => item.name).join(' | ') }}
-                </div>
+                <div class="hover-card-setcodes" v-if="hoverCardSetCodes">字段 : {{ hoverCardSetCodes }}</div>
                 <p class="hover-card-desc" v-html="hoveredCardDesc"></p>
             </div>
         </aside>
@@ -341,7 +351,6 @@
                     isType,
                     getCardLimitStatus,
                     getCardLimitUrl,
-                    getCardUrl,
                     getCardUrlError,
                     getTypesView,
                     getPendulumView,
@@ -352,40 +361,35 @@
                 } = window.APP_CONSTANTS;
 
                 const root = document.getElementById('app');
-                const userId = root.dataset.userId;
                 const deckId = root.dataset.deckId;
+                const mode = root.dataset.mode;
+
                 const deck = ref(null);
                 const packCards = ref([]);
                 const mainCards = ref([]);
                 const extraCards = ref([]);
                 const sideCards = ref([]);
                 const isPackShow = ref(false);
-                const cardsById = ref(new Map());
 
                 const loading = ref(true);
                 const errorMessage = ref('');
                 const hoveredCard = ref(null);
 
                 const cdbConfigs = ref([]);
-                const selectedCdbId = ref(null);
-                const iflistVers = ref([]);
-                const selectedIflistVersion = ref('');
-                const currentIflistMap = ref({});
 
-                const setnamesByCdb = ref(new Map());
-                const defaultSetnames = ref([]);
+                const allLflist = ref([]);
+                const usedLflistKey = ref('');
+                const currentLflistMap = ref({});
 
-                const { loadAllConfigs } = window.useConfigHelper();
-                const { loadAllCards } = window.useCdbCardHelper();
-                const { loadStringsByConfig, loadDefaultSetnames } = window.useStringsHelper();
-                const lflistsByCdb = ref({});
-                const { loadAllLflists } = window.useLflistHelper(
-                    lflistsByCdb, selectedIflistVersion, currentIflistMap
-                );
+                const allSetnameMap = ref(new Map());
 
+                const { getPublicDeck, getMineDeck, downloadPublicDeck, downloadMineDeck } = useDeckHelper();
+
+                const { loadAllConfigs } = useCdbConfigHelper();
+                const { findCardById, loadAllStrings, loadAllLflists } = useCdbHelper();
+
+                // info column
                 const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
-
-                const hoverCard = (card) => hoveredCard.value = card || null;
 
                 const deckCheckIssues = computed(() => {
                     if (isPackShow.value) return [];
@@ -407,9 +411,9 @@
                         cardCounts.set(id, (cardCounts.get(id) || 0) + 1);
                     });
 
-                    if (Object.keys(currentIflistMap.value || {}).length > 0) {
+                    if (Object.keys(currentLflistMap.value || {}).length > 0) {
                         [...mainCards.value, ...extraCards.value, ...sideCards.value].forEach(card => {
-                            const status = getCardLimitStatus(card, currentIflistMap.value);
+                            const status = getCardLimitStatus(card, currentLflistMap.value);
                             const count = cardCounts.get(Number(card.id)) || 0;
                             if (count > status) issues.push(`${card.id} 數量錯誤 ${count}/${status}`);
                         });
@@ -422,161 +426,131 @@
                     return [...new Set(issues)];
                 });
 
+                const exportYdk = async () => {
+                    try {
+                        const blob = mode === 'private' ? await downloadMineDeck(deckId) : await downloadPublicDeck(deckId);
+                        const fileName = `${deck.value?.deckInfo?.name || 'deck'}.ydk`;
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fileName;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    } catch (error) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: '下載失敗',
+                            text: '無法順利下載 .ydk 檔案'
+                        });
+                    }
+                };
+
+                const getLflistByKey = async (key) => {
+                    if (!key) {
+                        currentLflistMap.value = {};
+                        return;
+                    }
+                    const currentLflist = allLflist.value.find(item => item.key === key);
+                    if (!currentLflist) {
+                        currentLflistMap.value = {};
+                        return;
+                    }
+                    currentLflistMap.value = currentLflist.lflist || {};
+                };
+
+                const handleLflistVerChange = async () => await getLflistByKey(usedLflistKey.value);
+
+                // hover column
+                const hoverCard = (card) => hoveredCard.value = card || null;
+
                 const hoveredCardDesc = computed(() => {
                     if (!hoveredCard.value) return '';
-                    const cdbId = hoveredCard.value.cdbId || hoveredCard.value.databaseId || selectedCdbId.value;
+                    const cdbId = hoveredCard.value.cdbId;
                     return getFormattedDesc(hoveredCard.value, cdbId);
                 });
 
                 const hoverCardSetCodes = computed(() => {
-                    if (!hoveredCard.value) return [];
+                    if (!hoveredCard.value) return "";
                     const rawSetcodes = Array.isArray(hoveredCard.value?.setcode) ? hoveredCard.value.setcode : [];
-                    if (rawSetcodes.length === 0) return [];
-
-                    const cdbId = hoveredCard.value.cdbId || hoveredCard.value.databaseId || selectedCdbId.value;
-                    const cdbSetnames = setnamesByCdb.value.get(Number(cdbId)) || [];
-
-                    const setnameMap = new Map();
-                    [...defaultSetnames.value, ...cdbSetnames].forEach(item => {
-                        setnameMap.set(Number(item.code), item.name);
-                    });
+                    if (rawSetcodes.length === 0) return "";
 
                     return rawSetcodes.map(code => {
                         const numericCode = Number(code);
-                        const name = setnameMap.get(numericCode);
-                        return {
-                            code: code,
-                            name: name || `0x${numericCode.toString(16)}`
-                        };
-                    });
+                        return allSetnameMap.value.get(numericCode) || `0x${numericCode.toString(16)}`;
+                    }).join(' | ');
                 });
 
-                const resolveCards = (ids) => ids.map((id) => cardsById.value.get(Number(id)) || {
-                    id: Number(id),
-                    cdbId: selectedCdbId.value,
-                    name: `未知卡片 ${id}`
-                });
+                const getLimitIcon = (card) => getCardLimitUrl(card, currentLflistMap);
 
-                const exportYdk = () => window.location.href = `/api/decks/${userId}/${deckId}/download`;
-
-                const loadCardsFromAllCdbsLegacy = async () => {
-                    cdbConfigs.value = await loadAllConfigs();
-                    if (cdbConfigs.value.length === 0) throw new Error('目前沒有可用的卡片資料庫');
-
-                    selectedCdbId.value = cdbConfigs.value[0].id;
-                    const cardMap = new Map();
-                    const tempSetnamesMap = new Map();
-
-                    try {
-                        defaultSetnames.value = await loadDefaultSetnames();
-                    } catch (e) {
-                        console.error('載入預設字段失敗：', e);
-                    }
-
-                    for (const config of cdbConfigs.value) {
-                        try {
-                            const response = await loadAllCards();
-                            const cardList = response.data;
-                            if (Array.isArray(cardList)) {
-                                cardList.forEach(card => {
-                                    cardMap.set(Number(card.id), {
-                                        ...card,
-                                        cdbId: config.id,
-                                        databaseId: config.id,
-                                        picCdn: config.picCdn
-                                    });
-                                });
-                            }
-
-                            const stringRes = await loadStringsByConfig(config.id);
-                            tempSetnamesMap.set(Number(config.id), stringRes?.setnames || []);
-                        } catch (e) {
-                            console.error(`讀取 CDB [${config.name}] 相關資料失敗：`, e);
-                        }
-                    }
-                    cardsById.value = cardMap;
-                    setnamesByCdb.value = tempSetnamesMap;
-                };
-
-                const loadCardsFromAllCdbs = async () => {
-                    cdbConfigs.value = await loadAllConfigs();
-                    if (cdbConfigs.value.length === 0) throw new Error('No CDB configurations available');
-                    selectedCdbId.value = cdbConfigs.value[0].id;
-
-                    const configMap = new Map(cdbConfigs.value.map(config => [String(config.id), config]));
-                    const cardMap = new Map();
-                    (await loadAllCards()).forEach(card => {
-                        const config = configMap.get(String(card.cdbId ?? card.databaseId));
-                        if (!config) return;
-                        cardMap.set(Number(card.id), {
-                            ...card, cdbId: config.id, databaseId: config.id, picCdn: config.picCdn
-                        });
+                // initial
+                const loadSetnameAndLflist = async () => {
+                    const allStrings = await loadAllStrings();
+                    const allSetnameList = Array.isArray(allStrings?.setnames) ? allStrings.setnames : [];
+                    allSetnameList.forEach(setname => {
+                        allSetnameMap.value.set(Number(setname.code), setname.name);
                     });
-                    defaultSetnames.value = await loadDefaultSetnames();
-                    const tempSetnamesMap = new Map();
-                    await Promise.all(cdbConfigs.value.map(async config => {
-                        const strings = await loadStringsByConfig(config.id);
-                        tempSetnamesMap.set(Number(config.id), strings?.setnames || []);
-                    }));
-                    cardsById.value = cardMap;
-                    setnamesByCdb.value = tempSetnamesMap;
-                };
 
-                const setCurrentIflist = (lflist) => {
-                    currentIflistMap.value = lflist || {};
-                };
-
-                const getIflistVersions = async () => {
                     const allLflists = await loadAllLflists();
-                    iflistVers.value = (Array.isArray(allLflists) ? allLflists : []).map((item, index) => ({
+                    allLflist.value = (Array.isArray(allLflists) ? allLflists : []).map((item, index) => ({
                         key: `${item.cdbId}:${item.version}:${index}`,
-                        cdbId: item.cdbId,
-                        version: item.version,
+                        ver: item.version,
                         lflist: item
                     }));
+
+                    if (allLflist.value.length > 0) {
+                        usedLflistKey.value = allLflist.value[0].key;
+                        currentLflistMap.value = allLflist.value[0].lflist || {};
+                    } else {
+                        usedLflistKey.value = '';
+                        currentLflistMap.value = {};
+                    }
                 };
 
-                const getIflistByVersion = async (versionKey) => {
-                    if (!versionKey) {
-                        setCurrentIflist(null);
-                        return null;
-                    }
-                    const selected = iflistVers.value.find(item => item.key === versionKey);
-                    if (selected) {
-                        setCurrentIflist(selected.lflist);
-                        return selected.lflist;
-                    }
-                    setCurrentIflist(null);
-                    return null;
-                };
+                const loadDeckCards = async (data) => {
+                    const cardsMap = new Map();
 
-                const handleIflistVersionChange = async () => {
-                    await getIflistByVersion(selectedIflistVersion.value);
+                    const resolveCards = async (ids) => {
+                        const resolved = [];
+                        for (const id of ids) {
+                            const cid = Number(id);
+                            if (cardsMap.has(cid)) {
+                                resolved.push(cardsMap.get(cid));
+                            } else {
+                                let card = null;
+                                try {
+                                    card = await findCardById(cid);
+                                } catch (e) {
+                                    console.error(`尋找卡片 ${cid} 失敗：`, e);
+                                }
+
+                                const cardData = card || {
+                                    id: cid,
+                                    name: `未知卡片 ${cid}`,
+                                    picCdn: null
+                                };
+                                cardsMap.set(cid, cardData);
+                                resolved.push(cardData);
+                            }
+                        }
+                        return resolved;
+                    };
+
+                    packCards.value = await resolveCards(data?.pack || []);
+                    mainCards.value = await resolveCards(data?.main || []);
+                    extraCards.value = await resolveCards(data?.extra || []);
+                    sideCards.value = await resolveCards(data?.side || []);
                 };
 
                 const loadDeck = async () => {
                     try {
-                        const response = await axios.get(`/api/decks/user/${userId}/${deckId}`);
-                        const data = response.data;
+                        const data = mode === 'private' ? await getMineDeck(deckId) : await getPublicDeck(deckId);
                         deck.value = data;
                         isPackShow.value = Array.isArray(data.pack) && data.pack.length > 0;
 
-                        await loadCardsFromAllCdbs();
-                        if (cdbConfigs.value.length > 0) {
-                            await getIflistVersions();
-                            if (iflistVers.value.length > 0) {
-                                selectedIflistVersion.value = iflistVers.value[0].key;
-                                await getIflistByVersion(selectedIflistVersion.value);
-                            } else {
-                                selectedIflistVersion.value = '';
-                                setCurrentIflist(null);
-                            }
-                        }
-
-                        packCards.value = resolveCards(data.pack || []);
-                        mainCards.value = resolveCards(data.main || []);
-                        extraCards.value = resolveCards(data.extra || []);
-                        sideCards.value = resolveCards(data.side || []);
+                        await loadSetnameAndLflist();
+                        await loadDeckCards(data);
                     } catch (error) {
                         errorMessage.value = error.response?.status === 404
                             ? '找不到此卡組，或卡組目前不公開。'
@@ -603,20 +577,25 @@
 
                 return {
                     deck,
+                    isPackShow,
                     packCards,
                     mainCards,
                     extraCards,
                     sideCards,
                     loading,
                     errorMessage,
+
+                    formatTime,
+                    allLflist,
+                    usedLflistKey,
+                    handleLflistVerChange,
+                    exportYdk,
+
                     hoveredCard,
                     hoveredCardDesc,
                     hoverCardSetCodes,
-                    isPackShow,
                     deckCheckIssues,
-                    getCardUrl,
                     getCardUrlError,
-                    formatTime,
                     hoverCard,
                     getTypesView,
                     getPendulumView,
@@ -624,15 +603,7 @@
                     getCardAtkDef,
                     getCardAttributeRace,
                     isType,
-                    cdbConfigs,
-                    selectedCdbId,
-                    iflistVers,
-                    selectedIflistVersion,
-                    handleIflistVersionChange,
-                    getCardLimitStatus,
-                    getCardLimitUrl,
-                    currentIflistMap,
-                    exportYdk
+                    getLimitIcon
                 };
             }
         }).mount('#app');

@@ -1,22 +1,43 @@
 package com.whenmo.model.database.dto;
 
+import com.whenmo.model.database.domain.Deck;
+import com.whenmo.model.database.domain.DeckPack;
+import com.whenmo.model.database.domain.Diyer;
 import com.whenmo.model.database.domain.User;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 @Data
 @Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class UserDto {
     private Integer id;
     private String name;
-    private Boolean isAdmin;
 
-    public static UserDto fromModel(User user) {
+    public static UserDto fromUser(User user) {
         if (user == null)
             return null;
+        return new UserDto(user.getId(), user.getName());
+    }
 
-        return UserDto.builder().id(user.getId()).name(user.getName()).isAdmin(user.getIsAdmin()).build();
+    public static UserDto fromDeckPack(DeckPack deckPack) {
+        if (deckPack == null)
+            return null;
+
+        return new UserDto(deckPack.getUserId(), deckPack.getUserName());
+    }
+
+    public static UserDto fromDeck(Deck deck) {
+        if (deck == null)
+            return null;
+
+        return new UserDto(deck.getUserId(), deck.getUserName());
+    }
+    
+    public static UserDto fromDiyer(Diyer diyer) {
+        if (diyer == null)
+            return null;
+
+        return new UserDto(diyer.getUserId(), diyer.getUserName());
     }
 }

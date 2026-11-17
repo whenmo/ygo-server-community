@@ -3,8 +3,9 @@ package com.whenmo.model.database.domain;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
+import org.hibernate.annotations.Formula;
 
 @Entity
 @Table(name = "diyers")
@@ -17,36 +18,39 @@ public class Diyer {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @EqualsAndHashCode.Include
     private Integer id;
 
-    @Column(name = "name", nullable = false, unique = true)
+    @Column(name = "name", nullable = false)
     private String name;
 
-    // ------------------------------------------------------------
-    // 一對一關聯：Diyer 對應 User (外鍵 user_id 在 diyers 表)
-    // ------------------------------------------------------------
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
-    private User user;
+    @Column(name = "cdb_id", updatable = false)
+    private Integer cdbId;
+
+    @Formula("(SELECT c.name FROM cdb_configs c WHERE c.id = cdb_id)")
+    private String cdbName;
+
+    @Column(name = "user_id")
+    private Integer userId;
+
+    @Formula("(SELECT u.name FROM users u WHERE u.id = user_id)")
+    private String userName;
 
     // 卡號區間 (diyer_code_ranges 1 ~ 2000)
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "diyer_code_ranges", joinColumns = @JoinColumn(name = "diyer_id", referencedColumnName = "id"))
     @Column(name = "code_range")
     @Builder.Default
-    private Set<Integer> codeRanges = new HashSet<>();
+    private List<Integer> codeRanges = new ArrayList<>();
 
     // 字段區間 (diyer_set_ranges, 1 ~ 255，即 0x01 ~ 0xFF)
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "diyer_set_ranges", joinColumns = @JoinColumn(name = "diyer_id", referencedColumnName = "id"))
     @Column(name = "set_range")
     @Builder.Default
-    private Set<Integer> setRanges = new HashSet<>();
+    private List<Integer> setRanges = new ArrayList<>();
 
     // 字段、指示物與特殊勝利共用 diyer_strings
-    @ElementCollection
-    @CollectionTable(name = "diyer_strings", joinColumns = @JoinColumn(name = "diyer_id", referencedColumnName = "id"))
+    @OneToMany(mappedBy = "diyer", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
-    private Set<DiyerString> strings = new HashSet<>();
+    private List<DiyerString> strings = new ArrayList<>();
 }
