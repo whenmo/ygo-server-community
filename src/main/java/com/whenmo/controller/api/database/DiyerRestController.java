@@ -74,11 +74,9 @@ public class DiyerRestController {
     public ResponseEntity<DiyerResponse> createDiyer(HttpServletRequest httpRequest,
             @Valid @RequestBody DiyerCreateRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         DiyerResponse diyer = diyerService.createDiyer(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(diyer);
@@ -97,11 +95,9 @@ public class DiyerRestController {
             @PathVariable Integer diyerId,
             @Valid @RequestBody DiyerUpdateRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         return ResponseEntity.ok(diyerService.updateDiyer(diyerId, request));
     }
@@ -117,11 +113,9 @@ public class DiyerRestController {
     @DeleteMapping("/id/{id}")
     public ResponseEntity<Void> deleteDiyer(HttpServletRequest httpRequest, @PathVariable Integer id) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         diyerService.deleteDiyer(id);
         return ResponseEntity.noContent().build();

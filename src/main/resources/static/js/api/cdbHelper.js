@@ -10,9 +10,9 @@ function useCdbHelper() {
         if (allCards) return allCards;
         if (cardLoadingPromise) return cardLoadingPromise;
 
-        cardLoadingPromise = axios.get('/api/cdb/card/all')
+        cardLoadingPromise = await axios.get('/api/cdb/card/all')
             .then(response => {
-                allCards = Array.isArray(response.data) ? response.data : [];
+                allCards = Array.isArray(response.data) ? [...response.data] : [];
                 return allCards;
             })
             .finally(() => {
@@ -37,7 +37,7 @@ function useCdbHelper() {
     /** 載入指定 CDB 的所有卡片 */
     const loadCardsByCdb = async (cdbId) => {
         const response = await axios.get(`/api/cdb/id/${cdbId}/card`);
-        return Array.isArray(response.data) ? response.data : [];
+        return Array.isArray(response.data) ? [...response.data] : [];
     };
 
     /** 刷新指定 cdbId 的卡片快取 */
@@ -62,7 +62,7 @@ function useCdbHelper() {
         lflistLoadingPromise = axios.get('/api/cdb/lflist/all')
             .then(response => {
                 const grouped = {};
-                const lflists = Array.isArray(response.data) ? response.data : [];
+                const lflists = Array.isArray(response.data) ? [...response.data] : [];
                 lflists.forEach(item => {
                     const key = String(item.cdbId);
                     if (!grouped[key]) grouped[key] = [];
@@ -92,7 +92,7 @@ function useCdbHelper() {
     /** 載入指定 CDB 的禁限卡表 */
     const loadLflistsByCdb = async (cdbId) => {
         const response = await axios.get(`/api/cdb/id/${cdbId}/lflist`);
-        return Array.isArray(response.data) ? response.data : [];
+        return Array.isArray(response.data) ? [...response.data] : [];
     };
 
     // ============================================================
@@ -149,7 +149,7 @@ function useCdbHelper() {
 
         defaultSetnamesPromise = axios.get('/api/cdb/strings/default')
             .then(response => {
-                defaultSetnames = Array.isArray(response.data?.setnames) ? response.data.setnames : [];
+                defaultSetnames = Array.isArray(response.data?.setnames) ? [...response.data.setnames] : [];
                 return defaultSetnames;
             })
             .finally(() => {

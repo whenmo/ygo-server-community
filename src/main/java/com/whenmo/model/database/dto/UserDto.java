@@ -1,9 +1,6 @@
 package com.whenmo.model.database.dto;
 
-import com.whenmo.model.database.domain.Deck;
-import com.whenmo.model.database.domain.DeckPack;
-import com.whenmo.model.database.domain.Diyer;
-import com.whenmo.model.database.domain.User;
+import com.whenmo.model.database.domain.*;
 import lombok.*;
 
 @Data
@@ -33,11 +30,18 @@ public class UserDto {
 
         return new UserDto(deck.getUserId(), deck.getUserName());
     }
-    
+
     public static UserDto fromDiyer(Diyer diyer) {
         if (diyer == null)
             return null;
 
         return new UserDto(diyer.getUserId(), diyer.getUserName());
+    }
+
+    public static UserDto fromBoard(Board board) {
+        if (board == null)
+            return null;
+
+        return new UserDto(board.getEditUserId(), board.getEditUserName());
     }
 }

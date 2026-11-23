@@ -11,7 +11,7 @@ function useDeckHelper() {
 
         publicDecksPromise = axios.get('/api/decks/public')
             .then(response => {
-                publicDecks = Array.isArray(response.data) ? response.data : [];
+                publicDecks = Array.isArray(response.data) ? [...response.data] : [];
                 return publicDecks;
             }).finally(() => {
                 publicDecksPromise = null;
@@ -27,7 +27,7 @@ function useDeckHelper() {
 
         mineDecksPromise = axios.get('/api/decks/mine')
             .then(response => {
-                mineDecks = Array.isArray(response.data) ? response.data : [];
+                mineDecks = Array.isArray(response.data) ? [...response.data] : [];
                 return mineDecks;
             }).finally(() => {
                 mineDecksPromise = null;
@@ -83,6 +83,53 @@ function useDeckHelper() {
         mineDecks = null;
     };
 
+    /**
+     * 讀取並解析傳入的 .ydk 檔案
+     * @param {File} file YDK 檔案物件
+     * @returns {Promise<Object>} 包含 main, extra, side, pack 的物件
+     */
+    const loadYdkFile = async (file) => {
+        const content = await file.text();
+        const lines = content.split(/\r?\n/);
+        let currentSection = 'pack';
+        const main = [];
+        const extra = [];
+        const side = [];
+        const pack = [];
+
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+
+            if (line.startsWith('#main')) {
+                currentSection = 'main';
+                continue;
+            } else if (line.startsWith('#extra')) {
+                currentSection = 'extra';
+                continue;
+            } else if (line.startsWith('!side') || line.startsWith('#side')) {
+                currentSection = 'side';
+                continue;
+            } else if (line.startsWith('#')) {
+                continue;
+            }
+
+            const cardId = Number(line);
+            if (isNaN(cardId) || cardId <= 0) continue;
+
+            if (currentSection === 'pack') {
+                pack.push(cardId);
+            } else if (currentSection === 'main') {
+                main.push(cardId);
+            } else if (currentSection === 'extra') {
+                extra.push(cardId);
+            } else if (currentSection === 'side') {
+                side.push(cardId);
+            }
+        }
+        return { main, extra, side, pack };
+    };
+
     return {
         loadPublicDecks,
         loadMineDecks,
@@ -92,7 +139,8 @@ function useDeckHelper() {
         downloadMineDeck,
         createDeck,
         updateDeck,
-        deleteDeck
+        deleteDeck,
+        loadYdkFile
     };
 }
 

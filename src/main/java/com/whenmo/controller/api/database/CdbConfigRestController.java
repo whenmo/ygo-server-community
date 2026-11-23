@@ -55,11 +55,9 @@ public class CdbConfigRestController {
     public ResponseEntity<CdbConfigResponse> createConfig(HttpServletRequest httpRequest,
             @Valid @RequestBody CdbConfigEditRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         CdbConfigResponse createdConfig = cdbConfigService.createConfig(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdConfig);
@@ -78,11 +76,9 @@ public class CdbConfigRestController {
             @PathVariable Integer cdbId,
             @RequestBody CdbConfigEditRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         return ResponseEntity.ok(cdbConfigService.updateConfig(cdbId, request));
     }
@@ -98,11 +94,9 @@ public class CdbConfigRestController {
     @DeleteMapping("/id/{id}")
     public ResponseEntity<Void> deleteConfig(HttpServletRequest httpRequest, @PathVariable Integer id) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         cdbConfigService.deleteConfig(id);
         return ResponseEntity.noContent().build();

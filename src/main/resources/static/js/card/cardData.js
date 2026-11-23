@@ -182,8 +182,8 @@
             && matchTypeSpellTrap(cardType, selectedFilter.typeSpellTrap)
             && matchBitmask(card.attribute, selectedFilter.attribute)
             && matchBitmask(card.race, selectedFilter.race)
-            && matchLvScale(card.level, selectedFilter.level)
-            && matchLvScale(card.scalePlus, selectedFilter.scale)
+            && matchLevel(card.level, selectedFilter.level)
+            && matchScale(card, selectedFilter.scale)
             && matchAtkDefPreprocessed(card, selectedFilter, 'atk')
             && matchAtkDefPreprocessed(card, selectedFilter, 'def')
             && matchSetcode(card, selectedFilter);
@@ -221,10 +221,16 @@
 
     const matchBitmask = (cardValue, filterValue) => filterValue === 0 || (filterValue & Number(cardValue || 0)) > 0;
 
-    const matchLvScale = (cardValue, filterValue) => {
+    const matchLevel = (cardValue, filterValue) => {
         if (!filterValue) return true;
         const cardVal = Number(cardValue || 0);
         return Boolean(cardVal && (filterValue & (1 << (cardVal - 1))));
+    };
+
+    const matchScale = (card, filterValue) => {
+        if (!filterValue) return true;
+        const scaleValue = card?.scale !== null && card?.scale !== undefined ? Number(card.scale) : Number(card?.scalePlus || 0) - 1;
+        return Number.isInteger(scaleValue) && scaleValue >= 0 && scaleValue <= 13 && Boolean(filterValue & (1 << scaleValue));
     };
 
     const matchAtkDefPreprocessed = (card, selectedFilter, property) => {

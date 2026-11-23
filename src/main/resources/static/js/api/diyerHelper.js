@@ -2,7 +2,7 @@ function useDiyerHelper() {
     /** 查詢所有作者 */
     const loadDiyers = async () => {
         const response = await axios.get('/api/diyers');
-        return Array.isArray(response.data) ? response.data : [];
+        return Array.isArray(response.data) ? [...response.data] : [];
     };
 
     /** 根據 ID 查詢作者 */
@@ -14,13 +14,13 @@ function useDiyerHelper() {
     /** 根據 cdbId 查詢作者列表 */
     const loadDiyersByCdbId = async (cdbId) => {
         const response = await axios.get(`/api/diyers/cdb/${cdbId}`);
-        return Array.isArray(response.data) ? response.data : [];
+        return Array.isArray(response.data) ? [...response.data] : [];
     };
 
     /** 根據 userId 查詢作者列表 */
     const loadDiyersByUserId = async (userId) => {
         const response = await axios.get(`/api/diyers/user/${userId}`);
-        return Array.isArray(response.data) ? response.data : [];
+        return Array.isArray(response.data) ? [...response.data] : [];
     };
 
     /** 新增作者 */

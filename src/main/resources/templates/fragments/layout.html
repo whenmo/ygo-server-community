@@ -11,6 +11,8 @@
 
         <!-- 中間核心導覽連結 -->
         <ul class="nav-links">
+            <li><a th:href="@{/view/boards}" href="/view/boards"
+                    th:classappend="${activeTab == 'board'} ? 'nav-active' : ''">公告</a></li>
             <li><a th:href="@{/view/cdbs}" href="/view/cdbs"
                     th:classappend="${activeTab == 'cdb'} ? 'nav-active' : ''">數據庫狀態</a></li>
             <li><a th:href="@{/view/cards}" href="/view/cards"
@@ -23,20 +25,29 @@
         <ul class="nav-links">
             <!-- 1. 已登入狀態 -->
             <th:block th:if="${currentUser != null and !#strings.isEmpty(currentUser)}">
-                <li><a th:href="@{/personal/profile}" href="/personal/profile"
-                        th:classappend="${activeTab == 'profile'} ? 'nav-active' : ''">個人主頁</a></li>
+                <li style="position: relative;">
+                    <a id="personalMenuBtn" href="javascript:void(0);"
+                        th:classappend="${activeTab == 'personal'} ? 'nav-active' : ''">個人主頁</a>
+
+                    <div id="personalDropdownPanel" class="nav-menu">
+                        <a th:href="@{/personal/profile}" href="/personal/profile">個人資料</a>
+                        <a th:href="@{/personal/decks}" href="/personal/decks">我的卡組</a>
+                        <a th:href="@{/auth/logout}" href="/auth/logout">登出</a>
+                    </div>
+                </li>
 
                 <!-- 管理員專屬下拉選單 -->
                 <th:block th:if="${isAdmin != null and isAdmin}">
-                    <li class="admin-dropdown-container" style="position: relative;">
+                    <li style="position: relative;">
                         <a id="adminMenuBtn" href="javascript:void(0);"
                             th:classappend="${activeTab == 'admin'} ? 'nav-active' : ''">管理員後台</a>
 
-                        <!-- 下拉面板 -->
                         <div id="adminDropdownPanel" class="nav-menu">
-                            <a th:href="@{/admin/cdb}" href="/admin/cdb">數據庫配置</a>
-                            <a th:href="@{/admin/user}" href="/admin/user">用戶配置</a>
-                            <a th:href="@{/admin/diyer}" href="/admin/diyer">作者配置</a>
+                            <a th:href="@{/admin/board}" href="/admin/board">公告管理</a>
+                            <a th:href="@{/admin/cdb}" href="/admin/cdb">數據庫管理</a>
+                            <a th:href="@{/admin/pack}" href="/admin/pack">公共卡包</a>
+                            <a th:href="@{/admin/user}" href="/admin/user">用戶管理</a>
+                            <a th:href="@{/admin/diyer}" href="/admin/diyer">作者管理</a>
                         </div>
                     </li>
                 </th:block>

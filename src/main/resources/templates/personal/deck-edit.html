@@ -12,20 +12,20 @@
     <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
     <link rel="stylesheet" th:href="@{/css/small_card_result.css}" href="/css/small_card_result.css">
 
-    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
-    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script th:src="@{/js/apiHelper/deckHelper.js}" src="/js/apiHelper/deckHelper.js"></script>
-    <script th:src="@{/js/apiHelper/deckPackHelper.js}" src="/js/apiHelper/deckPackHelper.js"></script>
+    <script th:src="@{/js/api/appHelper.js}" src="/js/api/appHelper.js"></script>
+    <script th:src="@{/js/api/cdbConfigHelper.js}" src="/js/api/cdbConfigHelper.js"></script>
+    <script th:src="@{/js/api/cdbHelper.js}" src="/js/api/cdbHelper.js"></script>
+    <script th:src="@{/js/api/deckHelper.js}" src="/js/api/deckHelper.js"></script>
+    <script th:src="@{/js/api/deckPackHelper.js}" src="/js/api/deckPackHelper.js"></script>
 
-    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
-    <script th:src="@{/js/helper/configHelper.js}" src="/js/helper/configHelper.js"></script>
-    <script th:src="@{/js/helper/cdbcardHelper.js}" src="/js/helper/cdbcardHelper.js"></script>
-    <script th:src="@{/js/helper/stringsHelper.js}" src="/js/helper/stringsHelper.js"></script>
-    <script th:src="@{/js/helper/lflistHelper.js}" src="/js/helper/lflistHelper.js"></script>
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
+
     <script th:src="@{/js/card/constants.js}" src="/js/card/constants.js"></script>
     <script th:src="@{/js/card/cardData.js}" src="/js/card/cardData.js"></script>
-    <script th:src="@{/js/apiHelper/applicationConfigHelper.js}" src="/js/apiHelper/applicationConfigHelper.js"></script>
     <script th:src="@{/js/card/cardView.js}" src="/js/card/cardView.js"></script>
 
     <style>
@@ -127,7 +127,10 @@
         }
 
         .hover-card-image {
-            object-fit: cover;
+            display: block;
+            width: 100%;
+            max-height: 45%;
+            object-fit: contain;
             flex-shrink: 0;
         }
 
@@ -240,15 +243,16 @@
 </head>
 
 <body>
-    <div th:replace="~{fragments/layout :: navbar}"></div>
+    <div th:replace="~{fragments/layout :: navbar('personal')}"></div>
 
-    <div id="editor-app" class="deck-edit-layout" th:attr="data-deck-id=${deckId},data-user-id=${userId}" @dragend="onDragEnd">
+    <div id="editor-app" class="deck-edit-layout" th:attr="data-deck-id=${deckId},data-user-id=${userId}"
+        @dragend="onDragEnd">
         <!-- 左側 -->
         <aside class="aside-column">
             <div class="aside-content">
                 <!-- 卡組設定 -->
                 <div class="collapsible-content" :class="{ collapsed: activeTab !== 'settings' }">
-                    <div class="collapsible-title" @click="switchTab('settings')">
+                    <div class="collapsible-title" @click="activeTab = 'settings'">
                         <span>卡組設定</span>
                         <span class="collapsible-icon">▼</span>
                     </div>
@@ -256,40 +260,41 @@
                         <!-- 卡組名稱 -->
                         <fieldset class="module-fieldset">
                             <legend>卡組名稱</legend>
-                            <input v-model.trim="deckName" class="module-input-clean" maxlength="80">
+                            <input v-model.trim="deckInfo.name" class="module-input-clean" maxlength="80">
                         </fieldset>
 
                         <!-- 卡包 -->
                         <div class="aside-long-row">
                             <p class="aside-long-row-title">卡包</p>
-                            <p v-if="loading.pack" class="span-hint-msg">載入中...</p>
-                            <p v-else-if="packs.length === 0" class="span-hint-msg">無卡包</p>
-                            <select v-else v-model="packId" class="module-select">
+                            <p v-if="!loaded.fullPacks" class="span-hint-msg">載入中...</p>
+                            <p v-else-if="cache.fullPacks.length === 0" class="span-hint-msg">無卡包</p>
+                            <select v-else v-model="deckInfo.packId" class="module-select" @change="handlePackChange">
                                 <option value="">未分類</option>
-                                <option v-for="pack in packs" :key="pack.id" :value="pack.id">{{ pack.name }}</option>
+                                <option v-for="pack in cache.fullPacks" :key="pack.id" :value="pack.id">{{ pack.name }}
+                                </option>
                             </select>
                         </div>
 
                         <div style="display: flex; gap: 10px;">
                             <!-- 公開 -->
-                            <button type="button" class="module-toggle" :class="{ active: isPublic }" style="flex: 1;"
-                                @click="isPublic = !isPublic">
+                            <button type="button" class="module-toggle" :class="{ active: deckInfo.isPublic }"
+                                style="flex: 1;" :disabled="selectedPackIsPublic" :title="selectedPackIsPublic ? '公共卡包中的卡組必須保持公開' : ''"
+                                @click="deckInfo.isPublic = !deckInfo.isPublic">
                                 <span class="module-toggle-status"></span>
-                                <span>設為公開</span>
-                                <input type="checkbox" v-model="isPublic" style="display:none;">
+                                <span style="font-weight: bold;">設為公開</span>
+                                <input type="checkbox" v-model="deckInfo.isPublic" style="display:none;">
                             </button>
 
                             <!-- 卡包展示 -->
-                            <button type="button" class="module-toggle" :class="{ active: isPackShow }" style="flex: 1;"
-                                @click="isPackShow = !isPackShow">
+                            <button type="button" class="module-toggle" :class="{ active: deckInfo.isPackShow }"
+                                style="flex: 1;" @click="togglePackShow">
                                 <span class="module-toggle-status"></span>
-                                <span>卡包展示</span>
-                                <input type="checkbox" v-model="isPackShow" style="display:none;">
+                                <span style="font-weight: bold;">卡包展示</span>
                             </button>
                         </div>
 
                         <!-- 讀取.ydk 與 重置按鈕 -->
-                        <fieldset v-if="!isPackShow" class="module-fieldset deck-check-fieldset">
+                        <fieldset v-if="!deckInfo.isPackShow" class="module-fieldset deck-check-fieldset">
                             <legend class="aside-long-row-title" style="margin: 0;">自動檢查</legend>
                             <p v-if="deckCheckIssues.length === 0" class="deck-check-result">合格</p>
                             <p v-else v-for="issue in deckCheckIssues" :key="issue" class="deck-check-issues">{{ issue
@@ -311,7 +316,7 @@
 
                 <!-- 卡片篩選 -->
                 <div class="collapsible-content" :class="{ collapsed: activeTab !== 'filter' }">
-                    <div class="collapsible-title" @click="switchTab('filter')">
+                    <div class="collapsible-title" @click="activeTab = 'filter'">
                         <span>卡片篩選</span>
                         <span class="collapsible-icon">▼</span>
                     </div>
@@ -319,11 +324,12 @@
                         <!-- 數據庫 -->
                         <div class="aside-long-row">
                             <p class="aside-long-row-title">數據庫</p>
-                            <p v-if="loading.cdb" class="span-hint-msg">載入中...</p>
-                            <p v-else-if="cdbConfigs.length === 0" class="span-hint-msg">無數據庫</p>
-                            <select v-else v-model="selectedCdbId" @change="handleCdbChange" class="module-select">
-                                <option :value="ALL_CDB_ID">N/A</option>
-                                <option v-for="item in cdbConfigs" :key="item.id" :value="item.id">{{ item.name }}
+                            <p v-if="!loaded.fullCdbs" class="span-hint-msg">載入中...</p>
+                            <p v-else-if="cache.fullCdbs.length === 0" class="span-hint-msg">無數據庫</p>
+                            <select v-else v-model.number="cardFilter.cdbId" @change="handleCdbChange"
+                                class="module-select">
+                                <option :value="0">N/A</option>
+                                <option v-for="item in cache.fullCdbs" :key="item.id" :value="item.id">{{ item.name }}
                                 </option>
                             </select>
                         </div>
@@ -331,11 +337,12 @@
                         <!-- 禁限版本 -->
                         <div class="aside-long-row">
                             <p class="aside-long-row-title">禁限</p>
-                            <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                            <select v-else v-model="selectedIflistVersion" @change="handleIflistVersionChange"
+                            <p v-if="!loaded.fullLflists" class="span-hint-msg">載入中...</p>
+                            <select v-else v-model="cardFilter.lflistKey" @change="handleLflistChange"
                                 class="module-select">
-                                <option value="">N/A</option>
-                                <option v-for="ver in iflistVers" :key="ver.key" :value="ver.key">{{ ver.version }}
+                                <option :value="LFLIST_VER_NA">N/A</option>
+                                <option v-for="ver in cache.fullLflists" :key="ver.key" :value="ver.key">{{ ver.version
+                                    }}
                                 </option>
                             </select>
                         </div>
@@ -344,10 +351,9 @@
                             <!-- 許可 -->
                             <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
                                 <legend>許可</legend>
-                                <p v-if="loading.rule" class="span-hint-msg">載入中...</p>
-                                <select v-else v-model.number="selectedRuleIndex" class="module-select">
+                                <select v-model.number="cardFilter.ruleIndex" class="module-select">
                                     <option :value="0">N/A</option>
-                                    <option v-for="(item, index) in options.rule" :key="item.code" :value="index + 2">
+                                    <option v-for="(item, index) in cache.fullRule" :key="item.code" :value="index + 2">
                                         {{ item.name }}
                                     </option>
                                     <option :value="1">其他</option>
@@ -357,9 +363,8 @@
                             <!-- 狀態 -->
                             <fieldset class="module-fieldset aside-fieldset" style="flex: 1;">
                                 <legend>狀態</legend>
-                                <p v-if="loading.iflist" class="span-hint-msg">載入中...</p>
-                                <select v-else v-model.number="selectedIflistIndex" class="module-select"
-                                    :disabled="!selectedIflistVersion">
+                                <select v-model.number="cardFilter.lflistStatus" class="module-select"
+                                    :disabled="cardFilter.lflistKey === LFLIST_VER_NA">
                                     <option value="0">N/A</option>
                                     <option value="4">無限制</option>
                                     <option value="3">準限制</option>
@@ -372,14 +377,14 @@
                         <!-- 卡名 / ID 搜尋 -->
                         <fieldset class="module-fieldset">
                             <legend>卡名 / ID</legend>
-                            <input v-model="filter.nameId" class="module-input-clean" style="padding: 5px;"
+                            <input v-model="cardFilter.nameId" class="module-input-clean" style="padding: 5px;"
                                 placeholder="卡名或 ID">
                         </fieldset>
 
                         <!-- 效果文本搜尋 -->
                         <fieldset class="module-fieldset">
                             <legend>效果文本</legend>
-                            <input v-model="filter.effect" class="module-input-clean" style="padding: 5px;"
+                            <input v-model="cardFilter.effect" class="module-input-clean" style="padding: 5px;"
                                 placeholder="效果文本">
                         </fieldset>
 
@@ -394,7 +399,7 @@
                                 <span class="toggle-icon">▼</span>
                             </div>
                             <div class="frame-content">
-                                <input v-model="setnameQuery" class="module-input-clean" placeholder="字段名稱"
+                                <input v-model="cardFilter.setnameQuery" class="module-input-clean" placeholder="字段名稱"
                                     style="width: 100%; padding: 5px; border-bottom: 1px solid var(--red-color);">
                                 <div class="collapsible-grid-2"
                                     style="border-bottom: 1px solid var(--red-color); padding-bottom: 5px;">
@@ -410,8 +415,7 @@
                                     </button>
                                 </div>
                                 <div class="collapsible-grid-2">
-                                    <p v-if="loading.setname" class="span-hint-msg">載入中...</p>
-                                    <button v-else type="button" v-for="item in filteredSetnames" :key="item.code"
+                                    <button type="button" v-for="item in filteredSetnames" :key="item.code"
                                         class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item, 'setname')">
                                         <span>{{ item.name }}</span>
@@ -421,7 +425,7 @@
                         </div>
 
                         <!-- 預設字段過濾器區塊 -->
-                        <div v-if="!isAllCdb" class="module-collapsible-frame"
+                        <div v-if="cardFilter.cdbId !== 0" class="module-collapsible-frame"
                             :class="{ collapsed: frameStates.defaultSetname }">
                             <div class="frame-header" @click="toggleFrame('defaultSetname')">
                                 <div>
@@ -431,7 +435,8 @@
                                 <span class="toggle-icon">▼</span>
                             </div>
                             <div class="frame-content">
-                                <input v-model="defaultSetnameQuery" class="module-input-clean" placeholder="字段名稱"
+                                <input v-model="cardFilter.defaultSetnameQuery" class="module-input-clean"
+                                    placeholder="字段名稱"
                                     style="width: 100%; padding: 5px; border-bottom: 1px solid var(--red-color);">
                                 <div class="collapsible-grid-2"
                                     style="border-bottom: 1px solid var(--red-color); padding-bottom: 5px;">
@@ -447,9 +452,8 @@
                                     </button>
                                 </div>
                                 <div class="collapsible-grid-2">
-                                    <p v-if="loading.defaultSetname" class="span-hint-msg">載入中...</p>
-                                    <button type="button" v-else v-for="item in filteredDefaultSetnames"
-                                        :key="item.code" class="module-toggle" :class="{ active: item.active }"
+                                    <button type="button" v-for="item in filteredDefaultSetnames" :key="item.code"
+                                        class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item, 'defaultSetname')">
                                         <span>{{ item.name }}</span>
                                     </button>
@@ -468,8 +472,7 @@
                             </div>
                             <div class="frame-content">
                                 <div class="collapsible-grid-3">
-                                    <p v-if="loading.typeMain" class="span-hint-msg">載入中...</p>
-                                    <button type="button" v-else v-for="item in options.typeMain" :key="item.code"
+                                    <button type="button" v-for="item in options.typeMain" :key="item.code"
                                         class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item)">
                                         <span>{{ item.name }}</span>
@@ -503,8 +506,7 @@
                                     </button>
                                 </div>
                                 <div class="collapsible-grid-3">
-                                    <p v-if="loading.typeMonster" class="span-hint-msg">載入中...</p>
-                                    <button type="button" v-else v-for="item in options.typeMonster" :key="item.code"
+                                    <button type="button" v-for="item in options.typeMonster" :key="item.code"
                                         class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item)">
                                         <span>{{ item.name }}</span>
@@ -524,8 +526,7 @@
                             </div>
                             <div class="frame-content">
                                 <div class="collapsible-grid-3">
-                                    <p v-if="loading.typeSpellTrap" class="span-hint-msg">載入中...</p>
-                                    <button type="button" v-else v-for="item in options.typeSpellTrap" :key="item.code"
+                                    <button type="button" v-for="item in options.typeSpellTrap" :key="item.code"
                                         class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item)">
                                         <span>{{ item.name }}</span>
@@ -545,8 +546,7 @@
                             </div>
                             <div class="frame-content">
                                 <div class="collapsible-grid-3">
-                                    <p v-if="loading.attribute" class="span-hint-msg">載入中...</p>
-                                    <button type="button" v-else v-for="item in options.attribute" :key="item.code"
+                                    <button type="button" v-for="item in options.attribute" :key="item.code"
                                         class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item)">
                                         <span>{{ item.name }}</span>
@@ -566,8 +566,7 @@
                             </div>
                             <div class="frame-content">
                                 <div class="collapsible-grid-2">
-                                    <p v-if="loading.race" class="span-hint-msg">載入中...</p>
-                                    <button type="button" v-else v-for="item in options.race" :key="item.code"
+                                    <button type="button" v-for="item in options.race" :key="item.code"
                                         class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item)">
                                         <span>{{ item.name }}</span>
@@ -676,20 +675,20 @@
                         <!-- ATK 輸入框 -->
                         <fieldset class="module-fieldset" style="flex-direction: row; align-items: center;">
                             <legend>ATK</legend>
-                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMin"
+                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="cardFilter.atkMin"
                                 class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
                             <span style="font-weight: bold;">~</span>
-                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.atkMax"
+                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="cardFilter.atkMax"
                                 class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
                         </fieldset>
 
                         <!-- DEF 輸入框 -->
                         <fieldset class="module-fieldset" style="flex-direction: row; align-items: center;">
                             <legend>DEF</legend>
-                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMin"
+                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="cardFilter.defMin"
                                 class="module-input-clean" placeholder="最小值" style="flex: 1; width: 100%;">
                             <span style="font-weight: bold;">~</span>
-                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="filter.defMax"
+                            <input oninput="this.value=this.value.replace(/[^0-9?]/g,'')" v-model="cardFilter.defMax"
                                 class="module-input-clean" placeholder="最大值" style="flex: 1; width: 100%;">
                         </fieldset>
 
@@ -704,8 +703,7 @@
                             </div>
                             <div class="frame-content">
                                 <div class="collapsible-grid-2">
-                                    <p v-if="loading.category" class="span-hint-msg">載入中...</p>
-                                    <button type="button" v-else v-for="item in options.category" :key="item.code"
+                                    <button type="button" v-for="item in options.category" :key="item.code"
                                         class="module-toggle" :class="{ active: item.active }"
                                         @click.prevent="toggleItem(item)">
                                         <span>{{ item.name }}</span>
@@ -721,44 +719,44 @@
             <div class="aside-footer" style="flex-shrink: 0;">
                 <div v-show="activeTab === 'settings'" style="display: flex; flex-direction: column; gap: 5px;">
                     <div style="display: flex; gap: 5px;">
-                        <button v-if="lastData" type="button" class="module-btn gray-btn" style="flex: 1;"
+                        <button v-if="deckData" type="button" class="module-btn gray-btn" style="flex: 1;"
                             @click="deleteDeck">刪除卡組</button>
-                        <button v-if="lastData" type="button" class="module-btn gray-btn" style="flex: 1;"
+                        <button v-if="deckData" type="button" class="module-btn gray-btn" style="flex: 1;"
                             @click="resetToOrigin">重置卡組</button>
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        <button type="button" class="module-btn" style="flex: 1;" @click="sortDeck">排序卡組</button>
                         <button type="button" class="module-btn gray-btn" @click="clearDeck">清空卡組</button>
+                        <button type="button" class="module-btn" style="flex: 1;" @click="sortDeck">排序卡組</button>
                     </div>
                     <div style="display: flex; gap: 5px;">
-                        <button type="button" class="module-btn" style="flex: 1;" @click="saveDeck">儲存卡組</button>
                         <button type="button" class="module-btn gray-btn" @click="discardChanges">放棄修改</button>
+                        <button type="button" class="module-btn" style="flex: 1;" @click="saveDeck">儲存卡組</button>
                     </div>
                 </div>
                 <div v-show="activeTab === 'filter'" style="display: flex; gap: 5px;">
-                    <button type="button" @click="handleSearch(true)" class="module-btn" style="flex: 1;">搜尋</button>
                     <button type="button" @click="resetFilter" class="module-btn"
                         style="background: var(--gray-hover); border-color: var(--gray-hover);">重置</button>
+                    <button type="button" @click="handleSearch(true)" class="module-btn" style="flex: 1;">搜尋</button>
                 </div>
             </div>
         </aside>
 
         <!-- 中間：牌組卡片列表 -->
         <main class="deck-edit-deck-col">
-            <p v-if="loading.page">卡組載入中...</p>
-            <div v-else class="deck-view-scroll">
+            <div class="deck-view-scroll">
                 <!-- 若啟用卡包展示，只顯示 pack 區塊 -->
-                <fieldset class="deck-view-fieldset" v-if="isPackShow" @dragover.prevent @drop="onDrop($event, 'pack')">
-                    <legend>卡包列表（{{ packCards.length }} / 90）</legend>
+                <fieldset class="deck-view-fieldset" v-if="deckInfo.isPackShow" @dragover.prevent
+                    @drop="onDrop($event, 'pack')">
+                    <legend>卡包列表（{{ deckSections.pack.length }} / 90）</legend>
                     <div class="deck-section-cards">
-                        <div v-for="(cardId, index) in packCards" :key="`pack-${index}-${cardId}`" class="deck-card"
-                            draggable="true" @dragstart="onDragStart($event, cardId, 'pack')"
+                        <div v-for="(cardId, index) in deckSections.pack" :key="`pack-${index}-${cardId}`"
+                            class="deck-card" draggable="true" @dragstart="onDragStart($event, cardId, 'pack')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('pack', cardId)">
-                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;"
-                                :src="getCardUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
+                                :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
+                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
+                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
@@ -766,7 +764,7 @@
                 </fieldset>
 
                 <!-- 否則顯示標準 main / extra / side 區塊 -->
-                <fieldset class="deck-view-fieldset" v-if="!isPackShow" @dragover.prevent
+                <fieldset class="deck-view-fieldset" v-if="!deckInfo.isPackShow" @dragover.prevent
                     @drop="onDrop($event, 'main')">
                     <legend>主牌組（{{ deckSections.main.length }} / 60）</legend>
                     <div class="deck-section-cards">
@@ -774,17 +772,17 @@
                             class="deck-card" draggable="true" @dragstart="onDragStart($event, cardId, 'main')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('main', cardId)">
-                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;"
-                                :src="getCardUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
+                                :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
+                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
+                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
                     </div>
                 </fieldset>
 
-                <fieldset class="deck-view-fieldset" v-if="!isPackShow" @dragover.prevent
+                <fieldset class="deck-view-fieldset" v-if="!deckInfo.isPackShow" @dragover.prevent
                     @drop="onDrop($event, 'extra')">
                     <legend>額外牌組（{{ deckSections.extra.length }} / 15）</legend>
                     <div class="deck-section-cards">
@@ -792,17 +790,17 @@
                             class="deck-card" draggable="true" @dragstart="onDragStart($event, cardId, 'extra')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('extra', cardId)">
-                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;"
-                                :src="getCardUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
+                                :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
+                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
+                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
                     </div>
                 </fieldset>
 
-                <fieldset class="deck-view-fieldset" v-if="!isPackShow" @dragover.prevent
+                <fieldset class="deck-view-fieldset" v-if="!deckInfo.isPackShow" @dragover.prevent
                     @drop="onDrop($event, 'side')">
                     <legend>副牌組（{{ deckSections.side.length }} / 15）</legend>
                     <div class="deck-section-cards">
@@ -810,10 +808,10 @@
                             class="deck-card" draggable="true" @dragstart="onDragStart($event, cardId, 'side')"
                             @mouseenter="hoverCard(findCard(cardId))" @click="smartAddCard(cardId)"
                             @contextmenu.prevent="removeCard('side', cardId)">
-                            <img v-if="getCardLimitUrl(findCard(cardId), currentIflistMap)" class="deck-card-limit"
-                                :src="getCardLimitUrl(findCard(cardId), currentIflistMap)" alt="Limit">
-                            <img v-if="getCardUrl(findCard(cardId))" style="object-fit: cover;"
-                                :src="getCardUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                            <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
+                                :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
+                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
+                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
                                 @error="getCardUrlError">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
@@ -824,10 +822,9 @@
 
         <!-- 懸停卡片 -->
         <aside class="deck-edit-card-col">
-            <div v-if="hoveredCard"
-                style="display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0;">
-                <img v-if="getCardUrl(hoveredCard)" class="hover-card-image" :src="getCardUrl(hoveredCard)"
-                    :alt="hoveredCard.name" @error="getCardUrlError">
+            <div v-if="hoveredCard" style="display: flex; flex-direction: column; gap: 10px; height: 100%;">
+                <img v-if="hoveredCard?.picCdn" class="hover-card-image" :src="hoveredCard.picCdn"
+                    :alt="hoveredCard.name" @error="getCardUrlError" :data-original-src="hoveredCard.picCdn">
                 <h4 class="hover-card-name">{{ hoveredCard.name }}[{{ hoveredCard.id }}]</h4>
                 <div class="hover-card-stats">
                     <span>{{ getTypesView(hoveredCard) }}</span>
@@ -837,8 +834,8 @@
                     <span v-else-if="isType.Monster(hoveredCard)">{{ getLevelView(hoveredCard) }}</span>
                     <span v-if="isType.Monster(hoveredCard)">{{ getCardAtkDef(hoveredCard) }}</span>
                 </div>
-                <div class="hover-card-setcodes" v-if="hoverCardSetCodes.length">
-                    字段 : {{ hoverCardSetCodes.map(item => item.name).join(' | ') }}
+                <div class="hover-card-setcodes" v-if="hoverCardSetCodes">
+                    字段 : {{ hoverCardSetCodes }}
                 </div>
                 <p class="hover-card-desc" v-html="hoveredCardDesc"></p>
             </div>
@@ -861,11 +858,11 @@
                         @click="smartAddCard(cardItem.id)">
 
                         <!-- 禁限圖標 -->
-                        <img v-if="getCardLimitUrl(cardItem, currentIflistMap)" class="small-card-result-limit"
-                            :src="getCardLimitUrl(cardItem, currentIflistMap)" alt="Limit Status">
+                        <img v-if="getCardLimitUrl(cardItem, currentLflist)" class="small-card-result-limit"
+                            :src="getCardLimitUrl(cardItem, currentLflist)" alt="Limit Status">
 
                         <!-- 卡片圖片 -->
-                        <img v-if="getCardUrl(cardItem)" class="small-card-result-image" :src="getCardUrl(cardItem)"
+                        <img v-if="cardItem?.picCdn" class="small-card-result-image" :src="cardItem.picCdn"
                             @error="getCardUrlError">
 
                         <!-- 卡片詳細資訊 -->
@@ -893,7 +890,7 @@
     </div>
 
     <script>
-        const { createApp, ref, reactive, computed, onMounted, watch, nextTick } = Vue;
+        const { createApp, ref, reactive, computed, onMounted } = Vue;
 
         const classicalSwal = Swal.mixin({
             customClass: { popup: 'swal-popup', title: 'swal-title' },
@@ -908,7 +905,6 @@
                     TYPE_MAIN,
                     TYPE_MONSTER,
                     TYPE_SPELL_TRAP,
-                    TYPE,
                     TYPE_CN,
                     ATTRIBUTE,
                     ATTRIBUTE_CN,
@@ -918,9 +914,7 @@
                     CATEGORY_CN,
                     LINK,
                     sortCards,
-                    isRule,
                     isType,
-                    isSetCard,
                     getCardLimitStatus,
                     getCardLimitUrl,
                     MatcheFilterCards,
@@ -929,7 +923,6 @@
                     getLevelView,
                     getPendulumView,
                     getTypesView,
-                    getCardUrl,
                     getCardUrlError
                 } = window.APP_CONSTANTS;
 
@@ -937,41 +930,142 @@
                 const rawDeckId = root.dataset.deckId;
                 const deckId = (rawDeckId && rawDeckId !== '' && rawDeckId !== 'null') ? Number(rawDeckId) : null;
                 const userId = Number(root.dataset.userId);
-                const { getMineDeck, createDeck, updateDeck, deleteDeck: deleteDeckRequest } = window.useDeckHelper();
+                const { getMineDeck, createDeck, updateDeck, deleteDeck: deleteDeckRequest, loadYdkFile } = window.useDeckHelper();
                 const { loadPublicDeckPacks, loadUserDeckPacks } = window.useDeckPackHelper();
+                const { loadAllConfigs } = window.useCdbConfigHelper();
+                const {
+                    loadAllCards,
+                    loadAllStrings,
+                    loadStringsByConfig,
+                    loadDefaultSetnames,
+                    loadAllLflists,
+                    LFLIST_VER_NA
+                } = window.useCdbHelper();
 
-                const loading = reactive({
-                    page: true,
-                    cdb: true,
-                    rule: false,
-                    setname: false,
-                    defaultSetname: false,
-                    typeMain: false,
-                    typeMonster: false,
-                    typeSpellTrap: false,
-                    attribute: false,
-                    race: false,
-                    category: false,
-                    iflist: false,
-                    pack: false
+                const cache = reactive({
+                    fullPacks: [],
+                    fullCdbs: [],
+                    fullSetnames: [],
+                    fullSetnamesMap: new Map(),
+                    defaultSetnames: [],
+                    fullLflists: [],
+                    fullCards: [],
+                    fullCardsMap: new Map(),
+                    fullRule: Object.entries(RULE || {}).map(([key, code]) => ({
+                        code: code,
+                        name: RULE_CN?.[code] || key
+                    })),
                 });
 
-                const loadError = ref('');
-                const deckName = ref('');
-                const packId = ref('');
-                const isPublic = ref(false);
-                const isPackShow = ref(false);
-                const packCards = ref([]);
-                const packs = ref([]);
-                const ALL_CDB_ID = '__ALL__';
-                const cdbConfigs = ref([]);
-                const selectedCdbId = ref(null);
-                const isAllCdb = computed(() => String(selectedCdbId.value) === ALL_CDB_ID);
-                const hoveredCard = ref(null);
+                const loaded = reactive({
+                    fullPacks: false,
+                    fullCdbs: false,
+                    fullLflists: false
+                });
+
+                // 卡組信息
+                const deckInfo = reactive({
+                    name: '',
+                    packId: null,
+                    isPublic: false,
+                    isPackShow: false,
+                });
+                const selectedPackIsPublic = computed(() => {
+                    const selectedPackId = Number(deckInfo.packId);
+                    return cache.fullPacks.some(pack => Number(pack.id) === selectedPackId && pack.isPublic);
+                });
+                const handlePackChange = () => {
+                    if (selectedPackIsPublic.value) deckInfo.isPublic = true;
+                };
                 const zoneLimits = { main: 60, extra: 15, side: 15, pack: 90 };
+                const deckSections = reactive({ main: [], extra: [], side: [], pack: [] });
 
-                const lastData = ref(null);
+                const deckData = ref(null);
 
+                const mapToOptions = (obj, cnObj) => Object.entries(obj || {}).map(([key, code]) => ({
+                    code: code,
+                    name: cnObj?.[code] || key,
+                    active: false
+                }));
+
+                // 可多選選項
+                const options = reactive({
+                    setname: [],
+                    defaultSetname: [],
+                    typeMain: mapToOptions(TYPE_MAIN, TYPE_CN),
+                    typeMonster: mapToOptions(TYPE_MONSTER, TYPE_CN),
+                    typeSpellTrap: mapToOptions(TYPE_SPELL_TRAP, TYPE_CN),
+                    attribute: mapToOptions(ATTRIBUTE, ATTRIBUTE_CN),
+                    race: mapToOptions(RACE, RACE_CN),
+                    level: Array.from({ length: 13 }, (_, i) => ({ code: i + 1, name: String(i + 1), active: false })),
+                    scale: Array.from({ length: 14 }, (_, i) => ({ code: i, name: String(i), active: false })),
+                    category: mapToOptions(CATEGORY, CATEGORY_CN)
+                });
+
+                const linkMarkers = ref([
+                    { active: false, code: LINK.BOTTOM_LEFT },
+                    { active: false, code: LINK.BOTTOM },
+                    { active: false, code: LINK.BOTTOM_RIGHT },
+                    { active: false, code: LINK.LEFT },
+                    { active: false, code: LINK.RIGHT },
+                    { active: false, code: LINK.TOP_LEFT },
+                    { active: false, code: LINK.TOP },
+                    { active: false, code: LINK.TOP_RIGHT }
+                ]);
+
+                // 卡片搜索
+                const cardFilter = reactive({
+                    cdbId: 0,
+                    lflistKey: LFLIST_VER_NA,
+                    ruleIndex: 0,
+                    lflistStatus: 0,
+                    nameId: '',
+                    effect: '',
+                    setnameQuery: '',
+                    defaultSetnameQuery: '',
+                    atkMin: '',
+                    atkMax: '',
+                    defMin: '',
+                    defMax: ''
+                });
+
+                const andModes = reactive({ setMode: 0, typMode: 0, linkMode: 0 });
+
+                // 當前選擇數據庫 id
+                const currentCdbId = computed(() => {
+                    const id = Number(cardFilter.cdbId);
+                    if (!id || id === 0) return null;
+                    return cache.fullCdbs.find(item => Number(item.id) === id)?.id ?? null;
+                });
+
+                // 當前選擇禁卡表
+                const currentLflist = computed(() => {
+                    const key = cardFilter.lflistKey;
+                    if (key === LFLIST_VER_NA) return {};
+                    return cache.fullLflists.find(item => item.key === key) || {};
+                });
+
+                // 當前顯示字段
+                const filteredSetnames = computed(() => {
+                    const query = cardFilter.setnameQuery.trim().toLowerCase();
+                    return options.setname.filter(item => {
+                        if (item.active) return true;
+                        if (!query) return true;
+                        return item.name.toLowerCase().includes(query);
+                    });
+                });
+
+                // 當前顯示預設字段
+                const filteredDefaultSetnames = computed(() => {
+                    const query = cardFilter.defaultSetnameQuery.trim().toLowerCase();
+                    return options.defaultSetname.filter(item => {
+                        if (item.active) return true;
+                        if (!query) return true;
+                        return item.name.toLowerCase().includes(query);
+                    });
+                });
+
+                const hoveredCard = ref(null);
                 const resultCards = ref([]);
 
                 const {
@@ -986,11 +1080,8 @@
                     validatePage
                 } = usePageHelper(resultCards, 20);
 
+                // 控件顯示控制
                 const activeTab = ref('settings');
-                const switchTab = (tab) => {
-                    activeTab.value = tab;
-                };
-
                 const frameStates = reactive({
                     setname: true,
                     defaultSetname: true,
@@ -1004,91 +1095,8 @@
                     category: true
                 });
 
-                const selectedRuleIndex = ref(0);
-                const linkMarkers = ref([
-                    { active: false, code: LINK.BOTTOM_LEFT },
-                    { active: false, code: LINK.BOTTOM },
-                    { active: false, code: LINK.BOTTOM_RIGHT },
-                    { active: false, code: LINK.LEFT },
-                    { active: false, code: LINK.RIGHT },
-                    { active: false, code: LINK.TOP_LEFT },
-                    { active: false, code: LINK.TOP },
-                    { active: false, code: LINK.TOP_RIGHT }
-                ]);
-                const andModes = reactive({ setMode: 0, typMode: 0, linkMode: 0 });
-                const iflistVers = ref([]);
-                const selectedIflistVersion = ref('');
-                const selectedIflistIndex = ref(0);
-                const currentIflistMap = ref({});
-                const lflistsByCdb = ref({});
-                const setnameQuery = ref('');
-                const defaultSetnameQuery = ref('');
-
-                const defaultSetnames = ref([]);
-
-                const searching = ref(false);
-
-                const filter = ref({
-                    nameId: '',
-                    effect: '',
-                    atkMin: '',
-                    atkMax: '',
-                    defMin: '',
-                    defMax: ''
-                });
-
-                const initialRules = Object.entries(RULE || {}).map(([key, code]) => ({
-                    code: code,
-                    name: RULE_CN?.[code] || key
-                }));
-
-                const mapToOptions = (obj, cnObj) => Object.entries(obj || {}).map(([key, code]) => ({
-                    code: code,
-                    name: cnObj?.[code] || key,
-                    active: false
-                }));
-
-                const options = reactive({
-                    rule: initialRules,
-                    setname: [],
-                    defaultSetname: [],
-                    typeMain: mapToOptions(TYPE_MAIN, TYPE_CN),
-                    typeMonster: mapToOptions(TYPE_MONSTER, TYPE_CN),
-                    typeSpellTrap: mapToOptions(TYPE_SPELL_TRAP, TYPE_CN),
-                    attribute: mapToOptions(ATTRIBUTE, ATTRIBUTE_CN),
-                    race: mapToOptions(RACE, RACE_CN),
-                    level: Array.from({ length: 13 }, (_, i) => ({ code: i + 1, name: String(i + 1), active: false })),
-                    scale: Array.from({ length: 14 }, (_, i) => ({ code: i, name: String(i), active: false })),
-                    category: mapToOptions(CATEGORY, CATEGORY_CN)
-                });
-
-                const filteredSetnames = computed(() => {
-                    const query = setnameQuery.value.trim().toLowerCase();
-                    return options.setname.filter(item => {
-                        if (item.active) return true;
-                        if (!query) return true;
-                        return item.name.toLowerCase().includes(query);
-                    });
-                });
-
-                const filteredDefaultSetnames = computed(() => {
-                    const query = defaultSetnameQuery.value.trim().toLowerCase();
-                    return options.defaultSetname.filter(item => {
-                        if (item.active) return true;
-                        if (!query) return true;
-                        return item.name.toLowerCase().includes(query);
-                    });
-                });
-
-                const deckSections = reactive({ main: [], extra: [], side: [] });
-
-                const cardsMap = ref(new Map());
-                const allCards = ref([]);
-                const findCard = (id) => cardsMap.value.get(Number(id));
-                const hoverCard = (card) => { hoveredCard.value = card || null; };
-
                 const deckCheckIssues = computed(() => {
-                    if (isPackShow.value) return [];
+                    if (deckInfo.isPackShow) return [];
 
                     const issues = [];
                     if (deckSections.main.length < 40 || deckSections.main.length > 60) {
@@ -1107,10 +1115,10 @@
                         cardCounts.set(cardId, (cardCounts.get(cardId) || 0) + 1);
                     });
 
-                    if (Object.keys(currentIflistMap.value || {}).length > 0) {
+                    if (Object.keys(currentLflist.value || {}).length > 0) {
                         [...deckSections.main, ...deckSections.extra, ...deckSections.side].forEach(id => {
                             const card = findCard(id);
-                            const status = card ? getCardLimitStatus(card, currentIflistMap.value) : null;
+                            const status = card ? getCardLimitStatus(card, currentLflist.value) : null;
                             const limit = status === null || status === undefined ? 3 : status;
                             const count = cardCounts.get(Number(id)) || 0;
                             if (count > limit) issues.push(`${id} 數量錯誤 ${count}/${limit}`);
@@ -1124,15 +1132,10 @@
                     return [...new Set(issues)];
                 });
 
-                const { loadAllConfigs } = window.useConfigHelper();
-                const { loadAllCards } = window.useCdbCardHelper();
-                const { loadAllStrings, loadStringsByConfig, loadDefaultSetnames } = window.useStringsHelper();
-                const { loadAllLflists, loadCurrentLflist } = window.useLflistHelper(
-                    lflistsByCdb, selectedIflistVersion, currentIflistMap
-                );
-
-                // 格式化卡片效果文本並動態處理「」內部連結
-                const formatCustomDesc = (card, configId, onClickCallback) => {
+                /**
+                 * 格式化卡片效果文本，並將「」內的卡名轉為可點擊搜尋的連結
+                 */
+                const formatCustomDesc = (card, onClickCallback) => {
                     if (!card?.desc) return '沒有效果文本。';
 
                     const escaped = card.desc.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1156,58 +1159,97 @@
 
                 const hoveredCardDesc = computed(() => {
                     if (!hoveredCard.value) return '';
-                    const cdbId = hoveredCard.value.cdbId;
-                    return formatCustomDesc(hoveredCard.value, cdbId, (cardName) => {
-                        filter.value.nameId = cardName;
+                    return formatCustomDesc(hoveredCard.value, (cardName) => {
+                        cardFilter.nameId = cardName;
                         activeTab.value = 'filter';
                         handleSearch(true);
                     });
                 });
 
                 const hoverCardSetCodes = computed(() => {
-                    if (!hoveredCard.value) return [];
+                    if (!hoveredCard.value) return "";
                     const rawSetcodes = Array.isArray(hoveredCard.value?.setcode) ? hoveredCard.value.setcode : [];
-                    if (rawSetcodes.length === 0) return [];
-
-                    const cdbId = hoveredCard.value.cdbId;
-                    const cdbSetnames = options.setname || [];
-
-                    const setnameMap = new Map();
-                    [...defaultSetnames.value, ...cdbSetnames].forEach(item => {
-                        setnameMap.set(Number(item.code), item.name);
-                    });
+                    if (rawSetcodes.length === 0) return "";
 
                     return rawSetcodes.map(code => {
                         const numericCode = Number(code);
-                        const name = setnameMap.get(numericCode);
-                        return {
-                            code: code,
-                            name: name || `0x${numericCode.toString(16)}`
-                        };
-                    });
+                        return cache.fullSetnamesMap.get(numericCode) || `0x${numericCode.toString(16)}`;
+                    }).join(' | ');
                 });
 
+                /**
+                 * 取得搜尋結果卡片的第二行摘要資訊（類型或屬性/種族/等級）
+                 */
+                const getResultCardSecondInfo = (card) => {
+                    if (!isType.Monster(card)) return getTypesView(card);
+                    return `${getCardAttributeRace(card)} ${getLevelView(card)}`;
+                };
+
+                /**
+                 * 取得搜尋結果卡片的第三行摘要資訊（攻守數值與靈擺刻度）
+                 */
+                const getResultCardThirdInfo = (card) => {
+                    const scale = Number(card?.scalePlus || 0);
+                    const pendulum = (isType.Pendulum(card) && scale > 0) ? ` P-${scale - 1}` : '';
+                    return `${getCardAtkDef(card)}${pendulum}`;
+                };
+
+                // ==========================================
+                // 5. 介面切換、卡片操作與拖曳排序
+                // ==========================================
+                /**
+                 * 切換篩選折疊區塊的展開／收合狀態
+                 */
+                const toggleFrame = (key) => {
+                    frameStates[key] = !frameStates[key];
+                };
+
+                /**
+                 * 切換篩選選項選取狀態；若為字段列表則將已選項目置頂
+                 */
+                const toggleItem = (item, listKey) => {
+                    item.active = !item.active;
+                    if (listKey !== 'setname' && listKey !== 'defaultSetname') return;
+                    const list = options[listKey];
+                    const index = list.indexOf(item);
+                    if (index < 0) return;
+                    list.splice(index, 1);
+                    list.unshift(item);
+                };
+
+                /**
+                 * 依卡片 ID 查詢卡片完整資料
+                 */
+                const findCard = (id) => cache.fullCardsMap.get(Number(id));
+
+                /**
+                 * 設定目前懸停預覽的卡片
+                 */
+                const hoverCard = (card) => hoveredCard.value = card || null;
+
+                /**
+                 * 取得卡片同名／同異畫判定鍵值（優先使用 alias）
+                 */
                 const cardCopyKey = (card) => Number(card?.alias) > 0 ? Number(card.alias) : Number(card?.id);
+
+                /**
+                 * 計算目前牌組中某張卡（含同名異畫）的張數
+                 */
                 const countCopies = (card) => Object.values(deckSections).flat()
                     .filter(id => cardCopyKey(findCard(id) || { id }) === cardCopyKey(card)).length;
 
-                // 獲得限制上限張數（0~3張）
-                const getCopyLimit = (card) => {
-                    if (!card) return 3;
-                    const status = getCardLimitStatus(card, currentIflistMap.value);
-                    return status !== null && status >= 0 && status <= 2 ? status : 3;
-                };
-
-                // 智慧新增卡片函數（點擊新增或自動降級）
+                /**
+                 * 點擊卡片時智慧加入對應牌組區域（額外／主牌組滿時自動嘗試放入副牌組）
+                 */
                 const smartAddCard = (cardId) => {
                     const card = findCard(cardId);
                     if (!card) return;
 
-                    if (countCopies(card) >= getCopyLimit(card)) return;
+                    if (countCopies(card) >= getCardLimitStatus(card, currentLflist.value)) return;
 
-                    if (isPackShow.value) {
-                        if (packCards.value.length < zoneLimits.pack) {
-                            packCards.value.push(Number(cardId));
+                    if (deckInfo.isPackShow) {
+                        if (deckSections.pack.length < zoneLimits.pack) {
+                            deckSections.pack.push(Number(cardId));
                             hoverCard(card);
                         }
                         return;
@@ -1224,20 +1266,25 @@
                     }
                 };
 
+                /**
+                 * 從指定區塊移除一張指定卡片
+                 */
                 const removeCard = (zoneId, cardId) => {
                     if (zoneId === 'pack') {
-                        const index = packCards.value.indexOf(Number(cardId));
-                        if (index >= 0) packCards.value.splice(index, 1);
+                        const index = deckSections.pack.indexOf(Number(cardId));
+                        if (index >= 0) deckSections.pack.splice(index, 1);
                         return;
                     }
                     const index = deckSections[zoneId].lastIndexOf(Number(cardId));
                     if (index >= 0) deckSections[zoneId].splice(index, 1);
                 };
 
-                // 排序與清空卡組函數實現
+                /**
+                 * 依規則排序目前顯示的卡組或卡包區塊
+                 */
                 const sortDeck = () => {
-                    if (isPackShow.value) {
-                        packCards.value.sort((a, b) => sortCards(findCard(a), findCard(b)));
+                    if (deckInfo.isPackShow) {
+                        deckSections.pack.sort((a, b) => sortCards(findCard(a), findCard(b)));
                     } else {
                         deckSections.main.sort((a, b) => sortCards(findCard(a), findCard(b)));
                         deckSections.extra.sort((a, b) => sortCards(findCard(a), findCard(b)));
@@ -1245,6 +1292,9 @@
                     }
                 };
 
+                /**
+                 * 確認並清空目前卡組或卡包區塊的卡片
+                 */
                 const clearDeck = async () => {
                     const result = await classicalSwal.fire({
                         title: '確定要清空目前區塊嗎？',
@@ -1254,8 +1304,8 @@
                         cancelButtonText: '取消'
                     });
                     if (result.isConfirmed) {
-                        if (isPackShow.value) {
-                            packCards.value = [];
+                        if (deckInfo.isPackShow) {
+                            deckSections.pack = [];
                         } else {
                             deckSections.main = [];
                             deckSections.extra = [];
@@ -1264,54 +1314,126 @@
                     }
                 };
 
-                // 拖曳相關狀態與函數
-                let draggedItem = null;
-                let dropHandled = false;
+                /**
+                 * 將一般牌組（main / extra / side）合併轉為卡包展示列表
+                 */
+                const normalDeckToPack = () => {
+                    deckSections.pack = [
+                        ...deckSections.pack,
+                        ...deckSections.main,
+                        ...deckSections.extra,
+                        ...deckSections.side
+                    ];
+                    deckSections.main = [];
+                    deckSections.extra = [];
+                    deckSections.side = [];
+                };
 
+                /**
+                 * 將卡包展示列表重新分配回一般牌組（main / extra / side）
+                 */
+                const packToNormalDeck = () => {
+                    const newMain = [];
+                    const newExtra = [];
+                    const newSide = [];
+                    const unassigned = [];
+
+                    deckSections.pack.forEach(cardId => {
+                        const card = findCard(cardId);
+                        if (!card) {
+                            unassigned.push(cardId);
+                            return;
+                        }
+                        const isExtra = isType.Extra(card);
+                        if (isExtra) {
+                            if (newExtra.length < zoneLimits.extra) {
+                                newExtra.push(Number(cardId));
+                            } else if (newSide.length < zoneLimits.side) {
+                                newSide.push(Number(cardId));
+                            } else {
+                                unassigned.push(cardId);
+                            }
+                        } else {
+                            if (newMain.length < zoneLimits.main) {
+                                newMain.push(Number(cardId));
+                            } else if (newSide.length < zoneLimits.side) {
+                                newSide.push(Number(cardId));
+                            } else {
+                                unassigned.push(cardId);
+                            }
+                        }
+                    });
+
+                    if (unassigned.length > 0) {
+                        classicalSwal.fire({
+                            icon: 'warning',
+                            title: '無法切換為標準牌組',
+                            text: `${unassigned.length} 張卡無法放入主牌組、額外牌組或副牌組，卡包內容已保留。`
+                        });
+                        return false;
+                    }
+
+                    deckSections.pack = [];
+                    deckSections.main = newMain;
+                    deckSections.extra = newExtra;
+                    deckSections.side = newSide;
+                    return true;
+                };
+
+                const togglePackShow = () => {
+                    if (deckInfo.isPackShow) {
+                        if (!packToNormalDeck()) return;
+                        deckInfo.isPackShow = false;
+                    } else {
+                        normalDeckToPack();
+                        deckInfo.isPackShow = true;
+                    }
+                };
+
+                let draggedItem = null;
+
+                /**
+                 * 開始拖曳卡片時記錄來源區塊與卡片 ID
+                 */
                 const onDragStart = (event, cardId, sourceZone) => {
                     draggedItem = { cardId, sourceZone };
-                    dropHandled = false;
                     event.dataTransfer.setData('text/plain', JSON.stringify(draggedItem));
                 };
 
+                /**
+                 * 放下拖曳卡片至目標區塊，處理區域限制、容量與張數上限
+                 */
                 const onDrop = (event, targetZone) => {
                     event.preventDefault();
                     if (!draggedItem) return;
-                    dropHandled = true;
 
                     const { cardId, sourceZone } = draggedItem;
                     const card = findCard(cardId);
                     if (!card) return;
 
-                    // 1. 區域類型限制
                     if (targetZone === 'main' && isType.Extra(card)) return;
                     if (targetZone === 'extra' && !isType.Extra(card)) return;
 
-                    // 2. 容量限制
-                    const targetList = targetZone === 'pack' ? packCards.value : deckSections[targetZone];
+                    const targetList = targetZone === 'pack' ? deckSections.pack : deckSections[targetZone];
                     const limit = zoneLimits[targetZone] || 999;
                     if (sourceZone !== targetZone && targetList.length >= limit) {
                         return;
                     }
 
-                    // 3. 禁限卡數量限制 (當從搜尋結果拖曳新增時檢查)
-                    if (sourceZone === 'search' && countCopies(card) >= getCopyLimit(card)) {
+                    if (sourceZone === 'search' && countCopies(card) >= getCardLimitStatus(card, currentLflist.value)) {
                         return;
                     }
 
-                    // 如果是從其他牌組區域移過來，先從原區域移除
                     if (sourceZone !== 'search' && sourceZone !== targetZone) {
                         removeCard(sourceZone, cardId);
                     }
 
-                    // 如果是在同一個區域內拖曳（排序）
                     if (sourceZone === targetZone) {
                         removeCard(sourceZone, cardId);
                     }
 
-                    // 加入目標區域
                     if (targetZone === 'pack') {
-                        packCards.value.push(Number(cardId));
+                        deckSections.pack.push(Number(cardId));
                     } else {
                         deckSections[targetZone].push(Number(cardId));
                     }
@@ -1319,346 +1441,30 @@
                     hoverCard(card);
                 };
 
+                /** 拖曳結束時清除狀態；來源只會在有效放置時移動 */
                 const onDragEnd = () => {
-                    if (draggedItem && draggedItem.sourceZone !== 'search' && !dropHandled) {
-                        removeCard(draggedItem.sourceZone, draggedItem.cardId);
-                    }
                     draggedItem = null;
-                    dropHandled = false;
                 };
 
-                // 卡包展示切換轉換函數
-                watch(isPackShow, (newVal) => {
-                    if (newVal) {
-                        normalDeckToPack();
-                    } else {
-                        packToNormalDeck();
-                    }
-                });
-
-                const normalDeckToPack = () => {
-                    packCards.value = [...deckSections.main, ...deckSections.extra, ...deckSections.side];
-                    deckSections.main = [];
-                    deckSections.extra = [];
-                    deckSections.side = [];
-                };
-
-                const packToNormalDeck = () => {
-                    const newMain = [];
-                    const newExtra = [];
-                    const newSide = [];
-
-                    packCards.value.forEach(cardId => {
-                        const card = findCard(cardId);
-                        if (!card) return;
-                        const isExtra = isType.Extra(card);
-                        if (isExtra) {
-                            if (newExtra.length < zoneLimits.extra) {
-                                newExtra.push(Number(cardId));
-                            } else if (newSide.length < zoneLimits.side) {
-                                newSide.push(Number(cardId));
-                            }
-                        } else {
-                            if (newMain.length < zoneLimits.main) {
-                                newMain.push(Number(cardId));
-                            } else if (newSide.length < zoneLimits.side) {
-                                newSide.push(Number(cardId));
-                            }
-                        }
-                    });
-
-                    packCards.value = [];
-                    deckSections.main = newMain;
-                    deckSections.extra = newExtra;
-                    deckSections.side = newSide;
-                };
-
-                const loadCardsFromAllCdbsLegacy = async () => {
-                    cdbConfigs.value = await loadAllConfigs();
-                    if (cdbConfigs.value.length === 0) throw new Error('目前沒有可用的卡片資料庫');
-
-                    if (!selectedCdbId.value) {
-                        selectedCdbId.value = cdbConfigs.value[0].id;
-                    }
-
-                    const cardMap = new Map();
-
-                    try {
-                        defaultSetnames.value = await loadDefaultSetnames();
-                        options.defaultSetname = defaultSetnames.value.map(item => ({ ...item, active: false }));
-                    } catch (e) {
-                        console.error('載入預設字段失敗：', e);
-                    }
-
-                    for (const config of cdbConfigs.value) {
-                        try {
-                            const response = {
-                                data: (await loadAllCards()).filter(card =>
-                                    String(card.cdbId ?? card.databaseId) === String(config.id)
-                                )
-                            };
-                            const cardList = response.data;
-                            if (Array.isArray(cardList)) {
-                                cardList.forEach(card => {
-                                    cardMap.set(Number(card.id), {
-                                        ...card,
-                                        cdbId: config.id,
-                                        databaseName: config.name,
-                                        sourceFilePath: config.filePath,
-                                        picCdn: config.picCdn
-                                    });
-                                });
-                            }
-                        } catch (e) {
-                            console.error(`讀取 CDB [${config.name}] 相關資料失敗：`, e);
-                        }
-                    }
-                    cardsMap.value = cardMap;
-                };
-
-                const loadCardsFromAllCdbs = async () => {
-                    cdbConfigs.value = await loadAllConfigs();
-                    if (cdbConfigs.value.length === 0) throw new Error('No CDB configurations available');
-                    if (!selectedCdbId.value) selectedCdbId.value = cdbConfigs.value[0].id;
-
-                    const configMap = new Map(cdbConfigs.value.map(config => [String(config.id), config]));
-                    const cardMap = new Map();
-                    allCards.value = (await loadAllCards()).map(card => {
-                        const config = configMap.get(String(card.cdbId ?? card.databaseId));
-                        return config ? {
-                            ...card,
-                            cdbId: config.id,
-                            databaseName: config.name,
-                            sourceFilePath: config.filePath,
-                            picCdn: config.picCdn
-                        } : null;
-                    }).filter(Boolean);
-                    allCards.value.forEach(card => {
-                        cardMap.set(Number(card.id), card);
-                    });
-                    cardsMap.value = cardMap;
-                    defaultSetnames.value = await loadDefaultSetnames();
-                    options.defaultSetname = defaultSetnames.value.map(item => ({ ...item, active: false }));
-                };
-
-                const loadDeckResponseData = async (data) => {
-                    deckName.value = data.deckInfo.name;
-                    packId.value = data.deckPack?.id ?? '';
-                    isPublic.value = Boolean(data.deckInfo.isPublic);
-
-                    const rawPack = data.pack || [];
-                    const hasPackData = rawPack.length > 0;
-
-                    isPackShow.value = hasPackData;
-                    await nextTick();
-
-                    packCards.value = rawPack;
-                    deckSections.main = data.main || [];
-                    deckSections.extra = data.extra || [];
-                    deckSections.side = data.side || [];
-                };
-
-                const loadDeck = async () => {
-                    if (!deckId) return;
-
-                    await loadCardsFromAllCdbs();
-                    loading.cdb = false;
-
-                    if (selectedCdbId.value) {
-                        await fetchSetnamesByCdb(selectedCdbId.value);
-                        await fetchIflistVersions(selectedCdbId.value);
-                    }
-
-                    const data = await getMineDeck(deckId);
-
-                    lastData.value = JSON.parse(JSON.stringify(data));
-                    await loadDeckResponseData(data);
-                };
-
-                const resetToOrigin = async () => {
-                    if (!lastData.value) return;
-
-                    const result = await classicalSwal.fire({
-                        title: '確定要重置卡組嗎？',
-                        text: '所有未儲存的變更將會遺失，恢復成最近儲存的內容。',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: '確定重置',
-                        cancelButtonText: '取消'
-                    });
-
-                    if (!result.isConfirmed) return;
-
-                    const data = JSON.parse(JSON.stringify(lastData.value));
-
-                    await loadDeckResponseData(data);
-
-                    classicalSwal.fire({
-                        icon: 'success',
-                        title: '已恢復為初始狀態',
-                        timer: 1000,
-                        showConfirmButton: false
-                    });
-                };
-
-                const fetchDefaultSetname = async () => {
-                    loading.defaultSetname = true;
-                    try {
-                        const response = { data: await loadDefaultSetnames() };
-                        defaultSetnames.value = response.data || [];
-                        options.defaultSetname = response.data;
-                    } catch (error) {
-                        console.error(`讀取 defaultSetname 失敗：`, error);
-                    } finally {
-                        loading.defaultSetname = false;
-                    }
-                };
-
-                const fetchSetnamesByCdb = async (configId) => {
-                    if (!configId) return;
-                    loading.setname = true;
-                    try {
-                        const response = isAllCdb.value
-                            ? await loadAllStrings()
-                            : await loadStringsByConfig(configId);
-                        const data = response.setnames || [];
-                        options.setname = data.map(item => ({ ...item, active: false }));
-                        options.defaultSetname = isAllCdb.value
-                            ? []
-                            : defaultSetnames.value.map(item => ({ ...item, active: false }));
-                    } catch (error) {
-                        options.setname = [];
-                        options.defaultSetname = [];
-                    } finally {
-                        loading.setname = false;
-                    }
-                };
-
-                const getIflistVersions = async () => {
-                    const allLflists = await loadAllLflists();
-                    iflistVers.value = (Array.isArray(allLflists) ? allLflists : []).map((item, index) => ({
-                        ...item,
-                        key: `${item.cdbId}:${item.version}:${index}`
-                    }));
-                };
-
-                const getIflistByVersion = async (configId, versionId) => {
-                    if (!versionId) {
-                        selectedIflistIndex.value = 0;
-                        currentIflistMap.value = {};
-                        return null;
-                    }
-                    const selected = iflistVers.value.find(item => item.key === versionId);
-                    if (selected) {
-                        currentIflistMap.value = {
-                            0: (selected.forbiddenIds || []).map(id => ({ id })),
-                            1: (selected.limitIds || []).map(id => ({ id })),
-                            2: (selected.semiLimitIds || []).map(id => ({ id }))
-                        };
-                        return selected;
-                    }
-                    return loadCurrentLflist(configId, versionId);
-                };
-
-                const fetchIflistVersions = async (configId) => {
-                    loading.iflist = true;
-                    try {
-                        await getIflistVersions();
-                        if (iflistVers.value.length > 0) {
-                            if (!selectedIflistVersion.value
-                                || !iflistVers.value.some(item => item.key === selectedIflistVersion.value)) {
-                                selectedIflistVersion.value = iflistVers.value[0].key;
-                            }
-                            await getIflistByVersion(configId, selectedIflistVersion.value);
-                        } else {
-                            selectedIflistVersion.value = '';
-                            selectedIflistIndex.value = 0;
-                            currentIflistMap.value = {};
-                        }
-                    } catch (error) {
-                        iflistVers.value = [];
-                        selectedIflistIndex.value = 0;
-                        currentIflistMap.value = {};
-                    } finally {
-                        loading.iflist = false;
-                    }
-                };
-
-                const fetchBanlistByVersion = async (configId, versionId) => {
-                    await getIflistByVersion(configId, versionId);
-                };
-
-                const handleIflistVersionChange = async () => {
-                    await fetchBanlistByVersion(selectedCdbId.value, selectedIflistVersion.value);
-                    handleSearch(true);
-                };
-
-                const cacheAllCdbs = async () => {
-                    if (!cdbConfigs.value || cdbConfigs.value.length === 0) return;
-                    await Promise.all(cdbConfigs.value.map(config => cacheCdb(config)));
-                };
-
-                const fetchCdbConfigs = async () => {
-                    loading.cdb = true;
-                    try {
-                        cdbConfigs.value = await loadAllConfigs();
-                        if (cdbConfigs.value.length > 0 && !selectedCdbId.value) {
-                            selectedCdbId.value = cdbConfigs.value[0].id;
-                        }
-                        if (selectedCdbId.value) {
-                            await fetchSetnamesByCdb(selectedCdbId.value);
-                        }
-                        await cacheAllCdbs();
-                        await cacheSelectedCdbs();
-                    } catch (error) {
-                        console.error('取得數據庫清單失敗：', error);
-                    } finally {
-                        loading.cdb = false;
-                    }
-                };
-
-                const cacheCdb = async (config) => {
-                    return allCards.value.filter(card =>
-                        String(card.cdbId) === String(config.id)
-                    );
-                };
-
-                const cacheSelectedCdbs = async () => {
-                    const activeConfig = cdbConfigs.value.find(item => String(item.id) === String(selectedCdbId.value)) || cdbConfigs.value[0];
-                    if (activeConfig) await cacheCdb(activeConfig);
-                };
-
-                const handleCdbChange = async () => {
-                    await fetchSetnamesByCdb(selectedCdbId.value);
-                    await cacheSelectedCdbs();
-                    await handleSearch(true);
-                };
-
-                const toggleFrame = (key) => { frameStates[key] = !frameStates[key]; };
-                const toggleItem = (item, listKey) => {
-                    item.active = !item.active;
-                    if (listKey !== 'setname' && listKey !== 'defaultSetname') return;
-                    const list = options[listKey];
-                    const index = list.indexOf(item);
-                    if (index < 0) return;
-                    list.splice(index, 1);
-                    list.unshift(item);
-                };
-
+                // ==========================================
+                // 7. 卡片搜尋與篩選條件重設
+                // ==========================================
+                /**
+                 * 彙整目前所有篩選條件為查詢物件
+                 */
                 const getSelectedFilter = () => {
-                    let currentCdbId = selectedCdbId.value;
-                    if (currentCdbId === null || currentCdbId === undefined) {
-                        currentCdbId = cdbConfigs.value[0]?.id ?? null;
-                    }
-
-                    let rIndex = selectedRuleIndex.value;
+                    let rIndex = cardFilter.ruleIndex;
 
                     let selectedFilter = {
-                        cdbId: currentCdbId,
+                        nameId: (cardFilter.nameId || '').trim().toLowerCase(),
+                        effect: (cardFilter.effect || '').trim().toLowerCase(),
+                        atkMin: (cardFilter.atkMin || ''),
+                        atkMax: (cardFilter.atkMax || ''),
+                        defMin: (cardFilter.defMin || ''),
+                        defMax: (cardFilter.defMax || ''),
                         ruleIndex: rIndex,
-                        ruleCode: rIndex < 2 ? rIndex : options.rule[rIndex - 2]?.code,
-                        iflistVersion: selectedIflistVersion.value,
-                        iflistStatus: selectedIflistIndex.value,
+                        ruleCode: rIndex < 2 ? rIndex : cache.fullRule[rIndex - 2]?.code,
+                        lflistStatus: Number(cardFilter.lflistStatus || 0),
                         linkMarker: linkMarkers.value.filter(i => i.active).map(i => i.code).reduce((acc, code) => acc | code, 0),
                         category: options.category.filter(i => i.active).map(i => BigInt(i.code)).reduce((acc, code) => acc | code, 0n),
                         level: options.level.filter(i => i.active).reduce((acc, item) => acc | (1 << (item.code - 1)), 0),
@@ -1668,7 +1474,6 @@
                             ...options.defaultSetname.filter(i => i.active).map(i => Number(i.code))
                         ])],
                         ...andModes,
-                        ...filter.value
                     };
 
                     const optionKeys = ["typeMain", "typeMonster", "typeSpellTrap", "attribute", "race"];
@@ -1676,61 +1481,62 @@
                         selectedFilter[optionKey] = options[optionKey].filter(i => i.active).map(i => i.code).reduce((acc, code) => acc | code, 0);
                     }
 
-                    selectedFilter.nameId = (selectedFilter.nameId || '').trim().toLowerCase();
-                    selectedFilter.effect = (selectedFilter.effect || '').trim().toLowerCase();
-
                     return selectedFilter;
                 };
 
-                const handleSearch = async (resetPage = true) => {
-                    searching.value = true;
-                    const activeConfig = cdbConfigs.value.find(c => String(c.id) === String(selectedCdbId.value)) || cdbConfigs.value[0];
-                    const activeConfigs = isAllCdb.value ? [] : (activeConfig ? [activeConfig] : []);
+                /**
+                 * 執行卡片搜尋並更新搜尋結果與分頁
+                 */
+                const handleSearch = () => {
+                    const cdbId = currentCdbId.value;
+                    const currentCardList = cdbId === null ? [...cache.fullCards] : cache.fullCards.filter(card => Number(card.cdbId) === cdbId);
 
-                    const cardGroups = await Promise.all(activeConfigs.map(async config => {
-                        const cards = await cacheCdb(config);
-                        return cards.map(card => ({
-                            ...card,
-                            cdbId: config.id,
-                            databaseName: config.name,
-                            sourceFilePath: config.filePath
-                        }));
-                    }));
+                    resultCards.value = MatcheFilterCards(currentCardList, getSelectedFilter(), currentLflist.value);
 
-                    if (isAllCdb.value) {
-                        cardGroups.push(allCards.value.map(card => ({ ...card })));
-                    }
-
-                    const selectedFilter = getSelectedFilter();
-                    resultCards.value = MatcheFilterCards(cardGroups, selectedFilter, currentIflistMap.value);
-
-                    if (resetPage) {
-                        currentPage.value = 1;
-                    } else if (currentPage.value > totalPages.value) {
-                        currentPage.value = totalPages.value;
-                    }
-                    searching.value = false;
+                    currentPage.value = 1;
                 };
 
+                const handleLflistChange = () => {
+                    if (cardFilter.lflistKey === LFLIST_VER_NA) {
+                        cardFilter.lflistStatus = 0;
+                    }
+                    handleSearch();
+                };
+
+                /**
+                 * 重設所有卡片篩選條件並重新搜尋
+                 */
                 const resetFilter = () => {
-                    Object.assign(filter.value, { nameId: '', effect: '', atkMin: '', atkMax: '', defMin: '', defMax: '' });
-                    selectedRuleIndex.value = 0;
-                    selectedIflistIndex.value = 0;
+                    Object.assign(cardFilter, {
+                        cdbId: 0,
+                        lflistKey: LFLIST_VER_NA,
+                        ruleIndex: 0,
+                        lflistStatus: 0,
+                        nameId: '',
+                        effect: '',
+                        setnameQuery: '',
+                        defaultSetnameQuery: '',
+                        atkMin: '',
+                        atkMax: '',
+                        defMin: '',
+                        defMax: ''
+                    });
                     andModes.setMode = 0;
                     andModes.typMode = 0;
                     andModes.linkMode = 0;
-                    setnameQuery.value = '';
-                    defaultSetnameQuery.value = '';
                     linkMarkers.value.forEach(item => { item.active = false; });
                     Object.values(options).forEach(list => {
                         if (Array.isArray(list)) list.forEach(item => { item.active = false; });
                     });
-                    if (iflistVers.value.length > 0) {
-                        selectedIflistVersion.value = iflistVers.value[0].key;
+                    if (cache.fullLflists.length > 0) {
+                        cardFilter.lflistKey = cache.fullLflists[0].key;
                     }
-                    handleSearch(true);
+                    handleSearch();
                 };
 
+                /**
+                 * 選擇並讀取本機 .ydk 檔案以覆蓋目前卡組內容
+                 */
                 const importYdkFile = async () => {
                     const fileInput = document.getElementById('local-ydk-file');
                     const file = fileInput.files[0];
@@ -1754,24 +1560,30 @@
 
                     if (!confirmResult.isConfirmed) return;
 
-                    const reader = new FileReader();
-                    reader.onload = async (e) => {
-                        const content = e.target.result;
-                        const parsed = parseYdkContent(content);
+                    try {
+                        const parsed = await loadYdkFile(file);
 
-                        packCards.value = parsed.pack;
-                        deckSections.main = parsed.main;
-                        deckSections.extra = parsed.extra;
-                        deckSections.side = parsed.side;
-
-                        if (isPackShow.value) {
-                            normalDeckToPack();
+                        if (parsed.pack.length > 0) {
+                            deckSections.pack = [
+                                ...parsed.pack,
+                                ...parsed.main,
+                                ...parsed.extra,
+                                ...parsed.side
+                            ];
+                            deckSections.main = [];
+                            deckSections.extra = [];
+                            deckSections.side = [];
+                            deckInfo.isPackShow = true;
                         } else {
-                            packToNormalDeck();
+                            deckSections.pack = [];
+                            deckSections.main = parsed.main;
+                            deckSections.extra = parsed.extra;
+                            deckSections.side = parsed.side;
+                            deckInfo.isPackShow = false;
                         }
 
-                        if (!deckName.value.trim()) {
-                            deckName.value = file.name.replace(/\.[^/.]+$/, '');
+                        if (!deckInfo.name.trim()) {
+                            deckInfo.name = file.name.replace(/\.[^/.]+$/, '');
                         }
 
                         classicalSwal.fire({
@@ -1780,86 +1592,60 @@
                             timer: 1200,
                             showConfirmButton: false
                         });
-                    };
-                    reader.readAsText(file);
-                };
-
-                const parseYdkContent = (content) => {
-                    const lines = content.split(/\r?\n/);
-                    let currentSection = 'pack';
-                    const main = [];
-                    const extra = [];
-                    const side = [];
-                    const pack = [];
-
-                    for (let line of lines) {
-                        line = line.trim();
-                        if (!line) continue;
-
-                        if (line.startsWith('#main')) {
-                            currentSection = 'main';
-                            continue;
-                        } else if (line.startsWith('#extra')) {
-                            currentSection = 'extra';
-                            continue;
-                        } else if (line.startsWith('!side') || line.startsWith('#side')) {
-                            currentSection = 'side';
-                            continue;
-                        } else if (line.startsWith('#')) {
-                            continue;
-                        }
-
-                        const cardId = Number(line);
-                        if (isNaN(cardId) || cardId <= 0) continue;
-
-                        if (currentSection === 'pack') {
-                            pack.push(cardId);
-                        } else if (currentSection === 'main') {
-                            main.push(cardId);
-                        } else if (currentSection === 'extra') {
-                            extra.push(cardId);
-                        } else if (currentSection === 'side') {
-                            side.push(cardId);
-                        }
-                    }
-                    return { pack, main, extra, side };
-                };
-
-                const getResultCardSecondInfo = (card) => {
-                    if (!isType.Monster(card)) return getTypesView(card);
-                    return `${getCardAttributeRace(card)} ${getLevelView(card)}`;
-                };
-
-                const getResultCardThirdInfo = (card) => {
-                    const scale = Number(card?.scalePlus || 0);
-                    const pendulum = (isType.Pendulum(card) && scale > 0) ? ` P-${scale - 1}` : '';
-                    return `${getCardAtkDef(card)}${pendulum}`;
-                };
-
-                const loadPacks = async () => {
-                    try {
-                        const [publicPacks, userPacks] = await Promise.all([
-                            loadPublicDeckPacks(),
-                            loadUserDeckPacks(userId)
-                        ]);
-                        packs.value = [...publicPacks, ...userPacks]
-                            .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hant'));
-                    } catch (e) {
-                        packs.value = [];
+                    } catch (error) {
+                        console.error('讀取 YDK 檔案失敗：', error);
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '讀取失敗',
+                            text: error.message || '無法解析 YDK 檔案'
+                        });
                     }
                 };
 
+                /**
+                 * 將卡組還原至最近一次儲存的初始快照
+                 */
+                const resetToOrigin = async () => {
+                    if (!deckData.value) return;
+
+                    const result = await classicalSwal.fire({
+                        title: '確定要重置卡組嗎？',
+                        text: '所有未儲存的變更將會遺失，恢復成最近儲存的內容。',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: '確定重置',
+                        cancelButtonText: '取消'
+                    });
+
+                    if (!result.isConfirmed) return;
+
+                    const data = JSON.parse(JSON.stringify(deckData.value));
+
+                    await applyDeckResponseToEditor(data);
+
+                    classicalSwal.fire({
+                        icon: 'success',
+                        title: '已恢復為初始狀態',
+                        timer: 1000,
+                        showConfirmButton: false
+                    });
+                };
+
+                /**
+                 * 建立新卡組或更新既有卡組資料
+                 */
                 const saveDeck = async () => {
-                    if (!deckName.value.trim()) {
+                    if (!deckInfo.name.trim()) {
                         classicalSwal.fire({ icon: 'warning', title: '名稱不可為空' });
                         return;
                     }
+                    handlePackChange();
                     try {
                         const payload = {
-                            name: deckName.value.trim(),
-                            packId: packId.value ? Number(packId.value) : null,
-                            isPublic: isPublic.value,
-                            pack: packCards.value,
+                            name: deckInfo.name.trim(),
+                            packId: deckInfo.packId ? Number(deckInfo.packId) : null,
+                            isPublic: deckInfo.isPublic,
+                            pack: deckSections.pack,
                             main: deckSections.main,
                             extra: deckSections.extra,
                             side: deckSections.side
@@ -1876,9 +1662,9 @@
                         } else {
                             savedDeck = await updateDeck(deckId, payload);
                             if (savedDeck.deckInfo && savedDeck.deckInfo.name) {
-                                deckName.value = savedDeck.deckInfo.name;
+                                deckInfo.name = savedDeck.deckInfo.name;
                             }
-                            lastData.value = JSON.parse(JSON.stringify(savedDeck));
+                            deckData.value = JSON.parse(JSON.stringify(savedDeck));
                             classicalSwal.fire({ icon: 'success', title: '卡組已儲存', timer: 1100, showConfirmButton: false });
                         }
                     } catch (error) {
@@ -1886,6 +1672,9 @@
                     }
                 };
 
+                /**
+                 * 確認後放棄目前修改並關閉或返回卡組列表頁
+                 */
                 const discardChanges = async () => {
                     const result = await classicalSwal.fire({
                         title: '確定放棄修改卡組嗎？',
@@ -1903,6 +1692,9 @@
                     window.setTimeout(() => { window.location.href = '/personal/decks'; }, 100);
                 };
 
+                /**
+                 * 確認後刪除目前卡組並返回卡組列表頁
+                 */
                 const deleteDeck = async () => {
                     if (!deckId) {
                         classicalSwal.fire({ icon: 'warning', title: '此卡組尚未建立，無法刪除' });
@@ -1941,51 +1733,211 @@
                     }
                 };
 
+                // ==========================================
+                // 資料載入
+                // ==========================================
+
+                /**
+                 * 依指定數據庫設定載入對應的字段選項
+                 */
+                const fetchCurrentSetnames = async () => {
+                    try {
+                        if (cardFilter.cdbId === 0) {
+                            options.setname = cache.fullSetnames.map(item => ({ ...item, active: false }));
+                            options.defaultSetname = [];
+                        } else {
+                            const cdbStrings = await loadStringsByConfig(cardFilter.cdbId);
+                            options.setname = cdbStrings?.setnames.map(item => ({ ...item, active: false }));
+                            options.defaultSetname = cache.defaultSetnames.map(item => ({ ...item, active: false }));
+                        }
+                    } catch (error) {
+                        options.setname = [];
+                        options.defaultSetname = [];
+                    }
+                };
+
+                /**
+                 * 切換數據庫時重新載入字段、快取並執行搜尋
+                 */
+                const handleCdbChange = async () => {
+                    await fetchCurrentSetnames();
+                    await handleSearch();
+                };
+
+                /**
+                 * 將 response 卡組資料套用至編輯器狀態
+                 */
+                const applyDeckResponseToEditor = (data) => {
+                    deckInfo.name = data.deckInfo.name;
+                    deckInfo.packId = data.deckPack?.id ?? '';
+                    deckInfo.isPublic = Boolean(data.deckInfo.isPublic);
+                    handlePackChange();
+
+                    deckSections.pack = data.pack || [];
+                    deckSections.main = data.main || [];
+                    deckSections.extra = data.extra || [];
+                    deckSections.side = data.side || [];
+                    deckInfo.isPackShow = deckSections.pack.length > 0;
+                };
+
+                // ==========================================
+                // 只初始化 1 次
+                // ==========================================
+
+                /** 載入卡包清單 */
+                const fetchFullPacks = async () => {
+                    try {
+                        let [publicPacks, userPacks] = await Promise.all([
+                            loadPublicDeckPacks(),
+                            loadUserDeckPacks(userId)
+                        ]);
+                        publicPacks = publicPacks.sort((left, right) => left.name.localeCompare(right.name, 'zh-Hant'));
+                        userPacks = userPacks.sort((left, right) => left.name.localeCompare(right.name, 'zh-Hant'));
+                        cache.fullPacks = [...publicPacks, ...userPacks];
+                    } catch (e) {
+                        console.error('載入卡包清單失敗：', e);
+                        cache.fullPacks = [];
+                    } finally {
+                        loaded.fullPacks = true;
+                    }
+                };
+
+                /** 載入所有字段 */
+                const fetchFullSetname = async () => {
+                    try {
+                        const fullStrings = await loadAllStrings();
+                        cache.fullSetnames = fullStrings.setnames;
+                        cache.fullSetnames.forEach(setname => {
+                            cache.fullSetnamesMap.set(Number(setname.code), setname.name);
+                        });
+                    } catch (e) {
+                        console.error('載入所有字段失敗：', e);
+                        cache.fullSetnames = [];
+                        cache.fullSetnamesMap = new Map();
+                    }
+                };
+
+                /** 載入預設字段 */
+                const fetchDefaultSetname = async () => {
+                    try {
+                        cache.defaultSetnames = await loadDefaultSetnames();
+                    } catch (e) {
+                        console.error('載入預設字段失敗：', e);
+                        cache.defaultSetnames = [];
+                    }
+                };
+
+                /** 載入數據庫 */
+                const fetchFullCdbConfigs = async () => {
+                    try {
+                        cache.fullCdbs = await loadAllConfigs();
+                    } catch (e) {
+                        console.error('載入數據庫失敗：', e);
+                        cache.fullCdbs = [];
+                    } finally {
+                        loaded.fullCdbs = true;
+                    }
+                };
+
+                /** 載入禁限清單 */
+                const fetchFullLflists = async () => {
+                    try {
+                        let allLflists = await loadAllLflists();
+                        cache.fullLflists = allLflists.map((item, index) => ({
+                            key: `${item.cdbId}:${item.version}:${index}`,
+                            ...item
+                        }));
+                        if (cache.fullLflists.length > 0)
+                            cardFilter.lflistKey = cache.fullLflists[0].key;
+                    } catch (e) {
+                        console.error('載入禁限清單失敗：', e);
+                        cache.fullLflists = [];
+                    } finally {
+                        loaded.fullLflists = true;
+                    }
+                };
+
+                /** 載入所有卡片 */
+                const fetchFullCards = async () => {
+                    try {
+                        cache.fullCards = await loadAllCards();
+                        const cardMap = new Map();
+                        cache.fullCards.forEach(card => cardMap.set(Number(card.id), card));
+                        cache.fullCardsMap = cardMap;
+                    } catch (e) {
+                        console.error('載入所有卡片失敗：', e);
+                        cache.fullCards = [];
+                        cache.fullCardsMap = new Map();
+                    }
+                };
+
+                /**
+                 * 載入卡組資料
+                 */
+                const fetchDeck = async () => {
+                    if (!deckId) return;
+                    try {
+                        const data = await getMineDeck(deckId);
+                        deckData.value = JSON.parse(JSON.stringify(data));
+                        await applyDeckResponseToEditor(data);
+                    } catch (e) {
+                        console.error('載入卡組資料失敗：', e);
+                        deckData.value = null;
+                    }
+                };
+
                 onMounted(async () => {
                     try {
-                        await loadPacks();
-                        await fetchDefaultSetname('defaultSetname');
+                        await Promise.all([
+                            fetchFullPacks(),
+                            fetchFullCdbConfigs(),
+                            fetchFullSetname(),
+                            fetchDefaultSetname(),
+                            fetchFullLflists(),
+                            fetchFullCards()
+                        ]);
 
-                        if (deckId) {
-                            await loadDeck();
-                        } else {
-                            await loadCardsFromAllCdbs();
-                            loading.cdb = false;
-                            if (cdbConfigs.value.length > 0) {
-                                selectedCdbId.value = cdbConfigs.value[0].id;
-                                await fetchSetnamesByCdb(selectedCdbId.value);
-                                await fetchIflistVersions(selectedCdbId.value);
-                                await cacheAllCdbs();
-                            }
-                        }
+                        if (deckId)
+                            await fetchDeck();
 
-                        await handleSearch(true);
+                        await handleCdbChange();
                     } catch (error) {
-                        loadError.value = error.response?.status === 404
-                            ? '找不到此卡組，或你沒有編輯權限。'
-                            : error.response?.data?.message || error.message || '載入失敗';
-                    } finally {
-                        loading.page = false;
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '載入失敗',
+                            text: error.response?.status === 404
+                                ? '找不到此卡組，或你沒有編輯權限。'
+                                : error.response?.data?.message || error.message || '載入失敗'
+                        });
                     }
                 });
 
                 return {
-                    loading,
-                    loadError,
-                    deckName,
-                    packId,
-                    isPublic,
-                    isPackShow,
-                    packs,
+                    loaded,
+                    cache,
+                    deckInfo,
+                    selectedPackIsPublic,
+                    handlePackChange,
+                    deckSections,
+                    deckData,
+                    cardFilter,
+                    LFLIST_VER_NA,
+                    activeTab,
+
+                    options,
+                    andModes,
+                    linkMarkers,
+                    frameStates,
+                    filteredSetnames,
+                    filteredDefaultSetnames,
+                    handleCdbChange,
+                    handleLflistChange,
+                    handleSearch,
+                    resetFilter,
+
                     hoveredCard,
                     hoveredCardDesc,
                     hoverCardSetCodes,
-                    filter,
-                    deckSections,
-                    packCards,
-                    lastData,
-                    resetToOrigin,
-                    zoneLimits,
                     resultCards,
                     pagedCards,
                     pageSizeOptions,
@@ -1996,57 +1948,37 @@
                     nextPage,
                     onPageInput,
                     validatePage,
-                    getCardUrl,
                     getCardUrlError,
-                    findCard,
-                    hoverCard,
-                    removeCard,
-                    smartAddCard,
-                    sortDeck,
-                    clearDeck,
-                    onDragStart,
-                    onDrop,
-                    onDragEnd,
-                    saveDeck,
-                    discardChanges,
-                    frameStates,
-                    toggleFrame,
-                    cdbConfigs,
-                    selectedCdbId,
-                    ALL_CDB_ID,
-                    isAllCdb,
-                    deckCheckIssues,
-                    handleCdbChange,
-                    selectedRuleIndex,
-                    options,
-                    iflistVers,
-                    selectedIflistVersion,
-                    selectedIflistIndex,
-                    handleIflistVersionChange,
-                    andModes,
-                    setnameQuery,
-                    defaultSetnameQuery,
-                    linkMarkers,
-                    toggleItem,
-                    filteredSetnames,
-                    filteredDefaultSetnames,
-                    handleSearch,
-                    resetFilter,
-                    importYdkFile,
-                    activeTab,
-                    switchTab,
-                    getCardLimitStatus,
                     getCardLimitUrl,
-                    getResultCardSecondInfo,
-                    getResultCardThirdInfo,
                     getTypesView,
                     getLevelView,
                     getPendulumView,
                     getCardAtkDef,
                     getCardAttributeRace,
+                    getResultCardSecondInfo,
+                    getResultCardThirdInfo,
+                    currentLflist,
+
+                    deckCheckIssues,
+                    togglePackShow,
+                    resetToOrigin,
+                    saveDeck,
+                    deleteDeck,
+                    discardChanges,
+                    importYdkFile,
+                    sortDeck,
+                    clearDeck,
+                    findCard,
+                    hoverCard,
+                    removeCard,
+                    smartAddCard,
+                    onDragStart,
+                    onDrop,
+                    onDragEnd,
+
+                    toggleFrame,
+                    toggleItem,
                     isType,
-                    currentIflistMap,
-                    deleteDeck
                 };
             }
         }).mount('#editor-app');

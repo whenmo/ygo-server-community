@@ -1,24 +1,38 @@
 document.addEventListener('DOMContentLoaded', function () {
     const adminBtn = document.getElementById('adminMenuBtn');
     const adminPanel = document.getElementById('adminDropdownPanel');
+    const personalBtn = document.getElementById('personalMenuBtn');
+    const personalPanel = document.getElementById('personalDropdownPanel');
 
-    // 若非管理員（畫面上無此元素）則直接結束
-    if (!adminBtn || !adminPanel) return;
+    if (adminBtn && adminPanel) {
+        adminBtn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            const isHidden = adminPanel.style.display === 'none' || adminPanel.style.display === '';
+            adminPanel.style.display = isHidden ? 'block' : 'none';
+        });
 
-    // 點擊「管理員後台」切換面板顯示狀態
-    adminBtn.addEventListener('click', function (event) {
-        event.stopPropagation();
-        const isHidden = adminPanel.style.display === 'none' || adminPanel.style.display === '';
-        adminPanel.style.display = isHidden ? 'block' : 'none';
-    });
+        adminPanel.addEventListener('click', function (event) {
+            event.stopPropagation();
+        });
 
-    // 點擊面板內部時不關閉（避免操作時誤關）
-    adminPanel.addEventListener('click', function (event) {
-        event.stopPropagation();
-    });
+        document.addEventListener('click', function () {
+            adminPanel.style.display = 'none';
+        });
+    };
 
-    // 點擊頁面其他空白處時自動關閉面板
-    document.addEventListener('click', function () {
-        adminPanel.style.display = 'none';
-    });
+    if (personalBtn && personalPanel) {
+        personalBtn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            const isHidden = personalPanel.style.display === 'none' || personalPanel.style.display === '';
+            personalPanel.style.display = isHidden ? 'block' : 'none';
+        });
+
+        personalPanel.addEventListener('click', function (event) {
+            event.stopPropagation();
+        });
+
+        document.addEventListener('click', function () {
+            personalPanel.style.display = 'none';
+        });
+    };
 });

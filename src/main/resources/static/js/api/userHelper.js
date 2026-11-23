@@ -2,7 +2,7 @@ function useUserHelper() {
     /** 查詢所有用戶 */
     const loadUsers = async () => {
         const response = await axios.get('/api/users');
-        return Array.isArray(response.data) ? response.data : [];
+        return Array.isArray(response.data) ? [...response.data] : [];
     };
 
     /** 根據 ID 查詢用戶 */

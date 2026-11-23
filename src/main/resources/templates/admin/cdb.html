@@ -4,29 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理員設定</title>
+    <title>數據庫管理</title>
 
     <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
     <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
 
     <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
     <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
     <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
     <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
 
     <script th:src="@{/js/api/cdbConfigHelper.js}" src="/js/api/cdbConfigHelper.js"></script>
     <script th:src="@{/js/api/cdbHelper.js}" src="/js/api/cdbHelper.js"></script>
 
     <style>
-        .main-layout {
-            height: calc(100vh - 60px);
-            padding: 20px 15px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
         .top-title {
             display: flex;
             justify-content: space-between;
@@ -64,10 +58,15 @@
 <body>
     <div th:replace="~{fragments/layout :: navbar('admin')}"></div>
 
-    <main id="app" class="main-layout">
+    <main id="app" class="main-one-col-layout">
         <div class="top-title">
-            <h2>數據庫清單</h2>
-            <button @click="openModal()" class="module-btn">新增配置</button>
+            <h2>數據庫清單({{ configs.length ?? 0 }})</h2>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <select v-model.number="pageSize" class="module-select" style="width: auto;">
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 筆/頁</option>
+                </select>
+                <button @click="openModal()" class="module-btn">新增配置</button>
+            </div>
         </div>
 
         <!-- 資料表格 -->
@@ -88,7 +87,7 @@
                     <tr v-else-if="configs.length === 0">
                         <td colspan="4" class="table-item-empty-row">目前尚無數據庫資料</td>
                     </tr>
-                    <tr v-else v-for="item in configs" :key="item.id">
+                    <tr v-else v-for="item in pagedCards" :key="item.id">
                         <td class="table-item-name">{{ item.name }}</td>
                         <td class="table-item-file-path"><code>{{ item.filePath }}</code></td>
                         <td class="table-item-pic-cdn"><code>{{ item.picCdn }}</code></td>
@@ -101,6 +100,15 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+        <!-- 底部分頁選擇器 -->
+        <div v-if="totalPages > 1" class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
+            <button type="button" @click="previousPage" :disabled="currentPage === 1">上一頁</button>
+            <span>
+                <input class="module-input-clean" :value="currentPage" @input="onPageInput" @blur="validatePage" />
+                / {{ totalPages }}
+            </span>
+            <button type="button" @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
         </div>
     </main>
 
@@ -133,11 +141,22 @@
                     refreshLflist
                 } = useCdbHelper();
 
+                const {
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                } = window.usePageHelper(configs, 10);
+
                 const fetchConfigs = async (force = false) => {
                     loading.value = true;
                     try {
-                        const data = await loadAllConfigs(force);
-                        configs.value = Array.isArray(data) ? data : [];
+                        configs.value = await loadAllConfigs(force);
                     } catch (error) {
                         classicalSwal.fire({
                             icon: 'error',
@@ -245,7 +264,21 @@
                     fetchConfigs();
                 });
 
-                return { configs, loading, openModal, refreshCache };
+                return {
+                    configs,
+                    loading,
+                    openModal,
+                    refreshCache,
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                };
             }
         }).mount('#app');
     </script>

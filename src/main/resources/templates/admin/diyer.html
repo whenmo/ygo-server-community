@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管理員設定 - 作者清單</title>
+    <title>管理員設定</title>
 
     <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
     <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
@@ -22,14 +22,6 @@
     <script th:src="@{/js/api/cdbConfigHelper.js}" src="/js/api/cdbConfigHelper.js"></script>
 
     <style>
-        .main-layout {
-            height: calc(100vh - 60px);
-            padding: 20px 15px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
         .top-title {
             background: transparent;
             border-bottom: 2px solid var(--red-color);
@@ -161,10 +153,10 @@
 <body>
     <div th:replace="~{fragments/layout :: navbar('admin')}"></div>
 
-    <main id="app" class="main-layout">
+    <main id="app" class="main-one-col-layout">
         <!-- 頂部工具列 -->
         <div class="top-title">
-            <h2>作者清單</h2>
+            <h2>作者清單({{ sortedDiyers.length ?? 0 }})</h2>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <select v-model.number="pageSize" class="module-select" style="width: auto;">
                     <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 筆/頁</option>
@@ -267,7 +259,7 @@
         </div>
 
         <!-- 底部分頁選擇器 -->
-        <div class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
+        <div v-if="totalPages > 1" class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
             <button type="button" @click="previousPage" :disabled="currentPage === 1">上一頁</button>
             <span>
                 <input class="module-input-clean" :value="currentPage" @input="onPageInput" @blur="validatePage" />

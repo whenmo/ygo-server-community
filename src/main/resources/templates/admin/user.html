@@ -6,27 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理員設定</title>
 
-    <!-- 全局古典風格樣式表 -->
     <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
     <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
 
     <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
     <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
     <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
     <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
 
     <script th:src="@{/js/api/userHelper.js}" src="/js/api/userHelper.js"></script>
 
     <style>
-        .main-layout {
-            height: calc(100vh - 60px);
-            padding: 20px 15px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
         .top-title {
             display: flex;
             justify-content: space-between;
@@ -46,6 +39,7 @@
         .table-item-name {
             color: var(--red-color);
             font-weight: bold;
+            border-top: 1px solid var(--brown-hover);
         }
     </style>
 </head>
@@ -53,9 +47,12 @@
 <body>
     <div th:replace="~{fragments/layout :: navbar('admin')}"></div>
 
-    <main id="app" class="main-layout">
+    <main id="app" class="main-one-col-layout">
         <div class="top-title">
-            <h2>用戶清單</h2>
+            <h2>用戶清單({{ users.length ?? 0 }})</h2>
+            <select v-model.number="pageSize" class="module-select" style="width: auto;">
+                <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 筆/頁</option>
+            </select>
         </div>
 
         <!-- 資料表格 -->
@@ -63,9 +60,9 @@
             <table class="module-table">
                 <thead>
                     <tr>
-                        <th>管理</th>
+                        <th class="table-head-center">管理</th>
                         <th>名稱</th>
-                        <th style="text-align: center;">操作</th>
+                        <th class="table-head-center">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -75,7 +72,7 @@
                     <tr v-else-if="users.length === 0">
                         <td colspan="3" class="table-item-empty-row">目前尚無用戶資料</td>
                     </tr>
-                    <tr v-else v-for="item in users" :key="item.id">
+                    <tr v-else v-for="item in pagedCards" :key="item.id">
                         <td class="table-item-center">
                             <div class="dot" :class="{ green: item.isAdmin }"></div>
                         </td>
@@ -86,6 +83,15 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+        <!-- 底部分頁選擇器 -->
+        <div v-if="totalPages > 1" class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
+            <button type="button" @click="previousPage" :disabled="currentPage === 1">上一頁</button>
+            <span>
+                <input class="module-input-clean" :value="currentPage" @input="onPageInput" @blur="validatePage" />
+                / {{ totalPages }}
+            </span>
+            <button type="button" @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
         </div>
     </main>
 
@@ -106,7 +112,19 @@
                 const loading = ref(false);
                 const { loadUsers, deleteUser, updateAdminUserInfo } = window.useUserHelper();
 
-                // 查詢所有用戶 (對應 UserRestController: GET /api/users)
+                const {
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                } = window.usePageHelper(users, 10);
+
+                // 查詢所有用戶
                 const fetchUsers = async () => {
                     loading.value = true;
                     try {
@@ -185,7 +203,20 @@
                     fetchUsers();
                 });
 
-                return { users, loading, openEditModal };
+                return {
+                    users,
+                    loading,
+                    openEditModal,
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                };
             }
         }).mount('#app');
     </script>

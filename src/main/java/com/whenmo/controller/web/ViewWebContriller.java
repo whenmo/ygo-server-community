@@ -4,9 +4,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import com.whenmo.controller.helper.SecurityHelper;
-
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,8 +14,6 @@ import org.springframework.ui.Model;
 @RequestMapping("/view")
 @RequiredArgsConstructor
 public class ViewWebContriller {
-
-    private final SecurityHelper securityHelper;
 
     @GetMapping("/cards")
     public String showLoginForm(@RequestParam(required = false) String keyword, Model model) {
@@ -45,13 +40,13 @@ public class ViewWebContriller {
         return "view/deck";
     }
 
-    @GetMapping("/deck/mine/{deckId}")
-    public String mineDeckPage(HttpServletRequest httpRequest, @PathVariable Integer deckId, Model model) {
-        if (securityHelper.getAuthUserId(httpRequest) == null)
-            return securityHelper.getRedirectPath("/personal/decks/" + deckId + "/edit");
+    @GetMapping("/cdbs")
+    public String showCdbsPage() {
+        return "view/cdbs";
+    }
 
-        model.addAttribute("mode", "private");
-        model.addAttribute("deckId", deckId);
-        return "view/deck";
+    @GetMapping("/boards")
+    public String showBoardsPage() {
+        return "view/boards";
     }
 }

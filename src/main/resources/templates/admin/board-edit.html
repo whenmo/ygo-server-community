@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${board != null} ? '編輯公告' : '新增公告'">管理員設定</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/two_colume_layout.css}" href="/css/two_colume_layout.css">
+    <link rel="stylesheet" th:href="@{/css/markdownHelper.css}" href="/css/markdownHelper.css">
+
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/markdownHelper.js}" src="/js/common/markdownHelper.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
+
+    <script th:src="@{/js/api/boardHelper.js}" src="/js/api/boardHelper.js"></script>
+
+    <style>
+        .col-title {
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--red-color);
+            color: var(--red-color);
+            font-size: 1rem;
+        }
+
+        .gray-btn {
+            background: var(--gray-hover);
+            border: 1px solid var(--gray-hover);
+        }
+
+        .main-grid-layout {
+            flex: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .main-grid-layout-col {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+            overflow-y: auto;
+            padding: 20px 15px;
+            box-sizing: border-box;
+        }
+
+        .editor-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 5px 10px;
+            border: 1px solid var(--brown-color);
+            border-radius: 5px;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        .preview-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--red-color);
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--red-color);
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar('admin')}"></div>
+
+    <div id="app" class="two-column-layout-container">
+        <!-- 左欄 -->
+        <aside class="aside-column">
+            <div class="aside-content">
+                <h2 class="col-title">公告設定</h2>
+
+                <button type="button" class="module-toggle mode-btn" :class="{ active: boardInfo.isTop }"
+                    style="margin-left: auto;" @click="boardInfo.isTop = !boardInfo.isTop">
+                    <span class="module-toggle-status"></span>
+                    <strong>設為置頂</strong>
+                </button>
+
+                <h2 class="col-title">上次修改</h2>
+
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">用戶</p>
+                    <p v-if="boardInfo?.userName" class="aside-long-row-label">{{ boardInfo.userName }}</p>
+                    <p v-else class="span-hint-msg">無</p>
+                </div>
+
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">時間</p>
+                    <p v-if="boardInfo?.updatedAt" class="aside-long-row-label">{{ formatTime(boardInfo.updatedAt) }}
+                    </p>
+                    <p v-else class="span-hint-msg">無</p>
+                </div>
+            </div>
+
+            <div class="aside-footer" style="display: flex; flex-direction: column; gap: 5px; flex-shrink: 0;">
+                <div v-if="isEdit" style="display: flex; gap: 5px;">
+                    <button type="button" class="module-btn gray-btn" style="flex: 1;" :disabled="submitting"
+                        @click="handleDelete">
+                        刪除
+                    </button>
+                    <button type="button" class="module-btn gray-btn" style="flex: 1;" :disabled="submitting"
+                        @click="discardChanges">
+                        放棄修改
+                    </button>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button type="button" class="module-btn gray-btn" :disabled="submitting" @click="resetChanges">
+                        重置
+                    </button>
+                    <button type="button" class="module-btn" style="flex: 1;" :disabled="submitting" @click="saveBoard">
+                        {{ submitting ? '處理中...' : (isEdit ? '儲存變更' : '建立公告') }}
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 中右欄 -->
+        <main class="main-column" style="padding: 0;">
+            <div class="main-grid-layout">
+                <!-- 中欄：編輯區 -->
+                <div class="main-grid-layout-col" style="border-right: 2px solid var(--red-color);">
+                    <h2 class="col-title">公告內容編輯</h2>
+
+                    <label style="font-weight: bold;" for="title">公告標題 *</label>
+                    <input id="title" type="text" class="editor-input" v-model.trim="boardInfo.title" maxlength="200"
+                        placeholder="公告標題">
+
+                    <label style="font-weight: bold;" for="content">公告內容（Markdown）</label>
+                    <textarea id="content" class="editor-input" style="flex: 1;" v-model="boardInfo.content"
+                        placeholder="公告內容（Markdown）"></textarea>
+                </div>
+
+                <!-- 右欄：Markdown 即時預覽 -->
+                <div class="main-grid-layout-col">
+                    <h2 class="col-title">內容預覽</h2>
+                    <div class="preview-title">{{ boardInfo.title || '（未填寫公告標題）' }}</div>
+                    <div v-if="renderedMarkdown" class="markdown-body" v-html="renderedMarkdown"></div>
+                    <div v-else class="markdown-empty">尚無公告內容可預覽</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script th:inline="javascript">
+        const initialBoard = /*[[${board}]]*/ null;
+    </script>
+
+    <script>
+        const { createApp, ref, reactive, computed } = Vue;
+
+        createApp({
+            setup() {
+                const { createBoard, updateBoard, deleteBoard } = useBoardHelper();
+
+                const createSnapshot = (source) => ({
+                    id: source?.id ?? null,
+                    title: source?.title ?? '',
+                    isTop: Boolean(source?.isTop),
+                    content: source?.content ?? '',
+                    userName: source?.user?.name ?? source?.userName ?? '',
+                    updatedAt: source?.updatedAt ?? null
+                });
+
+                let lastBoardData = createSnapshot(initialBoard);
+
+                const boardInfo = reactive(createSnapshot(lastBoardData));
+
+                const isEdit = computed(() => boardInfo.id != null);
+                const submitting = ref(false);
+
+                const applySnapshotToBoardInfo = (snapshot) => {
+                    Object.assign(boardInfo, createSnapshot(snapshot));
+                };
+
+                const commitLastBoardData = (snapshot) => {
+                    lastBoardData = createSnapshot(snapshot);
+                    applySnapshotToBoardInfo(lastBoardData);
+                };
+
+                const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
+
+                const backToList = () => window.location.href = '/admin/board';
+
+                const notify = (icon, title, text = '') => Swal.fire({ icon, title, text });
+
+                const renderedMarkdown = computed(() => {
+                    const raw = boardInfo.content ?? '';
+                    if (!raw.trim()) return '';
+
+                    if (typeof window.renderSafeMarkdown === 'function') {
+                        return window.renderSafeMarkdown(raw);
+                    }
+
+                    return String(raw)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/\n/g, '<br>');
+                });
+
+                const resetChanges = async () => {
+                    const result = await Swal.fire({
+                        icon: 'question',
+                        title: '重置修改',
+                        text: '確定要還原所有尚未儲存的修改嗎？',
+                        showCancelButton: true,
+                        confirmButtonText: '確定還原',
+                        cancelButtonText: '取消'
+                    });
+                    if (!result.isConfirmed) return;
+                    applySnapshotToBoardInfo(lastBoardData);
+                };
+
+                const discardChanges = async () => {
+                    const result = await Swal.fire({
+                        icon: 'warning',
+                        title: '放棄修改',
+                        text: '確定要放棄修改並返回清單嗎？',
+                        showCancelButton: true,
+                        confirmButtonText: '確定放棄',
+                        cancelButtonText: '繼續編輯'
+                    });
+                    if (!result.isConfirmed) return;
+                    backToList();
+                };
+
+                const saveBoard = async () => {
+                    const trimmedTitle = (boardInfo.title ?? '').trim();
+                    if (!trimmedTitle) {
+                        await notify('warning', '公告標題不能為空');
+                        return;
+                    }
+
+                    submitting.value = true;
+                    const payload = {
+                        title: trimmedTitle,
+                        isTop: Boolean(boardInfo.isTop),
+                        content: boardInfo.content ?? ''
+                    };
+
+                    try {
+                        if (isEdit.value) {
+                            const updated = await updateBoard(boardInfo.id, payload);
+                            commitLastBoardData({
+                                id: updated?.id ?? boardInfo.id,
+                                title: updated?.title ?? payload.title,
+                                isTop: updated?.isTop ?? payload.isTop,
+                                content: updated?.content ?? payload.content,
+                                userName: updated?.user?.name ?? boardInfo.userName,
+                                updatedAt: updated?.updatedAt ?? new Date().toISOString()
+                            });
+                            await notify('success', '公告已更新');
+                        } else {
+                            await createBoard(payload);
+                            backToList();
+                        }
+                    } catch (error) {
+                        const errMsg = error?.response?.data?.message
+                            || (isEdit.value ? '更新公告失敗' : '建立公告失敗');
+                        await notify('error', errMsg);
+                        console.error(error);
+                    } finally {
+                        submitting.value = false;
+                    }
+                };
+
+                const handleDelete = async () => {
+                    if (!isEdit.value) return;
+
+                    const result = await Swal.fire({
+                        icon: 'warning',
+                        title: '刪除公告',
+                        text: '確定要刪除這則公告嗎？此操作無法復原。',
+                        showCancelButton: true,
+                        confirmButtonText: '確定刪除',
+                        cancelButtonText: '取消'
+                    });
+                    if (!result.isConfirmed) return;
+
+                    submitting.value = true;
+                    try {
+                        await deleteBoard(boardInfo.id);
+                        backToList();
+                    } catch (error) {
+                        const errMsg = error?.response?.data?.message || '刪除公告失敗';
+                        await notify('error', errMsg);
+                        console.error(error);
+                    } finally {
+                        submitting.value = false;
+                    }
+                };
+
+                return {
+                    boardInfo,
+                    isEdit,
+                    submitting,
+                    formatTime,
+                    renderedMarkdown,
+                    resetChanges,
+                    discardChanges,
+                    saveBoard,
+                    handleDelete
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

@@ -1,12 +1,16 @@
 package com.whenmo.controller.web;
 
-import com.whenmo.config.SecurityFilterProperties;
+import com.whenmo.controller.helper.SecurityHelper;
+import com.whenmo.controller.helper.SecurityHelper.RequestAuth;
+import com.whenmo.model.database.response.BoardResponse;
+import com.whenmo.service.database.BoardRestService;
+
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 @Controller
@@ -14,15 +18,66 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequiredArgsConstructor
 public class AdminSetWebController {
 
-    private final SecurityFilterProperties securityProps;
+    private final SecurityHelper securityHelper;
+    private final BoardRestService boardRestService;
 
     /**
-     * 管理員設定首頁（包含 CDB 數據庫配置管理）
-     * 訪問路徑：GET /admin/cdb
+     * 公告配置
+     * GET /admin/board
+     */
+    @GetMapping("/board")
+    public String boardSettingPage(HttpServletRequest httpRequest, Model model) {
+        String redirectPath = securityHelper.auth(httpRequest).resolveRedirect(true);
+        if (redirectPath != null)
+            return redirectPath;
+
+        return "admin/boards";
+    }
+
+    /**
+     * 新增公告
+     * GET /admin/board/create
+     */
+    @GetMapping("/board/create")
+    public String createBoardPage(HttpServletRequest httpRequest, Model model) {
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        String redirectPath = requestAuth.resolveRedirect(true);
+        if (redirectPath != null)
+            return redirectPath;
+
+        model.addAttribute("userId", requestAuth.getUserId());
+        model.addAttribute("board", null);
+        return "admin/board-edit";
+    }
+
+    /**
+     * 編輯公告
+     * GET /admin/board/{boardId}/edit
+     */
+    @GetMapping("/board/{boardId}/edit")
+    public String editBoardPage(HttpServletRequest httpRequest, @PathVariable Integer boardId, Model model) {
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        String redirectPath = requestAuth.resolveRedirect(true);
+        if (redirectPath != null)
+            return redirectPath;
+
+        BoardResponse board = boardRestService.getBoardById(boardId);
+        if (board == null) {
+            return "redirect:/admin/board";
+        }
+
+        model.addAttribute("userId", requestAuth.getUserId());
+        model.addAttribute("board", board);
+        return "admin/board-edit";
+    }
+
+    /**
+     * 數據庫配置
+     * GET /admin/cdb
      */
     @GetMapping("/cdb")
-    public String cdbSettingPage(HttpServletRequest request, Model model) {
-        String redirectPath = redirectCheck(request, model, "cdb");
+    public String cdbSettingPage(HttpServletRequest httpRequest, Model model) {
+        String redirectPath = securityHelper.auth(httpRequest).resolveRedirect(true);
         if (redirectPath != null)
             return redirectPath;
 
@@ -30,12 +85,25 @@ public class AdminSetWebController {
     }
 
     /**
-     * 用戶配置管理頁面
-     * 訪問路徑：GET /admin/user
+     * 公共卡包配置
+     * GET /admin/pack
+     */
+    @GetMapping("/pack")
+    public String packSettingPage(HttpServletRequest httpRequest, Model model) {
+        String redirectPath = securityHelper.auth(httpRequest).resolveRedirect(true);
+        if (redirectPath != null)
+            return redirectPath;
+
+        return "admin/packs";
+    }
+
+    /**
+     * 用戶配置
+     * GET /admin/user
      */
     @GetMapping("/user")
-    public String userSettingPage(HttpServletRequest request, Model model) {
-        String redirectPath = redirectCheck(request, model, "user");
+    public String userSettingPage(HttpServletRequest httpRequest, Model model) {
+        String redirectPath = securityHelper.auth(httpRequest).resolveRedirect(true);
         if (redirectPath != null)
             return redirectPath;
 
@@ -43,37 +111,15 @@ public class AdminSetWebController {
     }
 
     /**
-     * 作者配置管理頁面
-     * 訪問路徑：GET /admin/diyer
+     * 作者配置
+     * GET /admin/diyer
      */
     @GetMapping("/diyer")
-    public String diyerSettingPage(HttpServletRequest request, Model model) {
-        String redirectPath = redirectCheck(request, model, "diyer");
+    public String diyerSettingPage(HttpServletRequest httpRequest, Model model) {
+        String redirectPath = securityHelper.auth(httpRequest).resolveRedirect(true);
         if (redirectPath != null)
             return redirectPath;
 
         return "admin/diyer";
-    }
-
-    private String redirectCheck(HttpServletRequest request, Model model, String redirect) {
-        HttpSession session = request.getSession(false);
-
-        // 驗證是否已登入
-        if (session == null || session.getAttribute(securityProps.getSessionKey()) == null) {
-            return "redirect:" + securityProps.getLoginPath() + "?redirect=/admin/" + redirect;
-        }
-
-        // 驗證是否為管理員
-        Boolean isAdmin = (Boolean) session.getAttribute("isAdmin");
-        if (!Boolean.TRUE.equals(isAdmin)) {
-            return "redirect:/";
-        }
-
-        String currentUser = (String) session.getAttribute(securityProps.getSessionKey());
-
-        model.addAttribute("currentUser", currentUser);
-        model.addAttribute("isAdmin", true);
-
-        return null;
     }
 }

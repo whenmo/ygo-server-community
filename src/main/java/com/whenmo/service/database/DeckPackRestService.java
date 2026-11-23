@@ -6,6 +6,7 @@ import com.whenmo.model.database.response.DeckPackResponse;
 import com.whenmo.repository.database.DeckPackRepository;
 import com.whenmo.service.RestServiceHelper;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import java.util.List;
 public class DeckPackRestService {
 
     private final DeckPackRepository deckPackRepository;
+    private final EntityManager entityManager;
 
     // ============================================================
     // Read
@@ -47,7 +49,7 @@ public class DeckPackRestService {
 
         DeckPack deckPack = request.toDeckPack(name, null);
 
-        return DeckPackResponse.fromDeckPack(deckPackRepository.save(deckPack));
+        return DeckPackResponse.fromDeckPack(refreshDeckPack(deckPackRepository.save(deckPack)));
     }
 
     @Transactional
@@ -60,7 +62,7 @@ public class DeckPackRestService {
 
         DeckPack deckPack = request.toDeckPack(name, userId);
 
-        return DeckPackResponse.fromDeckPack(deckPackRepository.save(deckPack));
+        return DeckPackResponse.fromDeckPack(refreshDeckPack(deckPackRepository.save(deckPack)));
     }
 
     // ============================================================
@@ -82,7 +84,7 @@ public class DeckPackRestService {
 
         request.updateDeckPack(deckPack, name);
 
-        return DeckPackResponse.fromDeckPack(deckPackRepository.save(deckPack));
+        return DeckPackResponse.fromDeckPack(refreshDeckPack(deckPackRepository.save(deckPack)));
     }
 
     @Transactional
@@ -98,7 +100,7 @@ public class DeckPackRestService {
 
         request.updateDeckPack(deckPack, name);
 
-        return DeckPackResponse.fromDeckPack(deckPackRepository.save(deckPack));
+        return DeckPackResponse.fromDeckPack(refreshDeckPack(deckPackRepository.save(deckPack)));
     }
 
     // ============================================================
@@ -140,6 +142,9 @@ public class DeckPackRestService {
      */
     private void resolveNonPublicDeckPackConflict(String name) {
         deckPackRepository.findPrivateDeckPacks().forEach(privatePack -> {
+            if (!name.equals(privatePack.getName()))
+                return;
+
             Integer userId = privatePack.getUserId();
             String newName = name;
             int i = 1;
@@ -149,5 +154,11 @@ public class DeckPackRestService {
             privatePack.setName(newName + "_" + i);
             deckPackRepository.save(privatePack);
         });
+    }
+
+    private DeckPack refreshDeckPack(DeckPack deckPack) {
+        entityManager.flush();
+        entityManager.refresh(deckPack);
+        return deckPack;
     }
 }

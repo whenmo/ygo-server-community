@@ -6,6 +6,7 @@ import com.whenmo.model.database.response.*;
 import com.whenmo.repository.database.DiyerRepository;
 import com.whenmo.service.RestServiceHelper;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.List;
 public class DiyerRestService {
 
     private final DiyerRepository diyerRepository;
+    private final EntityManager entityManager;
 
     // ============================================================
     // Read
@@ -56,7 +58,7 @@ public class DiyerRestService {
 
         diyer.setStrings(fullStrings);
 
-        return DiyerResponse.fromDiyer(diyerRepository.save(diyer));
+        return DiyerResponse.fromDiyer(refreshDiyer(diyerRepository.save(diyer)));
     }
 
     // ============================================================
@@ -76,7 +78,7 @@ public class DiyerRestService {
 
         request.updateDiyer(diyer, name, fullStrings);
 
-        return DiyerResponse.fromDiyer(diyerRepository.save(diyer));
+        return DiyerResponse.fromDiyer(refreshDiyer(diyerRepository.save(diyer)));
     }
 
     // ============================================================
@@ -111,5 +113,11 @@ public class DiyerRestService {
             String trimName = RestServiceHelper.getValidTrimString(request.getName(), "diyerString 名稱不可為空");
             return request.toDiyerString(trimName, diyer);
         }).toList();
+    }
+
+    private Diyer refreshDiyer(Diyer diyer) {
+        entityManager.flush();
+        entityManager.refresh(diyer);
+        return diyer;
     }
 }

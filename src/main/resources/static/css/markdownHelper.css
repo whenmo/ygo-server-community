@@ -1,0 +1,74 @@
+.markdown-body {
+    line-height: 1.7;
+    color: var(--dark-color);
+    word-break: break-word;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+    margin-top: 1.1em;
+    margin-bottom: 0.5em;
+    line-height: 1.35;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    padding-left: 1.5em;
+    margin: 0.6em 0;
+}
+
+.markdown-body hr {
+    border: none;
+    border-top: 1px solid #ddd;
+    margin: 14px 0;
+}
+
+.markdown-body pre {
+    background: var(--white-hover);
+    padding: 10px 12px;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+.markdown-body code {
+    background: var(--white-hover);
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.markdown-body pre code {
+    background: transparent;
+    padding: 0;
+}
+
+.markdown-body blockquote {
+    margin: 12px 0;
+    padding: 6px 12px;
+    border-left: 4px solid var(--red-color);
+    background: var(--white-hover);
+}
+
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+.markdown-body th,
+.markdown-body td {
+    border: 1px solid var(--brown-color);
+    padding: 8px 10px;
+    text-align: left;
+}
+
+.markdown-body th {
+    background: var(--white-hover);
+    font-weight: bold;
+}
+
+.markdown-empty {
+    color: var(--gray-hover);
+    font-style: italic;
+}

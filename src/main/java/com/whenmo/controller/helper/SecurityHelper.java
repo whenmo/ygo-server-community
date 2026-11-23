@@ -4,7 +4,10 @@ import com.whenmo.config.SecurityFilterProperties;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -14,52 +17,103 @@ public class SecurityHelper {
     private final SecurityFilterProperties securityProps;
 
     /**
-     * 取得重定向路徑
+     * 以單次 HttpServletRequest 初始化的驗證上下文：
      */
-    public String getRedirectPath(String redirectPath) {
-        return "redirect:" + securityProps.getLoginPath() + "?redirect=" + redirectPath;
-    }
+    public class RequestAuth {
+        @Getter
+        private final Integer userId;
+        @Getter
+        private final boolean isAuth;
+        @Getter
+        private final boolean isAdmin;
+        @Getter
+        private final String url;
 
-    /**
-     * 取得目前登入使用者的 ID
-     */
-    public Integer getAuthUserId(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session == null)
-            return null;
+        public RequestAuth(HttpServletRequest request) {
+            Integer resolvedUserId = null;
+            boolean resolvedAdmin = false;
+            String resolvedUrl = "/";
 
-        Object userId = session.getAttribute("userId");
-        Object sessionCredential = session.getAttribute(securityProps.getSessionKey());
-        if (!(userId instanceof Integer) || sessionCredential == null)
-            return null;
+            if (request != null) {
+                HttpSession session = request.getSession(false);
+                if (session != null) {
+                    Object rawUserId = session.getAttribute("userId");
+                    Object sessionCredential = session.getAttribute(securityProps.getSessionKey());
+                    Cookie[] cookies = request.getCookies();
 
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (securityProps.getCookieName().equals(cookie.getName())
-                        && sessionCredential.toString().equals(cookie.getValue())) {
-                    return (Integer) userId;
+                    if (rawUserId instanceof Integer && sessionCredential != null && cookies != null) {
+                        String expectedValue = sessionCredential.toString();
+                        String expectedName = securityProps.getCookieName();
+
+                        for (Cookie cookie : cookies) {
+                            if (expectedName != null
+                                    && expectedName.equals(cookie.getName())
+                                    && expectedValue.equals(cookie.getValue())) {
+                                resolvedUserId = (Integer) rawUserId;
+                                resolvedAdmin = Boolean.TRUE.equals(session.getAttribute("isAdmin"));
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                String uri = request.getRequestURI();
+                String query = request.getQueryString();
+                if (uri != null && !uri.isBlank()) {
+                    resolvedUrl = (query != null && !query.isBlank()) ? uri + "?" + query : uri;
                 }
             }
+
+            this.userId = resolvedUserId;
+            this.isAuth = resolvedUserId != null;
+            this.isAdmin = this.isAuth && resolvedAdmin;
+            this.url = resolvedUrl;
         }
-        return null;
+
+        /**
+         * 根據登入與權限狀態取得重定向路徑(自動為原址)，皆符合則回傳 null
+         */
+        public String resolveRedirect(boolean requireAdmin) {
+            return resolveRedirect(url, requireAdmin);
+        }
+
+        /**
+         * 根據登入與權限狀態取得 HttpStatus，皆符合則回傳 null
+         */
+        public HttpStatus resolveHttpStatus(boolean requireAdmin) {
+            if (!isAuth)
+                return HttpStatus.UNAUTHORIZED;
+            else if (requireAdmin && !isAdmin)
+                return HttpStatus.FORBIDDEN;
+            return null;
+        }
+
+        /**
+         * 根據登入與權限狀態取得重定向路徑，皆符合則回傳 null
+         */
+        public String resolveRedirect(String redirectPath, boolean requireAdmin) {
+            if (!isAuth)
+                return getLoginRedirect(redirectPath);
+            else if (requireAdmin && !isAdmin)
+                return "redirect:/";
+            return null;
+        }
+
+        /**
+         * 傳回重定向到登入頁面的 redirectPath
+         */
+        public String getLoginRedirect(String redirectPath) {
+            String target = (redirectPath == null || redirectPath.isBlank()) ? "/" : redirectPath;
+            String loginPath = securityProps.getLoginPath();
+            String separator = loginPath.contains("?") ? "&" : "?";
+            return "redirect:" + loginPath + separator + "redirect=" + target;
+        }
     }
 
     /**
-     * 檢查目前登入使用者是否為管理員（直接從 Session 讀取）
+     * 建立以目前 HttpServletRequest 初始化的驗證物件
      */
-    public boolean isAuthAdmin(HttpServletRequest request) {
-        Integer userId = getAuthUserId(request);
-        if (userId == null) {
-            return false;
-        }
-
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            return false;
-        }
-
-        Object isAdmin = session.getAttribute("isAdmin");
-        return Boolean.TRUE.equals(isAdmin);
+    public RequestAuth auth(HttpServletRequest request) {
+        return new RequestAuth(request);
     }
 }

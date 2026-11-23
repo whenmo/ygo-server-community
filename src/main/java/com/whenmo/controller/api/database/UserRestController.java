@@ -3,6 +3,7 @@ package com.whenmo.controller.api.database;
 import com.whenmo.model.database.request.*;
 import com.whenmo.model.database.response.*;
 import com.whenmo.controller.helper.SecurityHelper;
+import com.whenmo.controller.helper.SecurityHelper.RequestAuth;
 import com.whenmo.service.database.UserRestService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -80,11 +81,9 @@ public class UserRestController {
             @PathVariable Integer id,
             @Valid @RequestBody UserUpdateInfoRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         return ResponseEntity.ok(userService.userUpdateInfo(id, request));
     }
@@ -98,11 +97,9 @@ public class UserRestController {
             @PathVariable Integer id,
             @Valid @RequestBody UserUpdatePasswordRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         return ResponseEntity.ok(userService.userUpdatePassword(id, request));
     }
@@ -115,12 +112,12 @@ public class UserRestController {
     public ResponseEntity<UserResponse> updateUserInfo(HttpServletRequest httpRequest,
             @Valid @RequestBody UserUpdateInfoRequest request) {
 
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
-        return ResponseEntity.ok(userService.userUpdateInfo(userId, request));
+        return ResponseEntity.ok(userService.userUpdateInfo(requestAuth.getUserId(), request));
     }
 
     /**
@@ -131,12 +128,12 @@ public class UserRestController {
     public ResponseEntity<UserResponse> updateUserPassword(HttpServletRequest httpRequest,
             @Valid @RequestBody UserUpdatePasswordRequest request) {
 
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
-        return ResponseEntity.ok(userService.userUpdatePassword(userId, request));
+        return ResponseEntity.ok(userService.userUpdatePassword(requestAuth.getUserId(), request));
     }
 
     // ============================================================
@@ -150,12 +147,9 @@ public class UserRestController {
     @DeleteMapping("/id/{id}")
     public ResponseEntity<Void> deleteUser(HttpServletRequest httpRequest, @PathVariable Integer id) {
 
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!userId.equals(id) && !securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();

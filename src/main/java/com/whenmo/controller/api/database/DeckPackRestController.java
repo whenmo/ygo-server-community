@@ -3,6 +3,7 @@ package com.whenmo.controller.api.database;
 import com.whenmo.model.database.request.*;
 import com.whenmo.model.database.response.*;
 import com.whenmo.controller.helper.SecurityHelper;
+import com.whenmo.controller.helper.SecurityHelper.RequestAuth;
 import com.whenmo.service.database.DeckPackRestService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -55,11 +56,9 @@ public class DeckPackRestController {
     public ResponseEntity<DeckPackResponse> createPublicDeckPack(HttpServletRequest httpRequest,
             @Valid @RequestBody DeckPackEditRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         DeckPackResponse deckPack = deckPackService.createPublicDeckPack(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(deckPack);
@@ -73,12 +72,12 @@ public class DeckPackRestController {
     public ResponseEntity<DeckPackResponse> createPrivateDeckPack(HttpServletRequest httpRequest,
             @Valid @RequestBody DeckPackEditRequest request) {
 
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
-        DeckPackResponse deckPack = deckPackService.createPrivateDeckPack(userId, request);
+        DeckPackResponse deckPack = deckPackService.createPrivateDeckPack(requestAuth.getUserId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(deckPack);
     }
 
@@ -95,11 +94,9 @@ public class DeckPackRestController {
             @PathVariable Integer packId,
             @Valid @RequestBody DeckPackEditRequest request) {
 
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         DeckPackResponse deckPack = deckPackService.updatePublicDeckPack(packId, request);
         return ResponseEntity.ok(deckPack);
@@ -114,12 +111,12 @@ public class DeckPackRestController {
             @PathVariable Integer packId,
             @Valid @RequestBody DeckPackEditRequest request) {
 
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
-        DeckPackResponse deckPack = deckPackService.updatePrivateDeckPack(packId, userId, request);
+        DeckPackResponse deckPack = deckPackService.updatePrivateDeckPack(packId, requestAuth.getUserId(), request);
         return ResponseEntity.ok(deckPack);
     }
 
@@ -133,11 +130,10 @@ public class DeckPackRestController {
      */
     @DeleteMapping("/public/{packId}")
     public ResponseEntity<Void> deletePublicDeckPack(HttpServletRequest httpRequest, @PathVariable Integer packId) {
-        if (securityHelper.getAuthUserId(httpRequest) == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        } else if (!securityHelper.isAuthAdmin(httpRequest)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
+
+        HttpStatus httpStatus = securityHelper.auth(httpRequest).resolveHttpStatus(true);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
 
         deckPackService.deletePublicDeckPack(packId);
         return ResponseEntity.noContent().build();
@@ -149,12 +145,13 @@ public class DeckPackRestController {
      */
     @DeleteMapping("/private/{packId}")
     public ResponseEntity<Void> deleteDeckPack(HttpServletRequest httpRequest, @PathVariable Integer packId) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
 
-        deckPackService.deletePrivateDeckPack(packId, userId);
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
+
+        deckPackService.deletePrivateDeckPack(packId, requestAuth.getUserId());
         return ResponseEntity.noContent().build();
     }
 }

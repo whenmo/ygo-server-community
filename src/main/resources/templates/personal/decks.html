@@ -12,28 +12,34 @@
     <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
     <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
 
-    <script th:src="@{/js/vue.global.prod.js}" src="/js/vue.global.prod.js"></script>
-    <script th:src="@{/js/axios.min.js}" src="/js/axios.min.js"></script>
-    <script th:src="@{/js/sweetalert2.all.min.js}" src="/js/sweetalert2.all.min.js"></script>
-    <script th:src="@{/js/helper/pageHelper.js}" src="/js/helper/pageHelper.js"></script>
-    <script th:src="@{/js/apiHelper/deckHelper.js}" src="/js/apiHelper/deckHelper.js"></script>
-    <script th:src="@{/js/apiHelper/deckPackHelper.js}" src="/js/apiHelper/deckPackHelper.js"></script>
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
+
+    <script th:src="@{/js/api/deckHelper.js}" src="/js/api/deckHelper.js"></script>
+    <script th:src="@{/js/api/deckPackHelper.js}" src="/js/api/deckPackHelper.js"></script>
 
     <style>
+        .aside-item-name {
+            padding-bottom: 5px;
+            border-bottom: 2px solid var(--red-color);
+            color: var(--red-color);
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .deck-table-item-name,
-        .deck-table-item-pack,
         .deck-table-item-time {
             border-top: 1px solid var(--brown-hover);
         }
 
-        .deck-table-item-pack,
         .deck-table-item-time {
             width: 1%;
             white-space: nowrap;
-        }
-
-        .deck-table-item-pack {
-            text-align: center;
         }
 
         .deck-table-name {
@@ -72,10 +78,113 @@
 </head>
 
 <body>
-    <div th:replace="~{fragments/layout :: navbar('profile')}"></div>
+    <div th:replace="~{fragments/layout :: navbar('personal')}"></div>
 
     <div id="app" class="two-column-layout-container" th:attr="data-user-id=${userId}">
-        <div th:replace="~{personal/menu :: sidebar('decks')}"></div>
+
+        <aside class="aside-column">
+            <div class="aside-content">
+                <h2 class="aside-item-name">檢視設定</h2>
+
+                <!-- 公開 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">公開</p>
+                    <select v-model="viewFilter.public" class="module-select">
+                        <option :value="VIEW_PUBLIC.ALL">N/A</option>
+                        <option :value="VIEW_PUBLIC.PUBLIC">公開</option>
+                        <option :value="VIEW_PUBLIC.PRIVATE">私人</option>
+                    </select>
+                </div>
+
+                <!-- 公開卡包 -->
+                <div class="aside-long-row">
+                    <button type="button" class="module-toggle mode-btn"
+                        :class="{ active: viewFilter.mode === VIEW_MODE_PACK.PUBLIC }"
+                        @click="viewFilter.mode = VIEW_MODE_PACK.PUBLIC">
+                        <span class="module-toggle-status"></span>
+                        <strong>公開卡包</strong>
+                    </button>
+                    <select v-model="selectedPublicPack" class="module-select"
+                        :disabled="viewFilter.mode !== VIEW_MODE_PACK.PUBLIC">
+                        <option :value="VIEW_PACK.PUBLIC_ALL">N/A</option>
+                        <option :value="VIEW_PACK.PUBLIC_NONE">-</option>
+                        <option v-for="pack in publicPacks" :key="pack.id" :value="pack.id">
+                            {{ pack.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- 我的卡包 -->
+                <div v-show="userPacks.length > 0" class="aside-long-row">
+                    <button type="button" class="module-toggle mode-btn"
+                        :class="{ active: viewFilter.mode === VIEW_MODE_PACK.PRIVATE }"
+                        @click="viewFilter.mode = VIEW_MODE_PACK.PRIVATE">
+                        <span class="module-toggle-status"></span>
+                        <strong>我的卡包</strong>
+                    </button>
+                    <select v-model="selectedPrivatePack" class="module-select"
+                        :disabled="viewFilter.mode !== VIEW_MODE_PACK.PRIVATE">
+                        <option :value="VIEW_PACK.PRIVATE_ALL">All</option>
+                        <option v-for="pack in userPacks" :key="pack.id" :value="pack.id">
+                            {{ pack.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- 排序 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">排序</p>
+                    <select v-model="viewFilter.sort" class="module-select">
+                        <option :value="VIEW_SORT.PUBLIC">公開</option>
+                        <option :value="VIEW_SORT.PACK">卡包</option>
+                    </select>
+                </div>
+
+                <!-- 每頁 -->
+                <div class="aside-long-row">
+                    <p class="aside-long-row-title">每頁</p>
+                    <select v-model.number="pageSize" class="module-select" style="width: 80px;">
+                        <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}張</option>
+                    </select>
+                </div>
+
+                <button type="button" class="module-btn" @click="resetFilter" style="margin-left: auto;">重置</button>
+
+                <h2 class="aside-item-name">我的卡包</h2>
+
+                <div class="aside-long-row">
+                    <input v-model="newPrivatePackName" class="module-input-clean" placeholder="新卡包名稱" maxlength="50"
+                        style="padding: 5px 10px 5px 0; border-bottom: 2px solid var(--brown-color);">
+                    <button type="button" class="module-btn" @click="handleCreatePrivatePack">新增</button>
+                </div>
+
+                <!-- 所有私人卡包 -->
+                <div class="module-table-container">
+                    <table class="module-table">
+                        <thead>
+                            <tr>
+                                <th>卡包</th>
+                                <th class="table-head-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-if="userPacks.length === 0">
+                                <td colspan="2" class="table-item-empty-row">尚無私人卡包</td>
+                            </tr>
+                            <tr v-else v-for="pack in userPacks" :key="pack.id">
+                                <td><button type="button" class="module-btn deck-table-filter-btn"
+                                        @click="selectUserPackFilter(pack.id)">{{ pack.name }} ({{
+                                        getPackDeckCount(pack.id) }})</button></td>
+                                <td class="table-item-center">
+                                    <button type="button" class="module-btn"
+                                        @click="openEditPackModal(pack)">編輯</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </aside>
 
         <main class="main-column" style="display: flex; flex-direction: column; height: calc(100vh - 60px);">
             <!-- 第一排標題與按鈕 -->
@@ -89,79 +198,47 @@
                 </div>
             </div>
 
-            <!-- 檢視設定欄位 -->
-            <div class="main-top-bar" style="flex-shrink: 0;">
-                <div class="main-top-bar-row">
-                    <h2 class="main-top-bar-title">檢視設定</h2>
-                    <div style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
-                        <h2 style="font-size: 1rem; color: var(--red-color);">公開 : </h2>
-                        <select v-model="viewFilter.public" class="module-select">
-                            <option value="all">N/A</option>
-                            <option value="private">私人</option>
-                            <option value="public">公開</option>
-                        </select>
-                        <h2 style="font-size: 1rem; color: var(--red-color);">卡包 : </h2>
-                        <select v-model="viewFilter.pack" class="module-select">
-                            <option value="all">N/A</option>
-                            <option value="none">未分類</option>
-                            <option v-for="pack in packs" :key="pack.id" :value="pack.name">
-                                {{ pack.name }}
-                            </option>
-                        </select>
-                        <h2 style="font-size: 1rem; color: var(--red-color);">排序 : </h2>
-                        <select v-model="viewFilter.sort" class="module-select">
-                            <option value="public">公開</option>
-                            <option value="pack">卡包</option>
-                        </select>
-                        <h2 style="font-size: 1rem; color: var(--red-color);">每頁 : </h2>
-                        <select v-model.number="pageSize" class="module-select" style="width: 80px;">
-                            <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }}張</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
             <!-- 表格容器 -->
             <div class="module-table-container" style="overflow-y: auto; margin-bottom: 10px;">
                 <table class="module-table">
                     <thead>
                         <tr>
-                            <th style="text-align: center;">最愛</th>
-                            <th style="text-align: center;">公開</th>
+                            <th class="table-head-center">最愛</th>
+                            <th class="table-head-center">公開</th>
                             <th>名稱</th>
-                            <th style="text-align: center;">卡包</th>
-                            <th style="text-align: center;">最後修正</th>
-                            <th class="table-col-oper">操作</th>
+                            <th class="table-head-center">卡包</th>
+                            <th class="table-head-center">最後修正</th>
+                            <th class="table-head-center">操作</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-if="loading">
+                        <tr v-if="!loaded">
                             <td colspan="6" class="table-item-empty-row">載入中...</td>
                         </tr>
                         <tr v-else-if="filteredAndSortedDecks.length === 0">
                             <td colspan="6" class="table-item-empty-row">目前尚無符合條件的卡組</td>
                         </tr>
                         <tr v-else v-for="item in pagedDecks" :key="item.deckInfo.id">
-                            <td class="table-item-icon">
+                            <td class="table-item-center">
                                 <div class="dot" :class="{ green: item.deckInfo.isFavor }"></div>
                             </td>
-                            <td class="table-item-icon">
+                            <td class="table-item-center">
                                 <div class="dot" :class="{ green: item.deckInfo.isPublic }"></div>
                             </td>
                             <td class="deck-table-item-name">
-                                <a class="deck-table-name" :href="`/view/deck/mine/${item.deckInfo.id}`" target="_blank"
+                                <a class="deck-table-name" :href="`/personal/decks/${item.deckInfo.id}/view`" target="_blank"
                                     rel="noopener">
                                     {{ item.deckInfo.name }}
                                 </a>
                             </td>
-                            <td class="deck-table-item-pack">
+                            <td class="table-item-center">
                                 <span v-if="item.deckPack?.name">{{ item.deckPack.name }}</span>
                                 <span v-else>-</span>
                             </td>
                             <td class="deck-table-item-time">
                                 {{ formatTime(item.deckInfo.updatedAt) }}
                             </td>
-                            <td class="table-col-oper" style="border-top: 1px solid var(--brown-hover);">
+                            <td class="table-item-center">
                                 <button class="module-btn" @click="editDeck(item)">編輯</button>
                             </td>
                         </tr>
@@ -181,7 +258,7 @@
         </main>
     </div>
 
-    <script>
+    <script th:inline="none">
         const { createApp, ref, reactive, computed, onMounted, watch } = Vue;
 
         const classicalSwal = Swal.mixin({
@@ -191,38 +268,80 @@
 
         createApp({
             setup() {
-                const decks = ref([]);
-                const packs = ref([]);
-                const loading = ref(false);
                 const userId = Number(document.getElementById('app').dataset.userId);
+                const decks = ref([]);
+                const publicPacks = ref([]);
+                const userPacks = ref([]);
+                const packs = ref([]);
+                const loaded = ref(false);
 
-                // 引入 deckHelper 與 deckPackHelper
-                const { loadMineDecks, createDeck: apiCreateDeck } = useDeckHelper();
-                const { loadPublicDeckPacks, loadUserDeckPacks, createPrivateDeckPack } = useDeckPackHelper();
+                const VIEW_PUBLIC = {
+                    ALL: 1,
+                    PUBLIC: 2,
+                    PRIVATE: 3,
+                };
 
-                // 檢視設定篩選與排序狀態
+                const VIEW_MODE_PACK = {
+                    PUBLIC: 1,
+                    PRIVATE: 2,
+                };
+
+                const VIEW_PACK = {
+                    PUBLIC_ALL: "__ALL__",
+                    PUBLIC_NONE: "__NO_PACK__",
+                    PRIVATE_ALL: "__ALL_PRIVATE__",
+                };
+
+                const VIEW_SORT = {
+                    PUBLIC: 1,
+                    PACK: 2
+                };
+
+                const selectedPublicPack = ref(VIEW_PACK.PUBLIC_ALL);
+                const selectedPrivatePack = ref(VIEW_PACK.PRIVATE_ALL);
+
+                const newPrivatePackName = ref('');
+
+                const { loadMineDecks, createDeck: apiCreateDeck, updateDeck: apiUpdateDeck, loadYdkFile } = useDeckHelper();
+                const { loadPublicDeckPacks, loadUserDeckPacks, createPrivateDeckPack, updatePrivateDeckPack, deletePrivateDeckPack } = useDeckPackHelper();
+
                 const viewFilter = reactive({
-                    public: 'all',
-                    pack: 'all',
-                    sort: 'public'
+                    public: VIEW_PUBLIC.ALL,
+                    mode: VIEW_MODE_PACK.PUBLIC,
+                    sort: VIEW_SORT.PUBLIC
                 });
 
-                // 根據檢視設定進行過濾與排序的卡組計算屬性
+                /** 重置檢視篩選條件 */
+                const resetFilter = () => {
+                    viewFilter.public = VIEW_PUBLIC.ALL;
+                    viewFilter.mode = VIEW_MODE_PACK.PUBLIC;
+                    viewFilter.sort = VIEW_SORT.PUBLIC;
+                    selectedPublicPack.value = VIEW_PACK.PUBLIC_ALL;
+                    selectedPrivatePack.value = VIEW_PACK.PRIVATE_ALL;
+                };
+
+                /**
+                 * 根據檢視設定（公開狀態、卡包與排序方式）進行過濾與排序的計算屬性
+                 */
                 const filteredAndSortedDecks = computed(() => {
                     let result = [...decks.value];
 
                     // 1. 公開篩選
-                    if (viewFilter.public === 'public') {
+                    if (viewFilter.public === VIEW_PUBLIC.PUBLIC) {
                         result = result.filter(item => Boolean(item.deckInfo?.isPublic));
-                    } else if (viewFilter.public === 'private') {
+                    } else if (viewFilter.public === VIEW_PUBLIC.PRIVATE) {
                         result = result.filter(item => !Boolean(item.deckInfo?.isPublic));
                     }
 
                     // 2. 卡包篩選
-                    if (viewFilter.pack === 'none') {
-                        result = result.filter(item => !item.deckPack?.name);
-                    } else if (viewFilter.pack !== 'all') {
-                        result = result.filter(item => item.deckPack?.name === viewFilter.pack);
+                    if (viewFilter.mode === VIEW_MODE_PACK.PUBLIC) {
+                        if (selectedPublicPack.value === VIEW_PACK.PUBLIC_NONE) {
+                            result = result.filter(item => !item.deckPack?.id);
+                        } else if (selectedPublicPack.value !== VIEW_PACK.PUBLIC_ALL) {
+                            result = result.filter(item => item.deckPack?.id === Number(selectedPublicPack.value));
+                        }
+                    } else if (selectedPrivatePack.value !== VIEW_PACK.PRIVATE_ALL) {
+                        result = result.filter(item => item.deckPack?.id === Number(selectedPrivatePack.value));
                     }
 
                     // 3. 排序方式
@@ -230,7 +349,7 @@
                         const nameA = a.deckInfo?.name || '';
                         const nameB = b.deckInfo?.name || '';
 
-                        if (viewFilter.sort === 'pack') {
+                        if (viewFilter.sort === VIEW_SORT.PACK) {
                             const packA = a.deckPack?.name || '\uFFFF';
                             const packB = b.deckPack?.name || '\uFFFF';
                             const packCompare = packA.localeCompare(packB, 'zh-Hant');
@@ -249,7 +368,7 @@
                     return result;
                 });
 
-                // 引入分頁輔助
+                // 引入分頁輔助插件
                 const {
                     pageSizeOptions,
                     pageSize,
@@ -263,50 +382,154 @@
                 } = usePageHelper(filteredAndSortedDecks, 10);
 
                 // 當篩選條件改變時，自動重置回第 1 頁
-                watch([() => viewFilter.public, () => viewFilter.pack, () => viewFilter.sort], () => {
+                watch([() => viewFilter.public, () => viewFilter.mode, () => viewFilter.sort, selectedPublicPack, selectedPrivatePack], () => {
                     currentPage.value = 1;
                 });
 
-                const fetchDecks = async (force = false) => {
-                    loading.value = true;
+                /** 計算指定卡包 ID 內包含的卡組數量  */
+                const getPackDeckCount = (packId) => decks.value.filter(item => item.deckPack?.id === packId).length;
+
+                /** 處理側邊欄新增私人卡包的邏輯與 API 互動 */
+                const handleCreatePrivatePack = async () => {
+                    const name = newPrivatePackName.value.trim();
+                    if (!name) {
+                        classicalSwal.fire({ icon: 'warning', title: '請輸入卡包名稱' });
+                        return;
+                    }
                     try {
-                        decks.value = await loadMineDecks(force);
+                        await createPrivateDeckPack({ name });
+                        newPrivatePackName.value = '';
+                        await fetchUserPacks();
+                        classicalSwal.fire({ icon: 'success', title: '新增成功', timer: 1200, showConfirmButton: false });
                     } catch (error) {
                         classicalSwal.fire({
                             icon: 'error',
-                            title: '載入失敗',
-                            text: error.response?.data?.message || '無法取得卡組清單'
+                            title: '新增失敗',
+                            text: error.response?.data?.message || '建立私人卡包失敗'
                         });
-                    } finally {
-                        loading.value = false;
                     }
                 };
 
-                // 使用 deckPackHelper 從 API 讀取卡包列表
-                const fetchPacks = async () => {
-                    try {
-                        const [publicPacks, userPacks] = await Promise.all([
-                            loadPublicDeckPacks(),
-                            loadUserDeckPacks(userId)
-                        ]);
-                        packs.value = [...publicPacks, ...userPacks]
-                            .filter(pack => pack.name)
-                            .sort((left, right) => left.name.localeCompare(right.name, 'zh-Hant'));
-                    } catch (error) {
-                        packs.value = [];
+                /** 開啟編輯私人卡包的互動彈窗 */
+                const openEditPackModal = async (pack) => {
+                    const result = await classicalSwal.fire({
+                        title: `編輯卡包`,
+                        html: `
+                            <div class="swal-col-container">
+                                <fieldset class="module-fieldset">
+                                    <legend>卡包名稱</legend>
+                                    <input id="swal-edit-pack-name" class="module-input-clean" value="${escapeHtml(pack.name)}" maxlength="50">
+                                </fieldset>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: '儲存修改',
+                        denyButtonText: '刪除卡包',
+                        cancelButtonText: '取消',
+                        denyButtonColor: 'var(--red-color)',
+                        preConfirm: () => {
+                            const newName = document.getElementById('swal-edit-pack-name').value.trim();
+                            if (!newName) {
+                                Swal.showValidationMessage('卡包名稱不可為空');
+                                return false;
+                            }
+                            return newName;
+                        }
+                    });
+
+                    // 1. 點擊刪除卡包
+                    if (result.isDenied) {
+                        const confirmDelete = await classicalSwal.fire({
+                            icon: 'warning',
+                            title: `確定要刪除卡包「${pack.name}」嗎？`,
+                            text: '若該卡包下有卡組，卡組將會被設為未分類！',
+                            showCancelButton: true,
+                            confirmButtonText: '確定刪除',
+                            cancelButtonText: '取消',
+                            confirmButtonColor: 'var(--red-color)'
+                        });
+
+                        if (!confirmDelete.isConfirmed) return;
+
+                        loaded.value = true;
+                        try {
+                            // 找出屬於此卡包的所有卡組，並並行發送更新將 packId 設為 null (避免 Chunked 封包中斷)
+                            const affectedDecks = decks.value.filter(item => item.deckPack?.id === pack.id);
+                            await Promise.all(affectedDecks.map(item => {
+                                const payload = {
+                                    name: item.deckInfo.name,
+                                    packId: null,
+                                    isFavor: item.deckInfo.isFavor,
+                                    isPublic: item.deckInfo.isPublic,
+                                    pack: item.pack || [],
+                                    main: item.main || [],
+                                    extra: item.extra || [],
+                                    side: item.side || []
+                                };
+                                return apiUpdateDeck(item.deckInfo.id, payload);
+                            }));
+
+                            // 刪除私人卡包 API
+                            await deletePrivateDeckPack(pack.id);
+                            await Promise.all([fetchDecks(true), fetchUserPacks()]);
+
+                            classicalSwal.fire({ icon: 'success', title: '刪除成功', timer: 1200, showConfirmButton: false });
+                        } catch (error) {
+                            classicalSwal.fire({
+                                icon: 'error',
+                                title: '刪除失敗',
+                                text: error.response?.data?.message || '無法刪除私人卡包'
+                            });
+                        } finally {
+                            loaded.value = false;
+                        }
+                        return;
+                    }
+
+                    // 2. 點擊儲存修改
+                    if (result.isConfirmed) {
+                        const newName = result.value;
+                        if (newName === pack.name) return;
+
+                        loaded.value = true;
+                        try {
+                            await updatePrivateDeckPack(pack.id, { name: newName, userId });
+                            await Promise.all([fetchDecks(true), fetchUserPacks()]);
+                            classicalSwal.fire({ icon: 'success', title: '修改成功', timer: 1200, showConfirmButton: false });
+                        } catch (error) {
+                            classicalSwal.fire({
+                                icon: 'error',
+                                title: '修改失敗',
+                                text: error.response?.data?.message || '無法更新私人卡包'
+                            });
+                        } finally {
+                            loaded.value = false;
+                        }
                     }
                 };
 
+                /** 點擊「我的卡包」名稱時，切換檢視設定至我的卡包並選取該卡包 */
+                const selectUserPackFilter = (packId) => {
+                    viewFilter.mode = VIEW_MODE_PACK.PRIVATE;
+                    selectedPrivatePack.value = String(packId);
+                };
+
+                /** 格式化時間字串為在地化日期格式 */
                 const formatTime = (value) => value ? new Date(value).toLocaleDateString() : '—';
 
+                /** 將字串中的特殊字元進行 HTML 跳脫以防止注入 */
                 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (character) => ({
                     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
                 })[character]);
 
+                /** 跳轉至指定卡組的編輯頁面 */
                 const editDeck = (item) => window.open(`/personal/decks/${item.deckInfo.id}/edit`, '_blank', 'noopener');
 
+                /** 跳轉至新增卡組頁面 */
                 const createDeck = () => window.open('/personal/decks/create', '_blank', 'noopener');
 
+                /** 開啟批量導入 YDK 檔案的互動彈窗 */
                 const openImportYdkModal = async () => {
                     let batchItems = [];
                     let showMessage = () => { };
@@ -327,12 +550,12 @@
                                 <table class="module-table">
                                     <thead>
                                         <tr>
-                                            <th style="text-align: center;">最愛</th>
-                                            <th style="text-align: center;">公開</th>
+                                            <th class="table-head-center">最愛</th>
+                                            <th class="table-head-center">公開</th>
                                             <th>名稱</th>
-                                            <th style="text-align: center;">卡包</th>
-                                            <th style="text-align: center;">張數</th>
-                                            <th class="table-col-oper">操作</th>
+                                            <th class="table-head-center">卡包</th>
+                                            <th class="table-head-center">張數</th>
+                                            <th class="table-head-center">操作</th>
                                         </tr>
                                     </thead>
                                     <tbody id="swal-ydk-editable-body" class="swal-editor-body">
@@ -357,9 +580,12 @@
 
                             batchItems = [];
 
+                            /**
+                             * 內部函數：渲染彈窗內的批量導入清單表格
+                             */
                             const renderTable = () => {
                                 if (batchItems.length === 0) {
-                                    editableBody.innerHTML = '<tr><td colspan="5" class="table-item-empty-row">尚未讀取檔案</td></tr>';
+                                    editableBody.innerHTML = '<tr><td colspan="6" class="table-item-empty-row">尚未讀取檔案</td></tr>';
                                     return;
                                 }
                                 editableBody.innerHTML = '';
@@ -367,12 +593,12 @@
                                     const tr = document.createElement('tr');
                                     tr.className = 'swal-editor-row';
                                     tr.innerHTML = `
-                                        <td style="text-align: center; width: 1%;">
+                                        <td class="table-item-center">
                                             <button type="button" class="module-toggle ${item.isFavor ? 'active' : ''}" data-index="${index}" data-action="toggle-favor" style="width: 100%;">
                                                 <span>最愛</span>
                                             </button>
                                         </td>
-                                        <td style="text-align: center; width: 1%;">
+                                        <td class="table-item-center">
                                             <button type="button" class="module-toggle ${item.isPublic ? 'active' : ''}" data-index="${index}" data-action="toggle-public" style="width: 100%;">
                                                 <span>${item.isPublic ? "公開" : "私人"}</span>
                                             </button>
@@ -380,16 +606,16 @@
                                         <td>
                                             <input class="module-input-clean ydk-name-input" value="${escapeHtml(item.name)}" data-index="${index}" style="width: 100%; padding: 2px 0; border-bottom: 1px solid var(--brown-color);" maxlength="80">
                                         </td>
-                                        <td style="text-align: center;">
-                                            <select class="module-select ydk-pack-select" data-index="${index}" style="padding: 2px; width: 100%;">
+                                        <td class="table-item-center">
+                                            <select class="module-select ydk-pack-select" data-index="${index}" style="padding: 2px;">
                                                 <option value="">未分類</option>
                                                 ${packs.value.map(pack => `<option value="${pack.id}" ${Number(item.packId) === pack.id ? 'selected' : ''}>${escapeHtml(pack.name)}</option>`).join('')}
                                             </select>
                                         </td>
-                                        <td style="text-align: center;">
+                                        <td class="table-item-center">
                                             ${item.pack.length > 0 ? item.pack.length : `${item.main.length} / ${item.extra.length} / ${item.side.length}`}
                                         </td>
-                                        <td class="table-col-oper">
+                                        <td class="table-item-center">
                                             <button type="button" class="module-btn ydk-delete-btn" data-index="${index}">刪除</button>
                                         </td>
                                     `;
@@ -410,12 +636,10 @@
                                     if (!file.name.toLowerCase().endsWith('.ydk')) continue;
 
                                     try {
-                                        const content = await file.text();
-                                        const parsed = parseYdkContent(content);
-                                        const defaultName = file.name.replace(/\.[^/.]+$/, '');
+                                        const parsed = await loadYdkFile(file);
 
                                         batchItems.push({
-                                            name: defaultName,
+                                            name: file.name.replace(/\.[^/.]+$/, ''),
                                             packId: '',
                                             isFavor: false,
                                             isPublic: true,
@@ -451,6 +675,11 @@
                                 const publicBtn = e.target.closest('[data-action="toggle-public"]');
                                 if (publicBtn) {
                                     const idx = Number(publicBtn.dataset.index);
+                                    const selectedPack = packs.value.find(pack => Number(pack.id) === Number(batchItems[idx].packId));
+                                    if (batchItems[idx].isPublic && selectedPack?.isPublic) {
+                                        showMessage('位於公共卡包中的卡組必須保持公開', false);
+                                        return;
+                                    }
                                     batchItems[idx].isPublic = !batchItems[idx].isPublic;
                                     renderTable();
                                     return;
@@ -477,6 +706,12 @@
                                 if (packSelect) {
                                     const idx = Number(packSelect.dataset.index);
                                     batchItems[idx].packId = packSelect.value ? Number(packSelect.value) : null;
+                                    const selectedPack = packs.value.find(pack => Number(pack.id) === Number(batchItems[idx].packId));
+                                    if (selectedPack?.isPublic) {
+                                        batchItems[idx].isPublic = true;
+                                        showMessage('位於公共卡包中的卡組已設為公開', false);
+                                        renderTable();
+                                    }
                                 }
                             });
                         },
@@ -498,7 +733,7 @@
                     if (!result.isConfirmed) return;
                     const itemsToImport = result.value;
 
-                    loading.value = true;
+                    loaded.value = true;
                     const successList = [];
                     const failList = [];
 
@@ -522,8 +757,8 @@
                         }
                     }
 
-                    await Promise.all([fetchDecks(true), fetchPacks()]);
-                    loading.value = false;
+                    await Promise.all([fetchDecks(true), fetchUserPacks()]);
+                    loaded.value = false;
 
                     let resultHtml = `<div style="text-align: left; max-height: 250px; overflow-y: auto; font-size: 0.95rem; line-height: 1.6;">`;
 
@@ -550,56 +785,65 @@
                     });
                 };
 
-                const parseYdkContent = (content) => {
-                    const lines = content.split(/\r?\n/);
-                    let currentSection = 'pack';
-                    const main = [];
-                    const extra = [];
-                    const side = [];
-                    const pack = [];
-
-                    for (let line of lines) {
-                        line = line.trim();
-                        if (!line) continue;
-
-                        if (line.startsWith('#main')) {
-                            currentSection = 'main';
-                            continue;
-                        } else if (line.startsWith('#extra')) {
-                            currentSection = 'extra';
-                            continue;
-                        } else if (line.startsWith('!side') || line.startsWith('#side')) {
-                            currentSection = 'side';
-                            continue;
-                        } else if (line.startsWith('#')) {
-                            continue;
-                        }
-
-                        const cardId = Number(line);
-                        if (isNaN(cardId) || cardId <= 0) continue;
-
-                        if (currentSection === 'pack') {
-                            pack.push(cardId);
-                        } else if (currentSection === 'main') {
-                            main.push(cardId);
-                        } else if (currentSection === 'extra') {
-                            extra.push(cardId);
-                        } else if (currentSection === 'side') {
-                            side.push(cardId);
-                        }
+                /** 讀取使用者的所有卡組 */
+                const fetchDecks = async (force = false) => {
+                    try {
+                        decks.value = await loadMineDecks(force);
+                    } catch (error) {
+                        decks.value = [];
                     }
-                    return { main, extra, side, pack };
+                };
+
+                /** 讀取公開卡包與列表 */
+                const fetchPublicPacks = async () => {
+                    try {
+                        publicPacks.value = await loadPublicDeckPacks();
+                    } catch (error) {
+                        publicPacks.value = [];
+                    }
+                };
+
+                /** 讀取私人卡包列表並合併 */
+                const fetchUserPacks = async () => {
+                    try {
+                        userPacks.value = await loadUserDeckPacks(userId);
+                    } catch (error) {
+                        userPacks.value = [];
+                    } finally {
+                        packs.value = [...publicPacks.value, ...userPacks.value];
+                    }
                 };
 
                 onMounted(async () => {
-                    await Promise.all([fetchDecks(), fetchPacks()]);
+                    try {
+                        const decksPromise = fetchDecks();
+
+                        await fetchPublicPacks();
+                        await fetchUserPacks();
+
+                        await decksPromise;
+                    } finally {
+                        loaded.value = true;
+                    }
                 });
 
                 return {
-                    decks,
+                    publicPacks,
+                    userPacks,
                     packs,
-                    loading,
+                    loaded,
+                    VIEW_PUBLIC,
+                    VIEW_MODE_PACK,
+                    VIEW_PACK,
+                    VIEW_SORT,
+                    selectedPublicPack,
+                    selectedPrivatePack,
+                    newPrivatePackName,
                     viewFilter,
+                    resetFilter,
+                    handleCreatePrivatePack,
+                    getPackDeckCount,
+                    openEditPackModal,
                     filteredAndSortedDecks,
                     pagedDecks,
                     pageSizeOptions,
@@ -613,7 +857,8 @@
                     formatTime,
                     createDeck,
                     editDeck,
-                    openImportYdkModal
+                    openImportYdkModal,
+                    selectUserPackFilter
                 };
             }
         }).mount('#app');

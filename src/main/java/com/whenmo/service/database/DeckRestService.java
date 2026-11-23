@@ -2,6 +2,7 @@ package com.whenmo.service.database;
 
 import com.whenmo.model.database.dto.YdkDto;
 import com.whenmo.model.database.domain.Deck;
+import com.whenmo.model.database.domain.DeckPack;
 import com.whenmo.model.database.request.DeckEditRequest;
 import com.whenmo.model.database.response.DeckInfoResponse;
 import com.whenmo.model.database.response.DeckResponse;
@@ -9,6 +10,7 @@ import com.whenmo.repository.database.DeckPackRepository;
 import com.whenmo.repository.database.DeckRepository;
 import com.whenmo.service.RestServiceHelper;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +25,7 @@ public class DeckRestService {
     private final UserRestService userRestService;
     private final DiskDecksService diskDecksService;
     private final DeckPackRepository deckPackRepository;
+    private final EntityManager entityManager;
 
     // ============================================================
     // Read
@@ -75,9 +78,9 @@ public class DeckRestService {
     public DeckResponse createDeck(Integer userId, DeckEditRequest request) {
         String name = RestServiceHelper.getValidTrimString(request.getName(), "卡組名稱不可為空");
 
-        Integer packId = getValidPackId(request.getPackId(), userId);
+        Integer packId = getValidPackId(request.getPackId(), userId, request);
 
-        Deck deck = deckRepository.save(request.toDeck(name, userId, packId));
+        Deck deck = refreshDeck(deckRepository.save(request.toDeck(name, userId, packId)));
 
         diskDecksService.saveYdkFile(deck.getId(), userRestService.getNameById(userId), request);
 
@@ -96,11 +99,11 @@ public class DeckRestService {
 
         Deck deck = findByIdAndUserId(deckId, userId);
 
-        Integer packId = getValidPackId(request.getPackId(), userId);
+        Integer packId = getValidPackId(request.getPackId(), userId, request);
 
         request.updateDeck(deck, name, packId);
 
-        deck = deckRepository.save(deck);
+        deck = refreshDeck(deckRepository.save(deck));
 
         diskDecksService.saveYdkFile(deck.getId(), userRestService.getNameById(userId), request);
 
@@ -142,11 +145,19 @@ public class DeckRestService {
     /**
      * 檢查用戶可否使用 packId 卡包
      */
-    private Integer getValidPackId(Integer packId, Integer userId) {
+    private Integer getValidPackId(Integer packId, Integer userId, DeckEditRequest request) {
         if (packId == null)
             return null;
-        deckPackRepository.findByIdAndUserIdOrUserIdIsNull(packId, userId)
+        DeckPack deckPack = deckPackRepository.findByIdAndUserIdOrUserIdIsNull(packId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("找不到用戶/公開卡包_" + userId + "_" + packId));
+        if (Boolean.TRUE.equals(deckPack.getIsPublic()))
+            request.setIsPublic(true);
         return packId;
+    }
+
+    private Deck refreshDeck(Deck deck) {
+        entityManager.flush();
+        entityManager.refresh(deck);
+        return deck;
     }
 }

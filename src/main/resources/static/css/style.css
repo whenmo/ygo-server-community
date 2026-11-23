@@ -143,8 +143,9 @@ body {
     background-color: var(--gold-hover) !important;
 }
 
-/*//////////////////////////////////////////////////////////////////////////////////*/
-
+/* ============================================================
+   灰綠紅點樣式
+   ============================================================ */
 .dot {
     display: inline-block;
     background-color: var(--gray-color);
@@ -162,4 +163,25 @@ body {
 .dot.red {
     background-color: var(--red-color);
     box-shadow: 0 0 5px var(--red-color);
+}
+
+/* ============================================================
+   頁面 layout
+   ============================================================ */
+.main-one-col-layout {
+    width: max-content;
+    max-width: none;
+    min-width: 720px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    height: calc(100vh - 60px);
+    padding: 20px 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-one-col-layout>* {
+    min-width: max-content;
+    max-width: none;
 }

@@ -1,7 +1,10 @@
 package com.whenmo.controller.web;
 
 import com.whenmo.controller.helper.SecurityHelper;
+import com.whenmo.controller.helper.SecurityHelper.RequestAuth;
+import com.whenmo.model.database.response.UserResponse;
 import com.whenmo.service.database.UserRestService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -20,43 +23,61 @@ public class PersonalWebController {
 
     @GetMapping("/profile")
     public String profile(HttpServletRequest httpRequest, Model model) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return securityHelper.getRedirectPath("/personal/profile");
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        String redirectPath = requestAuth.resolveRedirect(false);
+        if (redirectPath != null)
+            return redirectPath;
 
-        model.addAttribute("profileName", userService.getUserById(userId).getName());
+        UserResponse user = userService.getUserById(requestAuth.getUserId());
+
+        model.addAttribute("user", user);
         return "personal/profile";
     }
 
     @GetMapping("/decks")
     public String decks(HttpServletRequest httpRequest, Model model) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return securityHelper.getRedirectPath("/personal/decks");
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        String redirectPath = requestAuth.resolveRedirect(false);
+        if (redirectPath != null)
+            return redirectPath;
 
-        model.addAttribute("userId", userId);
+        model.addAttribute("userId", requestAuth.getUserId());
         return "personal/decks";
     }
 
     @GetMapping("/decks/create")
     public String createDeckPage(HttpServletRequest httpRequest, Model model) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return securityHelper.getRedirectPath("/personal/decks/create");
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        String redirectPath = requestAuth.resolveRedirect(false);
+        if (redirectPath != null)
+            return redirectPath;
 
-        model.addAttribute("userId", userId);
+        model.addAttribute("userId", requestAuth.getUserId());
         model.addAttribute("deckId", null);
         return "personal/deck-edit";
     }
 
     @GetMapping("/decks/{deckId}/edit")
     public String editDeck(HttpServletRequest httpRequest, @PathVariable Integer deckId, Model model) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return securityHelper.getRedirectPath("/personal/decks/" + deckId + "/edit");
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        String redirectPath = requestAuth.resolveRedirect(false);
+        if (redirectPath != null)
+            return redirectPath;
 
-        model.addAttribute("userId", userId);
+        model.addAttribute("userId", requestAuth.getUserId());
         model.addAttribute("deckId", deckId);
         return "personal/deck-edit";
+    }
+
+    @GetMapping("/decks/{deckId}/view")
+    public String mineDeckPage(HttpServletRequest httpRequest, @PathVariable Integer deckId, Model model) {
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        String redirectPath = requestAuth.resolveRedirect(false);
+        if (redirectPath != null)
+            return redirectPath;
+
+        model.addAttribute("mode", "private");
+        model.addAttribute("deckId", deckId);
+        return "view/deck";
     }
 }

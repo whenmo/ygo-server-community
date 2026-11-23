@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-Hans" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公共卡包管理</title>
+
+    <link rel="stylesheet" th:href="@{/css/style.css}" href="/css/style.css">
+    <link rel="stylesheet" th:href="@{/css/module.css}" href="/css/module.css">
+    <link rel="stylesheet" th:href="@{/css/pageHelper.css}" href="/css/pageHelper.css">
+    <link rel="stylesheet" th:href="@{/css/sweetalert.css}" href="/css/sweetalert.css">
+
+    <script th:src="@{/js/common/axios.min.js}" src="/js/common/axios.min.js"></script>
+    <script th:src="@{/js/common/sweetalert2.all.min.js}" src="/js/common/sweetalert2.all.min.js"></script>
+    <script th:src="@{/js/common/vue.global.prod.js}" src="/js/common/vue.global.prod.js"></script>
+    <script th:src="@{/js/common/pageHelper.js}" src="/js/common/pageHelper.js"></script>
+    <script th:src="@{/js/common/navbar.js}" src="/js/common/navbar.js"></script>
+
+    <script th:src="@{/js/api/deckHelper.js}" src="/js/api/deckHelper.js"></script>
+    <script th:src="@{/js/api/deckPackHelper.js}" src="/js/api/deckPackHelper.js"></script>
+
+    <style>
+        .top-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid var(--red-color);
+        }
+
+        .top-title>h2 {
+            font-size: 1.5rem;
+            color: var(--red-color);
+            margin: 0;
+            font-variant: small-caps;
+            white-space: nowrap;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .table-item-name {
+            color: var(--red-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div th:replace="~{fragments/layout :: navbar('admin')}"></div>
+
+    <main id="app" class="main-one-col-layout">
+        <div class="top-title">
+            <h2>公共卡包清單({{ packs.length ?? 0 }})</h2>
+            <div class="top-actions">
+                <select v-model.number="pageSize" class="module-select" style="width: auto;">
+                    <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} 筆/頁</option>
+                </select>
+                <button type="button" class="module-btn" :disabled="!loaded" @click="handleCreatePack">新增卡包</button>
+            </div>
+        </div>
+
+        <div class="module-table-container">
+            <table class="module-table">
+                <thead>
+                    <tr>
+                        <th>名稱</th>
+                        <th class="table-head-center">卡組數</th>
+                        <th class="table-head-center">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="!loaded">
+                        <td colspan="3" class="table-item-empty-row">載入中...</td>
+                    </tr>
+                    <tr v-else-if="packs.length === 0">
+                        <td colspan="3" class="table-item-empty-row">目前尚無公共卡包</td>
+                    </tr>
+                    <tr v-else v-for="pack in pagedPacks" :key="pack.id">
+                        <td class="table-item-name">{{ pack.name }}</td>
+                        <td class="table-item-center">{{ pack.deckCount }}</td>
+                        <td class="table-item-center">
+                            <button type="button" class="module-btn" :disabled="!loaded"
+                                @click="openEditPackModal(pack)">編輯</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div v-if="totalPages > 1" class="result-page-row" style="flex-shrink: 0; margin-top: auto;">
+            <button type="button" @click="previousPage" :disabled="currentPage === 1">上一頁</button>
+            <span>
+                <input class="module-input-clean" :value="currentPage" @input="onPageInput" @blur="validatePage" />
+                / {{ totalPages }}
+            </span>
+            <button type="button" @click="nextPage" :disabled="currentPage === totalPages">下一頁</button>
+        </div>
+    </main>
+
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        const classicalSwal = Swal.mixin({
+            customClass: { popup: 'swal-popup', title: 'swal-title' },
+            buttonsStyling: true
+        });
+
+        createApp({
+            setup() {
+                const packs = ref([]);
+                const loaded = ref(false);
+
+                const { loadPublicDecks } = useDeckHelper();
+                const {
+                    loadPublicDeckPacks,
+                    createPublicDeckPack,
+                    updatePublicDeckPack,
+                    deletePublicDeckPack
+                } = useDeckPackHelper();
+
+                const {
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedCards: pagedPacks,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                } = window.usePageHelper(packs, 10);
+
+                const fetchPacks = async () => {
+                    const [publicPacks, publicDecks] = await Promise.all([
+                        loadPublicDeckPacks(true),
+                        loadPublicDecks(true)
+                    ]);
+                    const deckCounts = new Map();
+                    publicDecks.forEach(deck => {
+                        const packId = deck.deckPack?.id;
+                        if (packId != null) {
+                            const key = Number(packId);
+                            deckCounts.set(key, (deckCounts.get(key) || 0) + 1);
+                        }
+                    });
+                    packs.value = [...publicPacks]
+                        .map(pack => ({ ...pack, deckCount: deckCounts.get(Number(pack.id)) || 0 }))
+                        .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+                };
+
+                const handleCreatePack = async () => {
+                    const result = await classicalSwal.fire({
+                        title: '新增公共卡包',
+                        input: 'text',
+                        inputAttributes: { maxlength: 50, autocapitalize: 'off' },
+                        showCancelButton: true,
+                        confirmButtonText: '新增',
+                        cancelButtonText: '取消',
+                        inputValidator: value => value?.trim() ? undefined : '卡包名稱不可為空'
+                    });
+                    if (!result.isConfirmed) return;
+
+                    loaded.value = false;
+                    try {
+                        await createPublicDeckPack({ name: result.value.trim() });
+                        await fetchPacks();
+                        currentPage.value = 1;
+                        classicalSwal.fire({ icon: 'success', title: '新增成功', timer: 1200, showConfirmButton: false });
+                    } catch (error) {
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '新增失敗',
+                            text: error.response?.data?.message || '建立公共卡包失敗'
+                        });
+                    } finally {
+                        loaded.value = true;
+                    }
+                };
+
+                const openEditPackModal = async (pack) => {
+                    const result = await classicalSwal.fire({
+                        title: '編輯公共卡包',
+                        input: 'text',
+                        inputValue: pack.name,
+                        inputAttributes: { maxlength: 50, autocapitalize: 'off' },
+                        showCancelButton: true,
+                        showDenyButton: true,
+                        confirmButtonText: '儲存修改',
+                        denyButtonText: '刪除卡包',
+                        cancelButtonText: '取消',
+                        denyButtonColor: 'var(--red-color)',
+                        inputValidator: value => value?.trim() ? undefined : '卡包名稱不可為空'
+                    });
+
+                    if (result.isDenied) {
+                        const confirmDelete = await classicalSwal.fire({
+                            icon: 'warning',
+                            title: `確定要刪除卡包「${pack.name}」嗎？`,
+                            text: '此卡包下的卡組將改為未分類。',
+                            showCancelButton: true,
+                            confirmButtonText: '確定刪除',
+                            cancelButtonText: '取消',
+                            confirmButtonColor: 'var(--red-color)'
+                        });
+
+                        if (!confirmDelete.isConfirmed) return;
+
+                        loaded.value = false;
+                        try {
+                            await deletePublicDeckPack(pack.id);
+                            await fetchPacks();
+                            currentPage.value = Math.min(currentPage.value, totalPages.value);
+                            classicalSwal.fire({ icon: 'success', title: '刪除成功', timer: 1200, showConfirmButton: false });
+                        } catch (error) {
+                            classicalSwal.fire({
+                                icon: 'error',
+                                title: '刪除失敗',
+                                text: error.response?.data?.message || '無法刪除公共卡包'
+                            });
+                        } finally {
+                            loaded.value = true;
+                        }
+                        return;
+                    }
+
+                    if (!result.isConfirmed) return;
+
+                    const name = result.value.trim();
+                    if (name === pack.name) return;
+
+                    loaded.value = false;
+                    try {
+                        await updatePublicDeckPack(pack.id, { name });
+                        await fetchPacks();
+                        currentPage.value = 1;
+                        classicalSwal.fire({ icon: 'success', title: '修改成功', timer: 1200, showConfirmButton: false });
+                    } catch (error) {
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '修改失敗',
+                            text: error.response?.data?.message || '無法更新公共卡包'
+                        });
+                    } finally {
+                        loaded.value = true;
+                    }
+                };
+
+                onMounted(async () => {
+                    try {
+                        await fetchPacks();
+                    } catch (error) {
+                        packs.value = [];
+                        console.error('取得公共卡包失敗', error);
+                        classicalSwal.fire({
+                            icon: 'error',
+                            title: '載入失敗',
+                            text: error.response?.data?.message || '無法取得公共卡包清單'
+                        });
+                    } finally {
+                        loaded.value = true;
+                    }
+                });
+
+                return {
+                    packs,
+                    loaded,
+                    handleCreatePack,
+                    openEditPackModal,
+                    pageSizeOptions,
+                    pageSize,
+                    currentPage,
+                    totalPages,
+                    pagedPacks,
+                    previousPage,
+                    nextPage,
+                    onPageInput,
+                    validatePage
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+
+</html>

@@ -1,6 +1,7 @@
 package com.whenmo.controller.api.database;
 
 import com.whenmo.controller.helper.SecurityHelper;
+import com.whenmo.controller.helper.SecurityHelper.RequestAuth;
 import com.whenmo.model.database.dto.YdkDto;
 import com.whenmo.model.database.request.DeckEditRequest;
 import com.whenmo.model.database.response.DeckInfoResponse;
@@ -44,11 +45,13 @@ public class DeckRestController {
      */
     @GetMapping("/mine")
     public ResponseEntity<List<DeckInfoResponse>> getMineDecks(HttpServletRequest httpRequest) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        return ResponseEntity.ok(deckService.getUserDecks(userId));
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
+
+        return ResponseEntity.ok(deckService.getUserDecks(requestAuth.getUserId()));
     }
 
     /**
@@ -66,11 +69,13 @@ public class DeckRestController {
      */
     @GetMapping("/mine/{deckId}")
     public ResponseEntity<DeckResponse> getMineDeck(HttpServletRequest httpRequest, @PathVariable Integer deckId) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        return ResponseEntity.ok(deckService.getUserDeck(userId, deckId));
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
+
+        return ResponseEntity.ok(deckService.getUserDeck(requestAuth.getUserId(), deckId));
     }
 
     /**
@@ -93,11 +98,13 @@ public class DeckRestController {
      */
     @GetMapping("/mine/{deckId}/download")
     public ResponseEntity<Resource> downloadMineDeck(HttpServletRequest httpRequest, @PathVariable Integer deckId) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        YdkDto ydkDto = deckService.getUserDeckYdkResource(userId, deckId);
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
+
+        YdkDto ydkDto = deckService.getUserDeckYdkResource(requestAuth.getUserId(), deckId);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename*=UTF-8''"
@@ -116,11 +123,13 @@ public class DeckRestController {
     @PostMapping
     public ResponseEntity<DeckResponse> createDeck(HttpServletRequest httpRequest,
             @Valid @RequestBody DeckEditRequest request) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(deckService.createDeck(userId, request));
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(deckService.createDeck(requestAuth.getUserId(), request));
     }
 
     // ============================================================
@@ -134,11 +143,13 @@ public class DeckRestController {
     @PutMapping("/{deckId}")
     public ResponseEntity<DeckResponse> updateDeck(HttpServletRequest httpRequest, @PathVariable Integer deckId,
             @Valid @RequestBody DeckEditRequest request) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        return ResponseEntity.ok(deckService.updateDeck(userId, deckId, request));
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
+
+        return ResponseEntity.ok(deckService.updateDeck(requestAuth.getUserId(), deckId, request));
     }
 
     // ============================================================
@@ -151,11 +162,13 @@ public class DeckRestController {
      */
     @DeleteMapping("/{deckId}")
     public ResponseEntity<Void> deleteDeck(HttpServletRequest httpRequest, @PathVariable Integer deckId) {
-        Integer userId = securityHelper.getAuthUserId(httpRequest);
-        if (userId == null)
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        deckService.deleteDeck(userId, deckId);
+        RequestAuth requestAuth = securityHelper.auth(httpRequest);
+        HttpStatus httpStatus = requestAuth.resolveHttpStatus(false);
+        if (httpStatus != null)
+            return ResponseEntity.status(httpStatus).build();
+
+        deckService.deleteDeck(requestAuth.getUserId(), deckId);
         return ResponseEntity.noContent().build();
     }
 }

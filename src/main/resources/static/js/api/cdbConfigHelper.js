@@ -10,7 +10,7 @@ function useCdbConfigHelper() {
 
         loadingPromise = axios.get('/api/cdb-config/all')
             .then(response => {
-                cdbConfigs = Array.isArray(response.data) ? response.data : [];
+                cdbConfigs = Array.isArray(response.data) ? [...response.data] : [];
                 return cdbConfigs;
             })
             .finally(() => {
