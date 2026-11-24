@@ -11,7 +11,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 public class ServerCommunityApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(ServerCommunityApplication.class, args);
+        SpringApplication application = new SpringApplication(ServerCommunityApplication.class);
+        application.addInitializers(new DataDirectoryInitializer());
+        application.run(args);
     }
 
 }

@@ -52,6 +52,40 @@
             color: var(--red-color);
             font-weight: bold;
         }
+
+        .swal-backup-cdn-fieldset {
+            align-self: stretch;
+        }
+
+        .swal-backup-cdn-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .swal-backup-cdn-row input {
+            box-sizing: border-box;
+            min-width: 0;
+            padding: 8px 10px 8px 0;
+            margin-left: 10px;
+            border-bottom: 1px solid var(--brown-color);
+        }
+
+        .swal-backup-cdn-row input:focus {
+            border-bottom: 1px solid var(--red-color);
+        }
+
+        @media (max-width: 520px) {
+            .swal-backup-cdn-row {
+                grid-template-columns: minmax(0, 1fr) auto;
+            }
+
+            .swal-backup-cdn-row input {
+                grid-column: 1 / -1;
+            }
+        }
     </style>
 </head>
 
@@ -76,28 +110,34 @@
                     <tr>
                         <th>名稱</th>
                         <th>cdb 路徑</th>
-                        <th>圖片 cdn 路徑</th>
-                        <th style="text-align: center;">操作</th>
+                        <th>主要圖片 CDN</th>
+                        <th class="table-head-center">操作</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr v-if="loading">
+                <tbody v-if="loading">
+                    <tr>
                         <td colspan="4" class="table-item-empty-row">載入中...</td>
                     </tr>
-                    <tr v-else-if="configs.length === 0">
+                </tbody>
+                <tbody v-else-if="configs.length === 0">
+                    <tr>
                         <td colspan="4" class="table-item-empty-row">目前尚無數據庫資料</td>
                     </tr>
-                    <tr v-else v-for="item in pagedCards" :key="item.id">
-                        <td class="table-item-name">{{ item.name }}</td>
-                        <td class="table-item-file-path"><code>{{ item.filePath }}</code></td>
-                        <td class="table-item-pic-cdn"><code>{{ item.picCdn }}</code></td>
-                        <td class="table-item-center">
-                            <div class="table-col-oper-container">
-                                <button class="module-btn" @click="refreshCache(item)">刷新快取</button>
-                                <button class="module-btn" @click="openModal(item)">編輯</button>
-                            </div>
-                        </td>
-                    </tr>
+                </tbody>
+                <tbody v-else>
+                    <template v-for="item in pagedCards" :key="item.id">
+                        <tr>
+                            <td class="table-item-name">{{ item.name }}</td>
+                            <td class="table-item-file-path"><code>{{ item.filePath }}</code></td>
+                            <td class="table-item-pic-cdn"><code>{{ item.picCdn }}</code></td>
+                            <td class="table-item-center">
+                                <div class="table-col-oper-container">
+                                    <button class="module-btn" @click="refreshCache(item)">刷新快取</button>
+                                    <button class="module-btn" @click="openModal(item)">編輯</button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
                 </tbody>
             </table>
         </div>
@@ -168,6 +208,14 @@
                     }
                 };
 
+                const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                })[character]);
+
                 const refreshCache = async (item) => {
                     try {
                         await Promise.all([
@@ -184,22 +232,27 @@
                 const openModal = (item = null) => {
                     const isEdit = !!item;
                     const title = isEdit ? '編輯配置' : '新增配置';
+                    const backupPicCdns = Array.isArray(item?.backupPicCdns) ? item.backupPicCdns : [];
 
                     classicalSwal.fire({
                         title: title,
                         html: `
                             <div class="swal-row-container">
                                 <fieldset class="module-fieldset">
-                                    <legend>名稱</legend>
-                                    <input id="swal-name" class="module-input-clean" value="${isEdit ? item.name : ''}">
+                                    <legend>名稱 *</legend>
+                                    <input id="swal-name" class="module-input-clean" value="${isEdit ? escapeHtml(item.name) : ''}">
                                 </fieldset>
                                 <fieldset class="module-fieldset">
-                                    <legend>cdb 路徑</legend>
-                                    <input id="swal-filePath" class="module-input-clean" value="${isEdit ? item.filePath : ''}">
+                                    <legend>cdb 路徑 *</legend>
+                                    <input id="swal-filePath" class="module-input-clean" value="${isEdit ? escapeHtml(item.filePath) : ''}">
                                 </fieldset>
                                 <fieldset class="module-fieldset">
-                                    <legend>圖片 cdn</legend>
-                                    <input id="swal-picCdn" class="module-input-clean" value="${isEdit && item.picCdn ? item.picCdn : ''}">
+                                    <legend>主要圖片 cdn *</legend>
+                                    <input id="swal-picCdn" class="module-input-clean" value="${isEdit ? escapeHtml(item.picCdn) : ''}" placeholder='完整路徑, id 以 "__id__" 代替'>
+                                </fieldset>
+                                <fieldset class="module-fieldset swal-backup-cdn-fieldset">
+                                    <legend>備用圖片 cdn</legend>
+                                    <div id="swal-backup-cdn-list"></div>
                                 </fieldset>
                             </div>
                         `,
@@ -212,16 +265,107 @@
                             popup: 'swal-popup',
                             title: 'swal-title'
                         },
+                        didOpen: () => {
+                            const backupList = document.getElementById('swal-backup-cdn-list');
+                            backupList.innerHTML = '';
+
+                            const createInput = (value = '') => {
+                                const input = document.createElement('input');
+                                input.type = 'text';
+                                input.className = 'module-input-clean';
+                                input.placeholder = '完整路徑, id 以 "__id__" 代替';
+                                input.value = value ?? '';
+                                return input;
+                            };
+
+                            const keepDraftAtBottom = () => {
+                                const draftRow = backupList.querySelector('[data-role="draft"]');
+                                if (draftRow) {
+                                    backupList.append(draftRow);
+                                }
+                            };
+
+                            // 已新增的項目列：包含 input 與「刪除」按鈕，排在下方並納入送出
+                            const appendCommittedRow = (value = '') => {
+                                const row = document.createElement('div');
+                                row.className = 'swal-backup-cdn-row';
+                                row.dataset.role = 'item';
+
+                                const input = createInput(value);
+
+                                const deleteButton = document.createElement('button');
+                                deleteButton.type = 'button';
+                                deleteButton.className = 'module-btn';
+                                deleteButton.textContent = '刪除';
+
+                                deleteButton.addEventListener('click', () => {
+                                    row.remove();
+                                    ensureDraftRow();
+                                });
+
+                                row.append(input, deleteButton);
+                                backupList.append(row);
+                                keepDraftAtBottom();
+                                return input;
+                            };
+
+                            const ensureDraftRow = () => {
+                                let draftRow = backupList.querySelector('[data-role="draft"]');
+                                if (draftRow) {
+                                    backupList.append(draftRow);
+                                    return;
+                                }
+
+                                draftRow = document.createElement('div');
+                                draftRow.className = 'swal-backup-cdn-row';
+                                draftRow.dataset.role = 'draft';
+
+                                const draftInput = createInput('');
+
+                                const addButton = document.createElement('button');
+                                addButton.type = 'button';
+                                addButton.className = 'module-btn';
+                                addButton.style.padding = '8px 10px';
+                                addButton.textContent = '新增';
+
+                                addButton.addEventListener('click', () => {
+                                    const val = draftInput.value.trim();
+                                    if (!val) {
+                                        draftInput.focus();
+                                        return;
+                                    }
+                                    appendCommittedRow(val);
+                                    draftInput.value = '';
+                                    draftInput.focus();
+                                });
+
+                                draftRow.append(draftInput, addButton);
+                                backupList.append(draftRow);
+                            };
+
+                            backupPicCdns
+                                .map(v => (typeof v === 'string' ? v.trim() : ''))
+                                .filter(Boolean)
+                                .forEach(appendCommittedRow);
+
+                            ensureDraftRow();
+                        },
                         preConfirm: () => {
                             const name = document.getElementById('swal-name').value.trim();
                             const filePath = document.getElementById('swal-filePath').value.trim();
                             const picCdn = document.getElementById('swal-picCdn').value.trim() || null;
 
+                            const backupPicCdns = Array.from(
+                                document.querySelectorAll('#swal-backup-cdn-list [data-role="item"] input')
+                            )
+                                .map(input => input.value.trim())
+                                .filter(Boolean);
+
                             if (!name || !filePath) {
                                 Swal.showValidationMessage('名稱或路徑不可為空');
                                 return false;
                             }
-                            return { name, filePath, picCdn };
+                            return { name, filePath, picCdn, backupPicCdns };
                         }
                     }).then(async (result) => {
                         if (result.isConfirmed) {

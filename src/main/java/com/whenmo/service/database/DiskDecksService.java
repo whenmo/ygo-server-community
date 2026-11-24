@@ -17,7 +17,7 @@ import java.util.Map;
 @Service
 public class DiskDecksService {
 
-    @Value("${app.decks.directory:../decks}")
+    @Value("${app.decks.directory:./decks}")
     private String deckDirectory;
 
     /**

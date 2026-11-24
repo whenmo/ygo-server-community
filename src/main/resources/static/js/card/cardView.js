@@ -111,10 +111,54 @@
         }
     };
 
-    // 圖片載入失敗時的預設圖處置
-    const getCardUrlError = (event) => {
+    const getCardImageUrl = (card) => {
+        const primaryUrl = card?.picCdn;
+        if (typeof primaryUrl === 'string' && primaryUrl.trim()) {
+            return primaryUrl.trim();
+        }
+
+        const backupPicCdns = Array.isArray(card?.backupPicCdns) ? card.backupPicCdns : [];
+        return backupPicCdns.find(url => typeof url === 'string' && url.trim())?.trim() || null;
+    };
+
+    // 嘗試備用 CDN，全部失敗後再顯示未知卡片圖。
+    const getCardUrlError = (event, card) => {
         const image = event?.target;
         if (!image) return;
+
+        const backupPicCdns = Array.isArray(card?.backupPicCdns)
+            ? card.backupPicCdns.filter(url => typeof url === 'string' && url.trim()).map(url => url.trim())
+            : [];
+        let backupIndex;
+        if (image.dataset.backupPicCdnIndex !== undefined) {
+            backupIndex = Number(image.dataset.backupPicCdnIndex);
+        } else {
+            const failedUrl = image.currentSrc || image.src;
+            const failedBackupIndex = backupPicCdns.findIndex(url => {
+                try {
+                    return new URL(url, document.baseURI).href === failedUrl;
+                } catch {
+                    return url === failedUrl;
+                }
+            });
+            backupIndex = failedBackupIndex < 0 ? 0 : failedBackupIndex + 1;
+        }
+
+        while (backupIndex < backupPicCdns.length) {
+            const backupUrl = backupPicCdns[backupIndex];
+            image.dataset.backupPicCdnIndex = String(++backupIndex);
+            try {
+                if (new URL(backupUrl, document.baseURI).href === (image.currentSrc || image.src)) {
+                    continue;
+                }
+            } catch {
+                if (backupUrl === (image.currentSrc || image.src)) {
+                    continue;
+                }
+            }
+            image.src = backupUrl;
+            return;
+        }
 
         if (!image.dataset.triedFallback) {
             image.dataset.triedFallback = 'true';
@@ -138,6 +182,7 @@
         formatAtkDefValue,
         getCardAtkDef,
         getCardLimitUrl,
+        getCardImageUrl,
         getCardUrlError,
         getCardInfoRowTwo,
         getCardInfoRowThree,

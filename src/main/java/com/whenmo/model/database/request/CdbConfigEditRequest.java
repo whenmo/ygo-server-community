@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,8 +25,15 @@ public class CdbConfigEditRequest {
     @Builder.Default
     private String picCdn = null;
 
+    private List<String> backupPicCdns;
+
     public CdbConfig toCdbConfig(String trimName) {
-        return CdbConfig.builder().name(trimName).filePath(filePath).picCdn(picCdn).build();
+        return CdbConfig.builder()
+                .name(trimName)
+                .filePath(filePath)
+                .picCdn(picCdn)
+                .backupPicCdns(backupPicCdns == null ? List.of() : backupPicCdns)
+                .build();
     }
 
     public void updateCdbConfig(CdbConfig cdbConfig, String trimName) {
@@ -33,5 +42,8 @@ public class CdbConfigEditRequest {
         cdbConfig.setName(trimName);
         cdbConfig.setFilePath(filePath);
         cdbConfig.setPicCdn(picCdn);
+        if (backupPicCdns != null) {
+            cdbConfig.setBackupPicCdns(backupPicCdns);
+        }
     }
 }

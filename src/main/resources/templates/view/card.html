@@ -168,7 +168,8 @@
     <main id="app" class="card-detail-layout" th:attr="data-cdb-id=${cdbId},data-card-id=${cardId}">
         <!-- 左側：圖片與屬性基本資料 -->
         <div class="card-detail-left">
-            <img v-if="card?.picCdn" :src="card?.picCdn" @error="getCardUrlError">
+            <img v-if="getCardImageUrl(card)" :src="getCardImageUrl(card)"
+                @error="getCardUrlError($event, card)">
             <div class="card-detail-row-container">
                 <div class="card-detail-row">
                     <span class="row-title">許可</span>
@@ -341,8 +342,8 @@
                             :src="getCardLimitUrl(cardItem, currentLflistMap)" alt="Limit Status">
 
                         <!-- 卡片圖片 -->
-                        <img v-if="cardItem?.picCdn" class="small-card-result-image" :src="cardItem?.picCdn"
-                            @error="getCardUrlError">
+                        <img v-if="getCardImageUrl(cardItem)" class="small-card-result-image"
+                            :src="getCardImageUrl(cardItem)" @error="getCardUrlError($event, cardItem)">
 
                         <!-- 卡片詳細資訊 -->
                         <div class="small-card-result-card-info">
@@ -382,6 +383,7 @@
                     formatAtkDefValue,
                     getCardLimitStatus,
                     getCardLimitUrl,
+                    getCardImageUrl,
                     getCardUrlError,
                     getCardInfoRowTwo,
                     getCardInfoRowThree,
@@ -592,6 +594,7 @@
                     isType,
                     // left
                     cdbName,
+                    getCardImageUrl,
                     getCardUrlError,
                     allLflist,
                     usedLflistKey,

@@ -22,7 +22,7 @@ public class DiskCacheService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${app.cache.directory:../cache}")
+    @Value("${app.cache.directory:./cache}")
     private String cacheDirectory;
 
     // ============================================================

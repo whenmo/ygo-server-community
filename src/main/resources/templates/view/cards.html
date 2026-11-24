@@ -557,8 +557,8 @@
                             :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank">
                             <img v-if="getCardLimitUrl(card, currentLflistMap)" class="card-limit-badge"
                                 :src="getCardLimitUrl(card, currentLflistMap)">
-                            <img v-if="card.picCdn" class="card-item-image" :src="card.picCdn"
-                                :alt="card.name || '卡片圖片'" @error="getCardUrlError">
+                            <img v-if="getCardImageUrl(card)" class="card-item-image" :src="getCardImageUrl(card)"
+                                :alt="card.name || '卡片圖片'" @error="getCardUrlError($event, card)">
                             <div class="card-item-body">
                                 <span class="card-item-name" :title="card.name || '未命名卡片'">
                                     <span>{{ card.name || '未命名卡片' }}</span>
@@ -606,6 +606,7 @@
                     MatcheFilterCards,
                     getCardLimitStatus,
                     getCardLimitUrl,
+                    getCardImageUrl,
                     getCardUrl,
                     getCardUrlError,
                     getCardInfoRowTwo,
@@ -1200,6 +1201,7 @@
                     pageSize,
                     currentPage,
                     totalPages,
+                    getCardImageUrl,
                     getCardUrlError,
                     previousPage,
                     nextPage,

@@ -755,9 +755,9 @@
                             @contextmenu.prevent="removeCard('pack', cardId)">
                             <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
                                 :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
-                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
-                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
-                                @error="getCardUrlError">
+                            <img v-if="getCardImageUrl(findCard(cardId))" style="object-fit: cover;"
+                                :src="getCardImageUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                                @error="getCardUrlError($event, findCard(cardId))">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
                     </div>
@@ -774,9 +774,9 @@
                             @contextmenu.prevent="removeCard('main', cardId)">
                             <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
                                 :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
-                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
-                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
-                                @error="getCardUrlError">
+                            <img v-if="getCardImageUrl(findCard(cardId))" style="object-fit: cover;"
+                                :src="getCardImageUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                                @error="getCardUrlError($event, findCard(cardId))">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
                     </div>
@@ -792,9 +792,9 @@
                             @contextmenu.prevent="removeCard('extra', cardId)">
                             <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
                                 :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
-                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
-                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
-                                @error="getCardUrlError">
+                            <img v-if="getCardImageUrl(findCard(cardId))" style="object-fit: cover;"
+                                :src="getCardImageUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                                @error="getCardUrlError($event, findCard(cardId))">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
                     </div>
@@ -810,9 +810,9 @@
                             @contextmenu.prevent="removeCard('side', cardId)">
                             <img v-if="getCardLimitUrl(findCard(cardId), currentLflist)" class="deck-card-limit"
                                 :src="getCardLimitUrl(findCard(cardId), currentLflist)" alt="Limit">
-                            <img v-if="findCard(cardId)?.picCdn" style="object-fit: cover;"
-                                :src="findCard(cardId).picCdn" :alt="findCard(cardId)?.name || cardId"
-                                @error="getCardUrlError">
+                            <img v-if="getCardImageUrl(findCard(cardId))" style="object-fit: cover;"
+                                :src="getCardImageUrl(findCard(cardId))" :alt="findCard(cardId)?.name || cardId"
+                                @error="getCardUrlError($event, findCard(cardId))">
                             <span class="deck-card-name">{{ findCard(cardId)?.name || `卡片 ${cardId}` }}</span>
                         </div>
                     </div>
@@ -823,8 +823,9 @@
         <!-- 懸停卡片 -->
         <aside class="deck-edit-card-col">
             <div v-if="hoveredCard" style="display: flex; flex-direction: column; gap: 10px; height: 100%;">
-                <img v-if="hoveredCard?.picCdn" class="hover-card-image" :src="hoveredCard.picCdn"
-                    :alt="hoveredCard.name" @error="getCardUrlError" :data-original-src="hoveredCard.picCdn">
+                <img v-if="getCardImageUrl(hoveredCard)" class="hover-card-image"
+                    :src="getCardImageUrl(hoveredCard)" :alt="hoveredCard.name"
+                    @error="getCardUrlError($event, hoveredCard)" :data-original-src="getCardImageUrl(hoveredCard)">
                 <h4 class="hover-card-name">{{ hoveredCard.name }}[{{ hoveredCard.id }}]</h4>
                 <div class="hover-card-stats">
                     <span>{{ getTypesView(hoveredCard) }}</span>
@@ -862,8 +863,8 @@
                             :src="getCardLimitUrl(cardItem, currentLflist)" alt="Limit Status">
 
                         <!-- 卡片圖片 -->
-                        <img v-if="cardItem?.picCdn" class="small-card-result-image" :src="cardItem.picCdn"
-                            @error="getCardUrlError">
+                        <img v-if="getCardImageUrl(cardItem)" class="small-card-result-image"
+                            :src="getCardImageUrl(cardItem)" @error="getCardUrlError($event, cardItem)">
 
                         <!-- 卡片詳細資訊 -->
                         <div class="small-card-result-card-info">
@@ -923,6 +924,7 @@
                     getLevelView,
                     getPendulumView,
                     getTypesView,
+                    getCardImageUrl,
                     getCardUrlError
                 } = window.APP_CONSTANTS;
 
@@ -1948,6 +1950,7 @@
                     nextPage,
                     onPageInput,
                     validatePage,
+                    getCardImageUrl,
                     getCardUrlError,
                     getCardLimitUrl,
                     getTypesView,

@@ -453,8 +453,9 @@
                             <a v-for="card in pagedCards" :key="card.id" class="card-item"
                                 :href="`/view/card/${card.cdbId}/${card.id}`" target="_blank">
                                 <img v-if="getLimitImg(card)" class="card-item-limit" :src="getLimitImg(card)">
-                                <img v-if="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
-                                    @error="getCardUrlError">
+                                <img v-if="getCardImageUrl(card)" style="object-fit: cover;"
+                                    :src="getCardImageUrl(card)" :alt="card.name"
+                                    @error="getCardUrlError($event, card)">
                                 <span class="card-item-name">
                                     <span>{{ card.name || '未命名卡片' }}</span>
                                 </span>
@@ -634,6 +635,7 @@
                     MatcheFilterCards,
                     getCardLimitStatus,
                     getCardLimitUrl,
+                    getCardImageUrl,
                     getCardUrlError
                 } = window.APP_CONSTANTS;
 

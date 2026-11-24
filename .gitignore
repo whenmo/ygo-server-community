@@ -36,3 +36,7 @@ build/
 *.db
 *.sqlite
 *.sqlite3
+/cache/
+/decks/
+/instance/
+/config.json

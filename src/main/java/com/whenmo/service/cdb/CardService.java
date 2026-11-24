@@ -124,7 +124,7 @@ public class CardService {
 
             while (resultSet.next()) {
                 Card card = mapRowCard(resultSet);
-                cards.add(CardResponse.fromCard(card, cdbId, cdbConfig.getPicCdn()));
+                cards.add(CardResponse.fromCard(card, cdbConfig));
             }
         } catch (Exception e) {
             throw new RuntimeException("讀取 cdbId " + cdbId + " 的 CDB 檔案失敗: " + e.getMessage(), e);
@@ -144,7 +144,7 @@ public class CardService {
             try (ResultSet resultSet = statement.executeQuery()) {
                 if (resultSet.next()) {
                     Card card = mapRowCard(resultSet);
-                    return CardResponse.fromCard(card, cdbId, cdbConfig.getPicCdn());
+                    return CardResponse.fromCard(card, cdbConfig);
                 }
             }
             return null;
@@ -161,7 +161,7 @@ public class CardService {
                 ResultSet resultSet = statement.executeQuery()) {
 
             while (resultSet.next()) {
-                CardResponse card = CardResponse.fromCard(mapRowCard(resultSet), cdbId, cdbConfig.getPicCdn());
+                CardResponse card = CardResponse.fromCard(mapRowCard(resultSet), cdbConfig);
                 cardMap.put(card.getId(), card);
             }
         } catch (Exception e) {

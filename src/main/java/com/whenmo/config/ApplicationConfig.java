@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -33,8 +34,8 @@ public class ApplicationConfig {
     private static final String DEFAULT_CARD_SEMI_LIMIT_URL = "https://cdn.jsdelivr.net/gh/whenmo/ygo-server-community/src/main/resources/static/image/limit/limit_2.png";
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    // The editable config is beside the server_community project directory.
-    private final Path rootConfigPath = Path.of("..").resolve("config.json").toAbsolutePath().normalize();
+    @Value("${app.data.directory:.}")
+    private String dataDirectory;
 
     private String serverCommunityName = DEFAULT_COMMUNITY_NAME;
     private String defaultStringsApi = DEFAULT_STRINGS_API;
@@ -64,6 +65,7 @@ public class ApplicationConfig {
     }
 
     private byte[] readRootConfig() {
+        Path rootConfigPath = rootConfigPath();
         try {
             return Files.isRegularFile(rootConfigPath) ? Files.readAllBytes(rootConfigPath) : null;
         } catch (IOException ignored) {
@@ -141,6 +143,7 @@ public class ApplicationConfig {
     }
 
     private void writeRootConfig(byte[] bytes) {
+        Path rootConfigPath = rootConfigPath();
         try {
             Files.createDirectories(rootConfigPath.getParent());
             Path temporary = Files.createTempFile(rootConfigPath.getParent(), "config-", ".tmp");
@@ -154,6 +157,10 @@ public class ApplicationConfig {
         } catch (Exception ignored) {
             // A read-only deployment can still use the bundled configuration.
         }
+    }
+
+    private Path rootConfigPath() {
+        return Path.of(dataDirectory).resolve("config.json").toAbsolutePath().normalize();
     }
 
     private static class ConfigFile {

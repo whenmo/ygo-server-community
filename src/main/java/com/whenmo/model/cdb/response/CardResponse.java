@@ -1,10 +1,14 @@
 package com.whenmo.model.cdb.response;
 
 import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import com.whenmo.model.cardinfo.CardType;
 import com.whenmo.model.cdb.domain.Card;
+import com.whenmo.model.database.response.CdbConfigResponse;
+
 import lombok.*;
 
 @Data
@@ -15,6 +19,7 @@ public class CardResponse {
 
     private Integer cdbId;
     private String picCdn;
+    private List<String> backupPicCdns;
     private Integer id;
     private Integer rule;
     private Integer alias;
@@ -31,7 +36,7 @@ public class CardResponse {
     private String name;
     private String desc;
 
-    public static CardResponse fromCard(Card card, Integer cdbId, String picCdn) {
+    public static CardResponse fromCard(Card card, CdbConfigResponse cdbConfig) {
         if (card == null)
             return null;
 
@@ -57,10 +62,17 @@ public class CardResponse {
             category = 0L;
 
         Integer cid = parseInteger(card.getId());
-        String pic = picCdn == null ? null : (picCdn + "/" + cid + ".jpg");
+        String pic = replaceCardId(cdbConfig.getPicCdn(), cid);
+        List<String> backupPics = cdbConfig.getBackupPicCdns() == null
+            ? List.of()
+            : cdbConfig.getBackupPicCdns().stream()
+                .map(template -> replaceCardId(template, cid))
+                .filter(Objects::nonNull)
+                .toList();
         return CardResponse.builder()
-                .cdbId(cdbId)
+                .cdbId(cdbConfig.getId())
                 .picCdn(pic)
+            .backupPicCdns(backupPics)
                 .id(cid)
                 .rule(parseInteger(card.getOt()))
                 .alias(parseInteger(card.getAlias()))
@@ -77,6 +89,12 @@ public class CardResponse {
                 .name(card.getName())
                 .desc(card.getDesc())
                 .build();
+    }
+
+    private static String replaceCardId(String template, Integer cardId) {
+        if (template == null || template.isBlank() || !template.contains("__id__"))
+            return null;
+        return template.replace("__id__", String.valueOf(cardId));
     }
 
     private static int parseInteger(Integer integer) {

@@ -9,6 +9,14 @@ CREATE TABLE IF NOT EXISTS cdb_configs (
     pic_cdn   TEXT DEFAULT NULL
 )@@
 
+-- 1.1 CDB pic_cdn 備用表
+CREATE TABLE IF NOT EXISTS cdb_pic_cdns (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    cdb_id  INTEGER NOT NULL,
+    pic_cdn TEXT NOT NULL,
+    FOREIGN KEY (cdb_id) REFERENCES cdb_configs (id) ON DELETE CASCADE ON UPDATE CASCADE
+)@@
+
 -- 2. Users 主表
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,

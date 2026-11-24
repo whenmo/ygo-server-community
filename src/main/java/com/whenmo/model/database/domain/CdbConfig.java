@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @Entity
 @Table(name = "cdb_configs")
@@ -27,4 +30,10 @@ public class CdbConfig {
 
     @Column(name = "pic_cdn", nullable = true)
     private String picCdn;
+
+    @Builder.Default
+    @ElementCollection
+    @CollectionTable(name = "cdb_pic_cdns", joinColumns = @JoinColumn(name = "cdb_id"))
+    @Column(name = "pic_cdn", nullable = false)
+    private List<String> backupPicCdns = new ArrayList<>();
 }

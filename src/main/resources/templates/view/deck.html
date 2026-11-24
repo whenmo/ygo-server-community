@@ -268,8 +268,9 @@
                             @mouseenter="hoverCard(card)">
                             <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
                                 alt="Limit">
-                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card?.picCdn" :alt="card.name"
-                                @error="getCardUrlError">
+                            <img v-show="getCardImageUrl(card)" style="object-fit: cover;"
+                                :src="getCardImageUrl(card)" :alt="card.name"
+                                @error="getCardUrlError($event, card)">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
@@ -283,8 +284,9 @@
                             @mouseenter="hoverCard(card)">
                             <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
                                 alt="Limit">
-                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
-                                @error="getCardUrlError">
+                            <img v-show="getCardImageUrl(card)" style="object-fit: cover;"
+                                :src="getCardImageUrl(card)" :alt="card.name"
+                                @error="getCardUrlError($event, card)">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
@@ -298,8 +300,9 @@
                             @mouseenter="hoverCard(card)">
                             <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
                                 alt="Limit">
-                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
-                                @error="getCardUrlError">
+                            <img v-show="getCardImageUrl(card)" style="object-fit: cover;"
+                                :src="getCardImageUrl(card)" :alt="card.name"
+                                @error="getCardUrlError($event, card)">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
@@ -313,8 +316,9 @@
                             @mouseenter="hoverCard(card)">
                             <img v-show="getLimitIcon(card)" class="deck-card-limit" :src="getLimitIcon(card)"
                                 alt="Limit">
-                            <img v-show="card?.picCdn" style="object-fit: cover;" :src="card.picCdn" :alt="card.name"
-                                @error="getCardUrlError">
+                            <img v-show="getCardImageUrl(card)" style="object-fit: cover;"
+                                :src="getCardImageUrl(card)" :alt="card.name"
+                                @error="getCardUrlError($event, card)">
                             <span class="deck-card-name">{{ card.name }}</span>
                         </a>
                     </div>
@@ -326,8 +330,9 @@
         <aside class="deck-view-card-col">
             <div v-if="hoveredCard"
                 style="display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0;">
-                <img v-if="hoveredCard?.picCdn" class="hover-card-image" :src="hoveredCard.picCdn"
-                    :alt="hoveredCard.name" @error="getCardUrlError">
+                <img v-if="getCardImageUrl(hoveredCard)" class="hover-card-image"
+                    :src="getCardImageUrl(hoveredCard)" :alt="hoveredCard.name"
+                    @error="getCardUrlError($event, hoveredCard)">
                 <h4 class="hover-card-name">{{ hoveredCard.name }}[{{ hoveredCard.id }}]</h4>
                 <div class="hover-card-stats">
                     <span>{{ getTypesView(hoveredCard) }}</span>
@@ -351,6 +356,7 @@
                     isType,
                     getCardLimitStatus,
                     getCardLimitUrl,
+                    getCardImageUrl,
                     getCardUrlError,
                     getTypesView,
                     getPendulumView,
@@ -595,6 +601,7 @@
                     hoveredCardDesc,
                     hoverCardSetCodes,
                     deckCheckIssues,
+                    getCardImageUrl,
                     getCardUrlError,
                     hoverCard,
                     getTypesView,
